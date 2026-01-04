@@ -4,26 +4,30 @@ local distro_id = {
    "debian",
 }
 
----@alias Path string The directory or file path
 ---@alias Command string A command will be executed using "bash -c <command>"
 ---@alias Hook Command | fun() | (Command | fun())[]
 
----@class LinkSpec
----@field source Path Path relative to ~/.config/mdot/pkgs/
----@field target Path Path relative to package.default_target
----@field overwrite? boolean
----@field backup? boolean
----@alias Link LinkSpec | table<string, string>
+---@alias Path string The directory or file path
+---@alias Target Path | Path[]  -- either a single string or an array of strings
+
+---@class LinkEntry
+---@field source string
+---@field target string|string[]
+---@field overwrite boolean
+---@field backup boolean
+
+---@alias LinkTableEntry LinkEntry|string|string[]
 
 ---@class (exact) PackageSpec
 ---@field enabled? boolean | fun(): boolean Defaults to true
+---@field depends? Packages
 ---@field name? string
----@field default_target? Path Defaults to XDG_HOME_CONFIG or ~/.config/
----@field links? Link[]
+---@field app_name? string
 ---@field package_name? table<DistroID, string> | string
+---@field default_target? Path Defaults to XDG_HOME_CONFIG or ~/.config/
+---@field links? LinkTableEntry[]
 ---@field exclude? Path | Path[]
 ---@field templates? Path | Path[]
----@field depends? Packages
 -- Still unsure about hooks
 ---@field on_install? Hook Will be executed after the package and dependencies are installed.
 ---@field on_deploy? Hook Will be executed after the files has been linked.
@@ -36,27 +40,24 @@ local PlatformDirs = require("platformdirs").PlatformDirs
 local inspect = require("inspect")
 local tablex = require("pl.tablex")
 local dir = require("pl.dir")
+local pl_path = require("pl.path")
 local M = {}
 
 ---@param pkgs PackageSpec[]
 function M.pkgs_normalize_dependencies(pkgs)
-   for pkg_name, spec in pairs(pkgs) do
-      if not spec.depends then
-         goto continue
-      end
-
-      local depends = {}
-      for k, v in pairs(spec.depends) do
-         local key, value = M.pkg_normalize(v, k)
-         table.insert(depends, key)
-         if not pkgs[key] then
-            pkgs[key] = value
+   for _, spec in pairs(pkgs) do
+      if spec.depends then
+         local depends = {}
+         for k, v in pairs(spec.depends) do
+            local key, value = M.pkg_normalize(v, k)
+            table.insert(depends, key)
+            if not pkgs[key] then
+               pkgs[key] = value
+            end
          end
+
+         spec.depends = depends
       end
-
-      spec.depends = depends
-
-      ::continue::
    end
 end
 
@@ -109,9 +110,70 @@ end
 function M.pkg_set_defaults(name, pkg)
    pkg.enabled = pkg.enabled or true
    pkg.name = pkg.name or name
+   pkg.app_name = pkg.app_name or name
    pkg.package_name = pkg.package_name or name
    pkg.default_target = pkg.default_target or M.ctx.platform_dirs:user_config_dir()
    pkg.depends = pkg.depends or {}
+   pkg.links = pkg.links or {}
+   pkg.exclude = pkg.exclude or ""
+end
+
+---@param pkgs PackageSpec[]
+function M.init_links(pkgs)
+   ---@param pkg PackageSpec
+   ---@param relpath Path
+   ---@param dst Path
+   local function link_set_or_add(pkg, relpath, dst)
+      if pkg.links[relpath] then
+         local dsts = pkg.links[relpath]
+         if type(dsts) == "string" then
+            local path = dsts
+            dsts = { path }
+         end
+
+         table.insert(dsts, dst)
+         pkg.links[relpath] = dsts
+      else
+         pkg.links[relpath] = dst
+      end
+   end
+
+   ---@param path string
+   ---@return Path
+   local function expand_home(path)
+      local expanded_path = path:gsub("^~", os.getenv("HOME") or "")
+      return expanded_path
+   end
+
+
+   for name, pkg in pairs(pkgs) do
+      local path = pl_path.join(M.ctx.app_config_path, pkg.app_name)
+      local target_path = pl_path.join(M.ctx.config_path, pkg.app_name)
+      local files = dir.getallfiles(path)
+
+      for _, file in pairs(files) do
+         local relpath = pl_path.relpath(file, path)
+         local matched = dir.fnmatch(relpath, pkg.exclude)
+         local dst = pl_path.join(target_path, relpath)
+
+         if not matched then
+            link_set_or_add(pkg, relpath, dst)
+         end
+      end
+
+      for src, target in pairs(pkg.links) do
+         if type(target) == "string" then
+            pkg.links[src] = expand_home(target)
+         elseif type(target) == "table" then
+            assert(type(target) == "table")
+            local targets = pkg.links[src]
+            ---@cast targets string[]
+            for idx, elem in pairs(targets) do
+               targets[idx] = expand_home(elem)
+            end
+         end
+      end
+   end
 end
 
 ---@param pkgs Packages[]
@@ -120,6 +182,7 @@ function M.deploy(pkgs)
    for name, pkg in pairs(pkgs) do
       M.pkg_set_defaults(name, pkg)
    end
+   M.init_links(pkgs)
    print("pkgs: " .. inspect(pkgs))
 end
 
@@ -148,8 +211,10 @@ function M.init()
       platform_dirs = PlatformDirs {},
    }
 
+   -- Directories
    tablex.update(M.ctx, {
       app_config_path = get_user_config_dir(),
+      config_path = M.ctx.platform_dirs:user_config_dir(),
    })
 
    M.init_config_searcher()
