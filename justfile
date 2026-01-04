@@ -3,3 +3,6 @@ example-test:
 
 example-hypr:
   MDOT_CONFIG_PATH="$PWD/examples" MDOT_APPNAME="conf" ./lua src/mdot.lua
+
+cliff-bump:
+  git cliff --bump > releasenotes.md
