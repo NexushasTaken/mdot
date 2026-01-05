@@ -8,15 +8,16 @@ local distro_id = {
 ---@alias Hook Command | fun() | (Command | fun())[]
 
 ---@alias Path string The directory or file path
----@alias Target Path | Path[]  -- either a single string or an array of strings
+---@alias Targets Path | Path[]  -- either a single string or an array of strings
 
 ---@class LinkEntry
----@field source string
----@field target string|string[]
+---@field source Path
+---@field targets Targets
 ---@field overwrite boolean
 ---@field backup boolean
 
----@alias LinkTableEntry LinkEntry|string|string[]
+---@alias LinkTableEntry LinkEntry | { [Path]: Targets }
+---@alias Links LinkTableEntry[]
 
 ---@class (exact) PackageSpec
 ---@field enabled? boolean | fun(): boolean Defaults to true
@@ -25,9 +26,9 @@ local distro_id = {
 ---@field app_name? string
 ---@field package_name? table<DistroID, string> | string
 ---@field default_target? Path Defaults to XDG_HOME_CONFIG or ~/.config/
----@field links? LinkTableEntry[]
----@field exclude? Path | Path[]
----@field templates? Path | Path[]
+---@field links? Links
+---@field exclude? Targets
+---@field templates? Targets
 -- Still unsure about hooks
 ---@field on_install? Hook Will be executed after the package and dependencies are installed.
 ---@field on_deploy? Hook Will be executed after the files has been linked.
@@ -120,24 +121,6 @@ end
 
 ---@param pkgs PackageSpec[]
 function M.init_links(pkgs)
-   ---@param pkg PackageSpec
-   ---@param relpath Path
-   ---@param dst Path
-   local function link_set_or_add(pkg, relpath, dst)
-      if pkg.links[relpath] then
-         local dsts = pkg.links[relpath]
-         if type(dsts) == "string" then
-            local path = dsts
-            dsts = { path }
-         end
-
-         table.insert(dsts, dst)
-         pkg.links[relpath] = dsts
-      else
-         pkg.links[relpath] = dst
-      end
-   end
-
    ---@param path string
    ---@return Path
    local function expand_home(path)
@@ -145,33 +128,36 @@ function M.init_links(pkgs)
       return expanded_path
    end
 
-
    for name, pkg in pairs(pkgs) do
+      assert(pkg.links and type(pkg.links) == "table")
+
       local path = pl_path.join(M.ctx.app_config_path, pkg.app_name)
       local target_path = pl_path.join(M.ctx.config_path, pkg.app_name)
       local files = dir.getallfiles(path)
 
       for _, file in pairs(files) do
          local relpath = pl_path.relpath(file, path)
-         local matched = dir.fnmatch(relpath, pkg.exclude)
+         ---@type Targets
+         local targets = pkg.links[relpath] or {}
+
+         if type(targets) == "string" then
+            targets = { targets }
+         end
+
+         for idx, _path in ipairs(targets) do
+            targets[idx] = expand_home(_path)
+         end
+
          local dst = pl_path.join(target_path, relpath)
+         -- TODO: handle the `exclude` being either Path or Path[]
+         local matched = dir.fnmatch(relpath, pkg.exclude)
 
          if not matched then
-            link_set_or_add(pkg, relpath, dst)
+            table.insert(targets, dst)
          end
-      end
 
-      for src, target in pairs(pkg.links) do
-         if type(target) == "string" then
-            pkg.links[src] = expand_home(target)
-         elseif type(target) == "table" then
-            assert(type(target) == "table")
-            local targets = pkg.links[src]
-            ---@cast targets string[]
-            for idx, elem in pairs(targets) do
-               targets[idx] = expand_home(elem)
-            end
-         end
+         pkg.links[relpath] = nil
+         pkg.links[pl_path.join(target_path, relpath)] = targets
       end
    end
 end
