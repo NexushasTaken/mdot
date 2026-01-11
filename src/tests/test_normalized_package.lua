@@ -37,13 +37,13 @@ return function()
    }), {
       neovim = {
          name = "neovim",
-         exclude = "*",
+         exclude = { "*" },
       },
    })
    lu.assertEquals(mdot.pkgs_normalize({
       pkgs.neovim,
-      neovim = { exclude = "*", }
+      neovim = { exclude = { "*" }, }
    }), {
-      neovim = { exclude = "*", },
+      neovim = { exclude = { "*" }, },
    })
 end

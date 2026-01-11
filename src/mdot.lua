@@ -1,12 +1,7 @@
----@enum DistroID
-local distro_id = {
-   "arch",
-   "debian",
-}
-
 ---@alias Command string A command will be executed using "bash -c <command>"
 ---@alias Hook Command | fun() | (Command | fun())[]
 
+---@alias OSPackage string | table<string, string>
 ---@alias Path string The directory or file path
 ---@alias Targets Path | Path[]  -- either a single string or an array of strings
 
@@ -24,7 +19,7 @@ local distro_id = {
 ---@field depends? Packages
 ---@field name? string
 ---@field app_name? string
----@field package_name? table<DistroID, string> | string
+---@field package_name? OSPackage
 ---@field default_target? Path Defaults to XDG_HOME_CONFIG or ~/.config/
 ---@field links? Links
 ---@field exclude? Targets
@@ -42,81 +37,45 @@ local inspect = require("inspect")
 local tablex = require("pl.tablex")
 local dir = require("pl.dir")
 local pl_path = require("pl.path")
+local pl_types = require("pl.types")
 local M = {}
 
----@param pkgs PackageSpec[]
-function M.pkgs_normalize_dependencies(pkgs)
-   for _, spec in pairs(pkgs) do
-      if spec.depends then
-         local depends = {}
-         for k, v in pairs(spec.depends) do
-            local key, value = M.pkg_normalize(v, k)
-            table.insert(depends, key)
-            if not pkgs[key] then
-               pkgs[key] = value
-            end
-         end
-
-         spec.depends = depends
-      end
-   end
-end
-
----@param pkg PackageUnion
----@param idx number|string
-function M.pkg_normalize(pkg, idx)
-   ---@type string
-   local key = nil
-   ---@type PackageSpec
-   local val = nil
-
-   if type(idx) == "number" then
-      if type(pkg) == "string" then
-         key = pkg
-         val = {}
-      elseif type(pkg) == "table" then
-         key = pkg.name
-         val = pkg
-      end
-   elseif type(idx) == "string" then
-      if type(pkg) == "table" then
-         key = idx
-         val = pkg
-      end
-   end
-
-   -- print()
-   -- print(type(idx) .. " " .. tostring(idx), "=", type(pkg) .. " " .. tostring(pkg))
-
-   return key, val
-end
-
----@param pkgs Packages
----@return PackageSpec
-function M.pkgs_normalize(pkgs)
-   local norm_pkgs = {}
-   for k, v in pairs(pkgs) do
-      local key, val = M.pkg_normalize(v, k)
-
-      if key ~= nil and val ~= nil then
-         norm_pkgs[key] = val
-      end
-   end
-
-   M.pkgs_normalize_dependencies(norm_pkgs)
-   return norm_pkgs
-end
-
+---@param name string
 ---@param pkg PackageSpec
 function M.pkg_set_defaults(name, pkg)
    pkg.enabled = pkg.enabled or true
    pkg.name = pkg.name or name
    pkg.app_name = pkg.app_name or name
-   pkg.package_name = pkg.package_name or name
    pkg.default_target = pkg.default_target or M.ctx.platform_dirs:user_config_dir()
    pkg.depends = pkg.depends or {}
    pkg.links = pkg.links or {}
-   pkg.exclude = pkg.exclude or ""
+   pkg.exclude = pkg.exclude or {}
+end
+
+---@param targets Targets
+---@return Path[]
+function M.normalize_targets(targets)
+   if type(targets) == "string" then
+      return { targets }
+   end
+   return targets
+end
+
+---@param name string
+---@param p string | PackageSpec
+---@return PackageSpec
+function M.pkg_new_spec(name, p)
+   local ret = tablex.deepcopy(p)
+   if type(ret) == "string" then
+      ret = {
+         name = name
+      }
+   end
+   -- M.pkg_set_defaults(name, ret)
+   ret.exclude = M.normalize_targets(ret.exclude)
+   ret.templates = M.normalize_targets(ret.templates)
+
+   return ret
 end
 
 ---@param pkgs PackageSpec[]
@@ -144,13 +103,12 @@ function M.init_links(pkgs)
             targets = { targets }
          end
 
-         for idx, _path in ipairs(targets) do
-            targets[idx] = expand_home(_path)
-         end
+         targets = tablex.map(expand_home, targets)
 
          local dst = pl_path.join(target_path, relpath)
-         -- TODO: handle the `exclude` being either Path or Path[]
-         local matched = dir.fnmatch(relpath, pkg.exclude)
+         local matched = tablex.find_if(pkg.exclude, function(exclude)
+            return dir.fnmatch(relpath, exclude)
+         end) ~= nil
 
          if not matched then
             table.insert(targets, dst)
@@ -162,14 +120,63 @@ function M.init_links(pkgs)
    end
 end
 
+---@param name string | integer
+---@param spec string | PackageSpec
+---@return string
+local function get_name(name, spec)
+   if type(name) == "string" and #name > 0 then
+      if not tonumber(name) then
+         return name
+      end
+   end
+
+   if type(spec) == "string" then
+      return spec
+   end
+
+   if spec.package_name then
+      local pkg = spec.package_name
+      if type(pkg) == "string" then
+         return pkg
+      end
+
+      if #tablex.values(spec) > 0 then
+         return tablex.values(spec)[1]
+      end
+   end
+
+   return spec.app_name
+       or spec.name
+       or error("Package spec must define package_name or app_name or name\n" .. inspect(spec))
+end
+
+--- Recursively normalize packages and their dependencies
+---@param packages Packages[]
+---@return table<string, PackageSpec>
+function M.normalize_packages(packages)
+   local normalized = {}
+
+   ---@param pkg PackageUnion
+   ---@param name string
+   tablex.foreach(packages, function(pkg, name, result_table)
+      local pkg_name = get_name(name, pkg)
+      local spec = M.pkg_new_spec(pkg_name, pkg)
+
+      -- Recursively normalize dependencies
+      if spec.depends and type(spec.depends) == "table" then
+         spec.depends = M.normalize_packages(spec.depends)
+      end
+
+      result_table[pkg_name] = spec
+   end, normalized)
+
+   return normalized
+end
+
 ---@param pkgs Packages[]
 function M.deploy(pkgs)
-   pkgs = M.pkgs_normalize(pkgs)
-   for name, pkg in pairs(pkgs) do
-      M.pkg_set_defaults(name, pkg)
-   end
-   M.init_links(pkgs)
-   print("pkgs: " .. inspect(pkgs))
+   local all_packages = M.normalize_packages(pkgs)
+   print("Normalized packages: " .. inspect(all_packages))
 end
 
 function M.init()
@@ -181,10 +188,7 @@ function M.init()
    end
 
    local function get_user_config_dir()
-      local path = os.getenv("MDOT_CONFIG_PATH")
-      if not path then
-         path = M.ctx.platform_dirs:user_config_dir()
-      end
+      local path = M.ctx.platform_dirs:user_config_dir()
 
       return path .. "/" .. M.ctx.app_name
    end

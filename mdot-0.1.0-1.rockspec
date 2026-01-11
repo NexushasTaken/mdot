@@ -15,6 +15,7 @@ dependencies = {
   "loglua",
   "inspect",
   "penlight",
+  "sysdetect",
 }
 build_dependencies = {}
 build = {

@@ -77,7 +77,7 @@ return function()
          },
       },
       waybar = {
-         exclude = "*",
+         exclude = { "*" },
       },
    })
 
@@ -114,7 +114,35 @@ return function()
          },
       },
       waybar = {
-         exclude = "*",
+         exclude = { "*" },
+      },
+   })
+
+   lu.assertEquals(mdot.pkgs_normalize({
+      hyprland = {
+         depends = {
+            waybar = {
+               exclude = "*",
+               depends = {
+                  git = {
+                     enabled = true,
+                  }
+               }
+            }
+         },
+      },
+   }), {
+      hyprland = {
+         depends = {
+            "waybar"
+         },
+      },
+      waybar = {
+         exclude = { "*" },
+         depends = { "git" }
+      },
+      git = {
+         enabled = true,
       },
    })
 end
