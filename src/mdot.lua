@@ -113,7 +113,7 @@ local function get_name(name, spec)
 end
 
 --- Recursively normalize packages and their dependencies
----@param packages Packages[]
+---@param packages Packages
 ---@return table<string, PackageSpec>
 function M.normalize_packages(packages)
    local normalized = {}
