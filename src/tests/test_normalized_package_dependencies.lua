@@ -157,4 +157,92 @@ return function()
          enabled = true,
       },
    })
+
+      -- multiple siblings lifted at once
+   lu.assertEquals(normalize({
+      app = {
+         depends = {
+            foo = {},
+            bar = { enabled = true },
+         }
+      }
+   }), {
+      app = { depends = { "bar", "foo" } },
+      foo = {},
+      bar = { enabled = true },
+   })
+
+   -- deeply nested chain
+   lu.assertEquals(normalize({
+      top = {
+         depends = {
+            mid = {
+               depends = {
+                  leaf = { version = "1.0" }
+               }
+            }
+         }
+      }
+   }), {
+      top = { depends = { "mid" } },
+      mid = { depends = { "leaf" } },
+      leaf = { version = "1.0" },
+   })
+
+   -- conflict: nested spec vs top-level spec
+   lu.assertEquals(normalize({
+      app = {
+         depends = {
+            lib = { foo = "nested" }
+         }
+      },
+      lib = { foo = "top" }
+   }), {
+      app = { depends = { "lib" } },
+      lib = { foo = "top" },  -- conflict resolution: top wins (default policy)
+   })
+
+   -- multiple levels with mixed styles
+   lu.assertEquals(normalize({
+      root = {
+         depends = {
+            child1 = {
+               depends = {
+                  grandchild = {}
+               }
+            },
+            child2 = {}
+         }
+      }
+   }), {
+      root = { depends = { "child1", "child2" } },
+      child1 = { depends = { "grandchild" } },
+      child2 = {},
+      grandchild = {},
+   })
+
+   -- package with no depends untouched
+   lu.assertEquals(normalize({
+      solo = { enabled = true }
+   }), {
+      solo = { enabled = true }
+   })
+
+   -- nested spec with both exclude and templates
+   lu.assertEquals(normalize({
+      app = {
+         depends = {
+            dep = {
+               exclude = "*",
+               templates = "foo"
+            }
+         }
+      }
+   }), {
+      app = { depends = { "dep" } },
+      dep = {
+         exclude = { "*" },
+         templates = { "foo" }
+      }
+   })
 end

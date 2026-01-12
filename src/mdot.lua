@@ -132,40 +132,54 @@ function M.normalize_packages(packages)
    return normalized
 end
 
----@param dependencies Packages
----@param packages Packages
----@return string[]
-function M.normalize_dependencies(dependencies, packages)
-   ---@type string[]
-   local new_depends = {}
-   local normalized = {}
-
-   for name, spec in pairs(dependencies) do
-      -- print("entry:", name, inspect(spec))
-      assert(type(name) ~= "integer")
-
-      dependencies[name] = nil
-      table.insert(new_depends, name)
-      -- local existing_package = packages[name] or {}
-      if not packages[name] then
-         packages[name] = spec
-      end
-
-      if spec.depends then
-         packages[name].depends = M.normalize_dependencies(spec.depends, packages)
-      end
-   end
-
-   return new_depends
-end
-
----@param packages Packages
+---@param packages table<string, PackageSpec>
+---@return table<string, PackageSpec>
 function M.fix_dependencies(packages)
-   for _, spec in pairs(packages) do
-      if spec.depends then
-         spec.depends = M.normalize_dependencies(spec.depends, packages)
+   local function is_map(t)
+      if type(t) ~= "table" then return false end
+      for k, _ in pairs(t) do
+         if type(k) == "string" then return true end
+      end
+      return false
+   end
+
+   ---@param top_pkg PackageSpec | nil
+   ---@param dep_pkg PackageSpec
+   ---@return PackageSpec
+   local function handle_conflict(top_pkg, dep_pkg)
+      -- TODO: will handle confict options, for now, use default.
+      return top_pkg or dep_pkg
+   end
+
+   local function process(_, spec)
+      if type(spec) ~= "table" then return end
+      if type(spec.depends) ~= "table" then return end
+
+      if is_map(spec.depends) then
+         local new_list = {}
+         for dep_name, dep_spec in pairs(spec.depends) do
+            table.insert(new_list, dep_name)
+
+            if type(dep_spec) == "table" then
+               local lifted = handle_conflict(packages[dep_name], tablex.deepcopy(dep_spec))
+               packages[dep_name] = lifted
+               process(dep_name, lifted)
+            end
+         end
+
+         if #new_list > 0 then
+            table.sort(new_list)
+            spec.depends = new_list
+         else
+            spec.depends = nil
+         end
       end
    end
+
+   for name, spec in pairs(packages) do
+      process(name, spec)
+   end
+
    return packages
 end
 
@@ -189,7 +203,6 @@ function M.init_links(packages)
          end
 
          targets = tablex.map(function(p)
-            print(p)
             return M.ctx.platform_dirs:expand_user(p)
          end, targets)
 
@@ -297,7 +310,7 @@ function M.print_ctx()
    print("ctx: " .. inspect(ctx))
 end
 
-M.init()
-M.print_ctx()
-M.deploy(require("mdot"))
+-- M.init()
+-- M.print_ctx()
+-- M.deploy(require("mdot"))
 return M
