@@ -53,12 +53,15 @@ function M.pkg_set_defaults(name, pkg)
 end
 
 ---@param targets Targets
----@return Path[]
+---@return Path[] | nil
 function M.normalize_targets(targets)
    if type(targets) == "string" then
       return { targets }
+   elseif type(targets) == "table" then
+      return targets
    end
-   return targets
+   assert(type(targets) ~= nil, "Unhandled 'targets' type: ("..type(targets)..") = "..inspect(targets))
+   return nil
 end
 
 ---@param name string
@@ -156,9 +159,7 @@ end
 function M.normalize_packages(packages)
    local normalized = {}
 
-   ---@param pkg PackageUnion
-   ---@param name string
-   tablex.foreach(packages, function(pkg, name, result_table)
+   for name, pkg in pairs(packages) do
       local pkg_name = get_name(name, pkg)
       local spec = M.pkg_new_spec(pkg_name, pkg)
 
@@ -167,8 +168,8 @@ function M.normalize_packages(packages)
          spec.depends = M.normalize_packages(spec.depends)
       end
 
-      result_table[pkg_name] = spec
-   end, normalized)
+      normalized[pkg_name] = spec
+   end
 
    return normalized
 end
@@ -253,7 +254,7 @@ function M.print_ctx()
    print("ctx: " .. inspect(ctx))
 end
 
-M.init()
-M.print_ctx()
-M.deploy(require("mdot"))
+-- M.init()
+-- M.print_ctx()
+-- M.deploy(require("mdot"))
 return M

@@ -3,7 +3,7 @@ local mdot = require("src.mdot")
 return function()
    mdot.init_global_pkgs()
 
-   lu.assertEquals(mdot.pkgs_normalize({
+   lu.assertEquals(mdot.normalize_packages({
       neovim = {
          depends = { pkgs.ripgrep },
       }
@@ -11,10 +11,12 @@ return function()
       neovim = {
          depends = { "ripgrep" },
       },
-      ripgrep = {},
+      ripgrep = {
+         name = "ripgrep",
+      },
    })
 
-   lu.assertEquals(mdot.pkgs_normalize({
+   lu.assertEquals(mdot.normalize_packages({
       hyprland = {
          depends = {
             "neovim"
@@ -30,7 +32,7 @@ return function()
       neovim = {},
    })
 
-   lu.assertEquals(mdot.pkgs_normalize({
+   lu.assertEquals(mdot.normalize_packages({
       hyprland = {
          depends = {
             "neovim"
@@ -46,7 +48,7 @@ return function()
       neovim = {},
    })
 
-   lu.assertEquals(mdot.pkgs_normalize({
+   lu.assertEquals(mdot.normalize_packages({
       hyprland = {
          depends = {
             waybar = {}
@@ -61,7 +63,7 @@ return function()
       waybar = {},
    })
 
-   lu.assertEquals(mdot.pkgs_normalize({
+   lu.assertEquals(mdot.normalize_packages({
       hyprland = {
          depends = {
             waybar = {}
@@ -81,7 +83,7 @@ return function()
       },
    })
 
-   lu.assertEquals(mdot.pkgs_normalize({
+   lu.assertEquals(mdot.normalize_packages({
       hyprland = {
          depends = {
             waybar = {
@@ -99,7 +101,7 @@ return function()
       waybar = {},
    })
 
-   lu.assertEquals(mdot.pkgs_normalize({
+   lu.assertEquals(mdot.normalize_packages({
       hyprland = {
          depends = {
             waybar = {
@@ -118,7 +120,7 @@ return function()
       },
    })
 
-   lu.assertEquals(mdot.pkgs_normalize({
+   lu.assertEquals(mdot.normalize_packages({
       hyprland = {
          depends = {
             waybar = {

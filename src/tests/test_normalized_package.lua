@@ -1,34 +1,38 @@
 local mdot = require("src.mdot")
 
 return function()
-   lu.assertEquals(mdot.pkgs_normalize({}), {})
-   lu.assertEquals(mdot.pkgs_normalize({ "neovim" }), {
-      neovim = {},
+   lu.assertEquals(mdot.normalize_packages({}), {})
+   lu.assertEquals(mdot.normalize_packages({ "neovim" }), {
+      neovim = {
+         name = "neovim",
+      },
    })
-   lu.assertEquals(mdot.pkgs_normalize({
+   lu.assertEquals(mdot.normalize_packages({
       { name = "neovim", }
    }), {
       neovim = { name = "neovim", },
    })
-   lu.assertEquals(mdot.pkgs_normalize({
+   lu.assertEquals(mdot.normalize_packages({
       {
          name = "neovim",
          package_name = "nvim",
       }
    }), {
-      neovim = {
+      nvim = {
          name = "neovim",
          package_name = "nvim",
       },
    })
 
    mdot.init_global_pkgs()
-   lu.assertEquals(mdot.pkgs_normalize({
+   lu.assertEquals(mdot.normalize_packages({
       pkgs.neovim
    }), {
-      neovim = {},
+      neovim = {
+         name = "neovim",
+      },
    })
-   lu.assertEquals(mdot.pkgs_normalize({
+   lu.assertEquals(mdot.normalize_packages({
       pkgs.neovim,
       {
          name = "neovim",
@@ -40,7 +44,7 @@ return function()
          exclude = { "*" },
       },
    })
-   lu.assertEquals(mdot.pkgs_normalize({
+   lu.assertEquals(mdot.normalize_packages({
       pkgs.neovim,
       neovim = { exclude = { "*" }, }
    }), {

@@ -36,5 +36,5 @@ test_dependencies = {
 
 test = {
   type = "command",
-  command = "./lua src/tests/test.lua -o TAP",
+  command = "lua src/tests/test.lua -o TAP",
 }
