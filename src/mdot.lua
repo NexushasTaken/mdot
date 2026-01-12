@@ -37,12 +37,11 @@ local inspect = require("inspect")
 local tablex = require("pl.tablex")
 local dir = require("pl.dir")
 local pl_path = require("pl.path")
-local pl_types = require("pl.types")
 local M = {}
 
 ---@param name string
 ---@param pkg PackageSpec
-function M.pkg_set_defaults(name, pkg)
+local function pkg_set_defaults(name, pkg)
    if pkg.enabled == nil then
       pkg.enabled = true
    end
@@ -62,7 +61,7 @@ function M.normalize_targets(targets)
    elseif type(targets) == "table" then
       return targets
    end
-   assert(type(targets) ~= nil, "Unhandled 'targets' type: ("..type(targets)..") = "..inspect(targets))
+   assert(type(targets) ~= nil, "Unhandled 'targets' type: (" .. type(targets) .. ") = " .. inspect(targets))
    return nil
 end
 
@@ -76,7 +75,7 @@ function M.pkg_new_spec(name, p)
          name = name
       }
    end
-  -- M.pkg_set_defaults(name, ret)
+   -- pkg_set_defaults(name, ret)
    ret.exclude = M.normalize_targets(ret.exclude)
    ret.templates = M.normalize_targets(ret.templates)
 
@@ -187,8 +186,8 @@ end
 
 ---@param packages Packages
 ---@return Packages
-function M.init_links(packages)
-   for name, pkg in pairs(packages) do
+local function init_links(packages)
+   for _, pkg in pairs(packages) do
       assert(pkg.links and type(pkg.links) == "table", inspect(pkg.links))
 
       local path = pl_path.join(M.ctx.app_config_path, pkg.app_name)
@@ -231,11 +230,47 @@ function M.deploy(pkgs)
    for name, spec in pairs(all_packages) do
       assert(type(name) == "string")
       ---@cast spec PackageSpec
-      M.pkg_set_defaults(tostring(name), spec)
+      pkg_set_defaults(tostring(name), spec)
    end
-   all_packages = M.init_links(all_packages)
+   all_packages = init_links(all_packages)
    print("Normalized packages: " .. inspect(all_packages))
 end
+
+---@param modname string
+local function load_config(modname)
+   local rel = modname:gsub("%.", "/")
+   local p1 = M.ctx.app_config_path .. "/" .. rel .. ".lua"
+   local p2 = M.ctx.app_config_path .. "/" .. rel .. "/init.lua"
+
+   for _, p in ipairs({ p1, p2 }) do
+      local file = io.open(p, "r")
+      if file then
+         file:close()
+         return assert(loadfile(p))
+      end
+   end
+end
+
+local function init_config_searcher()
+   table.insert(package.searchers, 1, load_config)
+end
+
+local function init_global_pkgs()
+   local function get_package(tbl, pkgname)
+      local pkgs = rawget(tbl, "__resolve_pkgs") -- bypass metatable
+      if not pkgs then
+         pkgs = {}
+         rawset(tbl, "__resolve_pkgs", pkgs)
+      end
+      table.insert(pkgs, pkgname)
+      return pkgname -- whatever table you want to return
+   end
+
+   _G.pkgs = setmetatable({}, {
+      __index = get_package
+   })
+end
+
 
 function M.init()
    local appname = "mdot"
@@ -266,53 +301,19 @@ function M.init()
       config_path = M.ctx.platform_dirs:user_config_dir(),
    })
 
-   M.init_config_searcher()
-   M.init_global_pkgs()
+   init_config_searcher()
+   init_global_pkgs()
 end
 
-function M.init_config_searcher()
-   table.insert(package.searchers, 1, M.load_config)
-end
-
-function M.init_global_pkgs()
-   local function get_package(tbl, pkgname)
-      local pkgs = rawget(tbl, "__resolve_pkgs") -- bypass metatable
-      if not pkgs then
-         pkgs = {}
-         rawset(tbl, "__resolve_pkgs", pkgs)
-      end
-      table.insert(pkgs, pkgname)
-      return pkgname -- whatever table you want to return
-   end
-
-   _G.pkgs = setmetatable({}, {
-      __index = get_package
-   })
-end
-
----@param modname string
-function M.load_config(modname)
-   local rel = modname:gsub("%.", "/")
-   local p1 = M.ctx.app_config_path .. "/" .. rel .. ".lua"
-   local p2 = M.ctx.app_config_path .. "/" .. rel .. "/init.lua"
-
-   for _, p in ipairs({ p1, p2 }) do
-      local file = io.open(p, "r")
-      if file then
-         file:close()
-         return assert(loadfile(p))
-      end
-   end
-end
-
-function M.print_ctx()
+local function test()
+   M.init()
    local ctx = tablex.deepcopy(M.ctx)
    ctx.app_dirs = nil
    ctx.platform_dirs = nil
    print("ctx: " .. inspect(ctx))
+   M.deploy(require("mdot"))
 end
 
--- M.init()
--- M.print_ctx()
--- M.deploy(require("mdot"))
+-- test()
+
 return M

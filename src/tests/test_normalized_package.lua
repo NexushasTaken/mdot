@@ -1,6 +1,8 @@
 local mdot = require("src.mdot")
 
 return function()
+   mdot.init()
+
    lu.assertEquals(mdot.normalize_packages({}), {})
    lu.assertEquals(mdot.normalize_packages({ "neovim" }), {
       neovim = {
@@ -24,7 +26,6 @@ return function()
       },
    })
 
-   mdot.init_global_pkgs()
    lu.assertEquals(mdot.normalize_packages({
       pkgs.neovim
    }), {
