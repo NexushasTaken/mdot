@@ -81,48 +81,6 @@ function M.pkg_new_spec(name, p)
    return ret
 end
 
----@param pkgs PackageSpec[]
-function M.init_links(pkgs)
-   ---@param path string
-   ---@return Path
-   local function expand_home(path)
-      local expanded_path = path:gsub("^~", os.getenv("HOME") or "")
-      return expanded_path
-   end
-
-   for name, pkg in pairs(pkgs) do
-      assert(pkg.links and type(pkg.links) == "table")
-
-      local path = pl_path.join(M.ctx.app_config_path, pkg.app_name)
-      local target_path = pl_path.join(M.ctx.config_path, pkg.app_name)
-      local files = dir.getallfiles(path)
-
-      for _, file in pairs(files) do
-         local relpath = pl_path.relpath(file, path)
-         ---@type Targets
-         local targets = pkg.links[relpath] or {}
-
-         if type(targets) == "string" then
-            targets = { targets }
-         end
-
-         targets = tablex.map(expand_home, targets)
-
-         local dst = pl_path.join(target_path, relpath)
-         local matched = tablex.find_if(pkg.exclude, function(exclude)
-            return dir.fnmatch(relpath, exclude)
-         end) ~= nil
-
-         if not matched then
-            table.insert(targets, dst)
-         end
-
-         pkg.links[relpath] = nil
-         pkg.links[pl_path.join(target_path, relpath)] = targets
-      end
-   end
-end
-
 ---@param name string | integer
 ---@param spec string | PackageSpec
 ---@return string
@@ -211,10 +169,56 @@ function M.fix_dependencies(packages)
    return packages
 end
 
+---@param packages Packages
+---@return Packages
+function M.init_links(packages)
+   for name, pkg in pairs(packages) do
+      assert(pkg.links and type(pkg.links) == "table", inspect(pkg.links))
+
+      local path = pl_path.join(M.ctx.app_config_path, pkg.app_name)
+      local target_path = pl_path.join(M.ctx.config_path, pkg.app_name)
+      local files = dir.getallfiles(path)
+
+      for _, file in pairs(files) do
+         local relpath = pl_path.relpath(file, path)
+         ---@type Targets
+         local targets = pkg.links[relpath] or {}
+
+         if type(targets) == "string" then
+            targets = { targets }
+         end
+
+         targets = tablex.map(function(p)
+            print(p)
+            return M.ctx.platform_dirs:expand_user(p)
+         end, targets)
+
+         local dst = pl_path.join(target_path, relpath)
+         local matched = tablex.find_if(pkg.exclude, function(exclude)
+            return dir.fnmatch(relpath, exclude)
+         end) ~= nil
+
+         if not matched then
+            table.insert(targets, dst)
+         end
+
+         pkg.links[relpath] = nil
+         pkg.links[pl_path.join(target_path, relpath)] = targets
+      end
+   end
+   return packages
+end
+
 ---@param pkgs Packages[]
 function M.deploy(pkgs)
    local all_packages = M.normalize_packages(pkgs)
-   all_packages = M.fix_packages(all_packages)
+   all_packages = M.fix_dependencies(all_packages)
+   for name, spec in pairs(all_packages) do
+      assert(type(name) == "string")
+      ---@cast spec PackageSpec
+      M.pkg_set_defaults(tostring(name), spec)
+   end
+   all_packages = M.init_links(all_packages)
    print("Normalized packages: " .. inspect(all_packages))
 end
 
@@ -226,6 +230,7 @@ function M.init()
       return (name and #name > 0) and name or appname
    end
 
+   ---@return string
    local function get_user_config_dir()
       local path = M.ctx.platform_dirs:user_config_dir()
 
@@ -292,7 +297,7 @@ function M.print_ctx()
    print("ctx: " .. inspect(ctx))
 end
 
--- M.init()
--- M.print_ctx()
--- M.deploy(require("mdot"))
+M.init()
+M.print_ctx()
+M.deploy(require("mdot"))
 return M
