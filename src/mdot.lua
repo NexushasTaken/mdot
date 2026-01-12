@@ -43,7 +43,9 @@ local M = {}
 ---@param name string
 ---@param pkg PackageSpec
 function M.pkg_set_defaults(name, pkg)
-   pkg.enabled = pkg.enabled or true
+   if pkg.enabled == nil then
+      pkg.enabled = true
+   end
    pkg.name = pkg.name or name
    pkg.app_name = pkg.app_name or name
    pkg.default_target = pkg.default_target or M.ctx.platform_dirs:user_config_dir()
