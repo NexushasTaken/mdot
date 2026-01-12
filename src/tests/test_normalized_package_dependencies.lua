@@ -1,9 +1,15 @@
 local mdot = require("src.mdot")
+local inspect = require("inspect")
 
 return function()
-   mdot.init_global_pkgs()
+   mdot.init()
 
-   lu.assertEquals(mdot.normalize_packages({
+   local function normalize(tbl)
+      local t = mdot.fix_dependencies(mdot.normalize_packages(tbl))
+      return t
+   end
+
+   lu.assertEquals(normalize({
       neovim = {
          depends = { pkgs.ripgrep },
       }
@@ -16,7 +22,7 @@ return function()
       },
    })
 
-   lu.assertEquals(mdot.normalize_packages({
+   lu.assertEquals(normalize({
       hyprland = {
          depends = {
             "neovim"
@@ -29,10 +35,12 @@ return function()
             "neovim"
          },
       },
-      neovim = {},
+      neovim = {
+         name = "neovim"
+      },
    })
 
-   lu.assertEquals(mdot.normalize_packages({
+   lu.assertEquals(normalize({
       hyprland = {
          depends = {
             "neovim"
@@ -42,13 +50,15 @@ return function()
    }), {
       hyprland = {
          depends = {
-            "neovim"
+            "neovim",
          },
       },
-      neovim = {},
+      neovim = {
+         name = "neovim",
+      },
    })
 
-   lu.assertEquals(mdot.normalize_packages({
+   lu.assertEquals(normalize({
       hyprland = {
          depends = {
             waybar = {}
@@ -63,7 +73,7 @@ return function()
       waybar = {},
    })
 
-   lu.assertEquals(mdot.normalize_packages({
+   lu.assertEquals(normalize({
       hyprland = {
          depends = {
             waybar = {}
@@ -83,7 +93,7 @@ return function()
       },
    })
 
-   lu.assertEquals(mdot.normalize_packages({
+   lu.assertEquals(normalize({
       hyprland = {
          depends = {
             waybar = {
@@ -101,7 +111,7 @@ return function()
       waybar = {},
    })
 
-   lu.assertEquals(mdot.normalize_packages({
+   lu.assertEquals(normalize({
       hyprland = {
          depends = {
             waybar = {
@@ -120,7 +130,7 @@ return function()
       },
    })
 
-   lu.assertEquals(mdot.normalize_packages({
+   lu.assertEquals(normalize({
       hyprland = {
          depends = {
             waybar = {

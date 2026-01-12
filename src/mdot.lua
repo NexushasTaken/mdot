@@ -74,7 +74,7 @@ function M.pkg_new_spec(name, p)
          name = name
       }
    end
-   -- M.pkg_set_defaults(name, ret)
+  -- M.pkg_set_defaults(name, ret)
    ret.exclude = M.normalize_targets(ret.exclude)
    ret.templates = M.normalize_targets(ret.templates)
 
@@ -174,9 +174,47 @@ function M.normalize_packages(packages)
    return normalized
 end
 
+---@param dependencies Packages
+---@param packages Packages
+---@return string[]
+function M.normalize_dependencies(dependencies, packages)
+   ---@type string[]
+   local new_depends = {}
+   local normalized = {}
+
+   for name, spec in pairs(dependencies) do
+      -- print("entry:", name, inspect(spec))
+      assert(type(name) ~= "integer")
+
+      dependencies[name] = nil
+      table.insert(new_depends, name)
+      -- local existing_package = packages[name] or {}
+      if not packages[name] then
+         packages[name] = spec
+      end
+
+      if spec.depends then
+         packages[name].depends = M.normalize_dependencies(spec.depends, packages)
+      end
+   end
+
+   return new_depends
+end
+
+---@param packages Packages
+function M.fix_dependencies(packages)
+   for _, spec in pairs(packages) do
+      if spec.depends then
+         spec.depends = M.normalize_dependencies(spec.depends, packages)
+      end
+   end
+   return packages
+end
+
 ---@param pkgs Packages[]
 function M.deploy(pkgs)
    local all_packages = M.normalize_packages(pkgs)
+   all_packages = M.fix_packages(all_packages)
    print("Normalized packages: " .. inspect(all_packages))
 end
 
