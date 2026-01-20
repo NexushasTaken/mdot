@@ -1,18 +1,21 @@
-local mdot = require("src.mdot")
+local mdot = require("mdot")
 
 return function()
    mdot.init()
 
    lu.assertEquals(mdot.normalize_packages({}), {})
    lu.assertEquals(mdot.normalize_packages({ "neovim" }), {
-      neovim = {
+      {
+         depends = {},
+         excludes = {},
+         templates = {},
          name = "neovim",
       },
    })
    lu.assertEquals(mdot.normalize_packages({
       { name = "neovim", }
    }), {
-      neovim = { name = "neovim", },
+      { name = "neovim", },
    })
    lu.assertEquals(mdot.normalize_packages({
       {

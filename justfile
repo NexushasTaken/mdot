@@ -8,7 +8,7 @@ example-hypr: build
   eval $(luarocks --tree lua_modules path)
   XDG_CONFIG_HOME="$PWD/examples" MDOT_APPNAME="conf" ./lua_modules/bin/mdot
 
-test:
+test: build
   #!/usr/bin/env bash
   eval $(luarocks --tree lua_modules path)
   luarocks --tree lua_modules test
@@ -26,4 +26,4 @@ run *args="": build
 
 get-deps:
   #!/usr/bin/env bash
-  luarocks --tree lua_modules install --only-deps ./mdot-0.1.0-1.rockspec
+  luarocks --tree lua_modules install --force --only-deps ./mdot-0.1.0-1.rockspec

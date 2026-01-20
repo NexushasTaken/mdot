@@ -16,13 +16,13 @@ dependencies = {
   "inspect",
   "penlight",
   "sysdetect",
+  "tableshape",
 }
 build_dependencies = {}
 build = {
    type = "builtin",
    modules = {
       mdot = "./mdot/init.lua",
-      validation = "./external/validation.lua",
    },
    install = {
       bin = {
@@ -37,5 +37,5 @@ test_dependencies = {
 
 test = {
   type = "command",
-  command = "lua src/tests/test.lua -o TAP",
+  command = "lua mdot/tests/test.lua -o TAP",
 }

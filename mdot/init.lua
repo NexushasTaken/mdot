@@ -1,37 +1,3 @@
----@alias Command string A command will be executed using "bash -c <command>"
----@alias Hook Command | fun() | (Command | fun())[]
-
----@alias OSPackage string | table<string, string>
----@alias Path string The directory or file path
----@alias Targets Path | Path[]  -- either a single string or an array of strings
-
----@class LinkEntry
----@field source Path
----@field targets Targets
----@field overwrite boolean
----@field backup boolean
-
----@alias LinkTableEntry LinkEntry | { [Path]: Targets }
----@alias Links LinkTableEntry[]
-
----@class (exact) PackageProps
----@field enabled? boolean | fun(): boolean Defaults to true
----@field depends? Packages
----@field name? string
----@field app_name? string
----@field package_name? OSPackage
----@field default_target? Path Defaults to XDG_HOME_CONFIG or ~/.config/
----@field links? Links
----@field exclude? Targets
----@field templates? Targets
--- Still unsure about hooks
----@field on_install? Hook Will be executed after the package and dependencies are installed.
----@field on_deploy? Hook Will be executed after the files has been linked.
-
----@alias PackageUnion string | PackageProps | {string: PackageProps}
-
----@alias Packages PackageUnion[]
-
 local PlatformDirs = require("platformdirs").PlatformDirs
 local inspect = require("inspect")
 local tablex = require("pl.tablex")
@@ -46,97 +12,82 @@ end
 
 PackageProps = {}
 
--- TODO: Rename PackageProps -> PackageProps
----@param p PackageProps | string
----@returm PackageProps
+---@param p PackageItemSpec
+---@return PackageSchema
 function PackageProps:new(p)
-   --local val, err = schema.is_package2(p)
-   --print(inspect(val), inspect(err))
-   if not val then print(inspect(err)) end
-
    p = tablex.deepcopy(p)
+
+   -- "name" -> { [1] = "name" }
    if type(p) == "string" then
-      p = { name = p }
+      p = { [1] = p }
    end
+
+   local val, err = schema.is_package_item(p)
+   if not val then
+      print("new: " .. inspect(p) .. " " .. inspect(err))
+      os.exit()
+   end
+
+   -- { [1] = "name"} -> { name = "name" }
+   if p[1] then
+      local name = p[1]
+      p[1] = nil
+      p.name = name
+   end
+
    setmetatable(p, self)
    self.__index = self
 
-   self._set_defaults(name)
-   p.exclude = M.normalize_targets(p.exclude)
-   p.templates = M.normalize_targets(p.templates)
+   self:_set_defaults()
+   p.excludes = self.normalize_targets(p.excludes)
+   p.templates = self.normalize_targets(p.templates)
    return p
 end
 
-function PackageProps:normalize_targets()
-   if type(self.targets) == "string" then
-      self.targets = { self.targets }
-   elseif type(self.targets) == "table" then
-      self.targets = self.targets
+---@param targets TargetList
+---@return TargetList
+function PackageProps.normalize_targets(targets)
+   if type(targets) == "string" then
+      return { targets }
+   elseif type(targets) == "table" then
+      return targets
    end
 end
 
----@param name string
-function PackageProps:_set_defaults(name)
+function PackageProps:_set_defaults()
    if self.enabled == nil then
       self.enabled = true
    end
    self.depends = self.depends or {}
-   self.name = self.name or name
-   self.app_name = self.app_name or name
    --self.package_name = self.package_name or name
    self.default_target = self.default_target or M.ctx.platform_dirs:user_config_dir()
    self.links = self.links or {}
-   self.exclude = self.exclude or {}
+   self.excludes = self.excludes or {}
    self.templates = self.templates or {}
 end
 
----@return string
-function PackageProps:get_name()
-   if type(self.name) == "string" and #self.name > 0 then
-      if not tonumber(self.name) then
-         return self.name
-      end
-   end
-
-   if self.package_name then
-      local pkg = self.package_name
-      if type(pkg) == "string" then
-         return pkg
-      end
-
-      if #tablex.values(pkg) > 0 then
-         return tablex.values(pkg)[1]
-      end
-   end
-
-   return self.app_name
-       or self.name
-       or error("The field package_name or app_name or name must exist on PackageProps\n" .. inspect(self))
-end
-
 --- Recursively normalize packages and their dependencies
----@param packages Packages
----@return table<string, PackageProps>
+---@param packages PackageList
+---@return PackageSchema[]
 function M.normalize_packages(packages)
    local normalized = {}
 
-   for name, pkg in pairs(packages) do
-      local spec = PackageProps:new(pkg_name, pkg)
-      local pkg_name = spec:get_name()
+   for _, pkg in pairs(packages) do
+      local spec = PackageProps:new(pkg)
 
       -- Recursively normalize dependencies
       if spec.depends and type(spec.depends) == "table" then
          spec.depends = M.normalize_packages(spec.depends)
       end
 
-      normalized[pkg_name] = spec
+      normalized[spec.name] = spec
    end
 
    return normalized
 end
 
----@param packages table<string, PackageProps>
----@return table<string, PackageProps>
+---@param packages PackageSchema[]
+---@return PackageList
 function M.fix_dependencies(packages)
    local function is_map(t)
       if type(t) ~= "table" then return false end
@@ -146,9 +97,19 @@ function M.fix_dependencies(packages)
       return false
    end
 
-   ---@param top_pkg PackageProps | nil
-   ---@param dep_pkg PackageProps
-   ---@return PackageProps
+   ---@param pkg_name string
+   ---@return number, PackageList | nil
+   local function get_top_pkg(pkg_name)
+      for idx, spec in ipairs(packages) do
+         if spec.name == pkg_name then
+            return idx, spec
+         end
+      end
+      return 0, nil
+   end
+   ---@param top_pkg PackageList | nil
+   ---@param dep_pkg PackageList
+   ---@return PackageList
    local function handle_conflict(top_pkg, dep_pkg)
       -- TODO: will handle confict options, for now, use default.
       return top_pkg or dep_pkg
@@ -164,8 +125,9 @@ function M.fix_dependencies(packages)
             table.insert(new_list, dep_name)
 
             if type(dep_spec) == "table" then
-               local lifted = handle_conflict(packages[dep_name], tablex.deepcopy(dep_spec))
-               packages[dep_name] = lifted
+               local idx, top_pkg = get_top_pkg(dep_name)
+               local lifted = handle_conflict(top_pkg, tablex.deepcopy(dep_spec))
+               packages[idx] = lifted
                process(dep_name, lifted)
             end
          end
@@ -186,19 +148,19 @@ function M.fix_dependencies(packages)
    return packages
 end
 
----@param packages Packages
----@return Packages
+---@param packages PackageList
+---@return PackageList
 local function init_links(packages)
    for _, pkg in pairs(packages) do
       assert(pkg.links and type(pkg.links) == "table", inspect(pkg.links))
 
-      local path = pl_path.join(M.ctx.app_config_path, pkg.app_name)
-      local target_path = pl_path.join(M.ctx.config_path, pkg.app_name)
+      local path = pl_path.join(M.ctx.app_config_path, pkg.name)
+      local target_path = pl_path.join(M.ctx.config_path, pkg.name)
       local files = dir.getallfiles(path)
 
       for _, file in pairs(files) do
          local relpath = pl_path.relpath(file, path)
-         ---@type Targets
+         ---@type TargetList
          local targets = pkg.links[relpath] or {}
 
          if type(targets) == "string" then
@@ -210,8 +172,8 @@ local function init_links(packages)
          end, targets)
 
          local dst = pl_path.join(target_path, relpath)
-         local matched = tablex.find_if(pkg.exclude, function(exclude)
-            return dir.fnmatch(relpath, exclude)
+         local matched = tablex.find_if(pkg.excludes, function(excludes)
+            return dir.fnmatch(relpath, excludes)
          end) ~= nil
 
          if not matched then
@@ -225,15 +187,10 @@ local function init_links(packages)
    return packages
 end
 
----@param pkgs Packages[]
+---@param pkgs PackageList
 function M.deploy(pkgs)
    local all_packages = M.normalize_packages(pkgs)
    all_packages = M.fix_dependencies(all_packages)
-   for name, spec in pairs(all_packages) do
-      assert(type(name) == "string")
-      ---@cast spec PackageProps
-      pkg_set_defaults(tostring(name), spec)
-   end
    all_packages = init_links(all_packages)
    print("Normalized packages: " .. inspect(all_packages))
 end
@@ -286,11 +243,11 @@ function M.init()
    local function get_user_config_dir()
       local path = M.ctx.platform_dirs:user_config_dir()
 
-      return path .. "/" .. M.ctx.app_name
+      return path .. "/" .. M.ctx.name
    end
 
    M.ctx = {
-      app_name = get_app_name(),
+      name = get_app_name(),
       app_dirs = PlatformDirs {
          appname = get_app_name(),
       },
@@ -308,14 +265,21 @@ function M.init()
 end
 
 local function test()
+   if _G.__test then
+      return
+   end
+   _G.__test = true
+
    M.init()
    local ctx = tablex.deepcopy(M.ctx)
    ctx.app_dirs = nil
    ctx.platform_dirs = nil
    print("ctx: " .. inspect(ctx))
-   M.deploy(require("mdot"))
+   local pkgs = require("main")
+   print("pkgs: " .. inspect(pkgs))
+   M.deploy(pkgs)
 end
 
---test()
+-- test()
 
 return M

@@ -1,8 +1,9 @@
 return {
    pkgs.uwsm,
    pkgs.hyprland,
-   bash = {
-      exclude = "*",
+   {
+      "bash",
+      excludes = "*",
       links = {
          ["bashrc.sh"] = "~/.bashrc"
       }

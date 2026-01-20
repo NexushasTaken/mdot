@@ -1,4 +1,4 @@
-local mdot = require("src.mdot")
+local mdot = require("mdot")
 local inspect = require("inspect")
 
 return function()

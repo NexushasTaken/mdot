@@ -1,90 +1,104 @@
----@alias Command string A command will be executed using "bash -c <command>"
----@alias Hook Command | fun() | (Command | fun())[]
+---@alias Command string
+---@alias HookAction Command | fun() | (Command | fun())[]
 
----@alias OSPackage string | table<string, string>
----@alias Path string The directory or file path
----@alias Targets Path | Path[]  -- either a single string or an array of strings
+---@alias OSPackageSpec string | table<string, string>
+---@alias PathString string
+---@alias TargetList PathString | PathString[]
 
----@class LinkEntry
----@field source Path
----@field targets Targets
----@field overwrite boolean
----@field backup boolean
+---@class LinkObject
+---@field source? PathString
+---@field targets? TargetList
+---@field override? boolean
+---@field backup? boolean
 
----@alias LinkTableEntry LinkEntry | { [Path]: Targets }
----@alias Links LinkTableEntry[]
+---@alias LinkEntrySpec LinkObject | table<PathString, TargetList>
+---@alias LinksArraySpec LinkEntrySpec[]
 
----@class (exact) PackageProps
----@field enabled? boolean | fun(): boolean Defaults to true
----@field depends? Packages
+---@class PackageSchema
 ---@field name? string
----@field app_name? string
----@field package_name? OSPackage
----@field default_target? Path Defaults to XDG_HOME_CONFIG or ~/.config/
----@field links? Links
----@field exclude? Targets
----@field templates? Targets
--- Still unsure about hooks
----@field on_install? Hook Will be executed after the package and dependencies are installed.
----@field on_deploy? Hook Will be executed after the files has been linked.
+---@field package_name? OSPackageSpec
+---@field enabled? boolean | fun(): boolean
+---@field depends? PackageList
+---@field links? LinksArraySpec
+---@field excludes? TargetList
+---@field templates? TargetList
+---@field default_target? PathString
+---@field on_install? HookAction
+---@field on_deploy? HookAction
 
----@alias PackageUnion string | PackageProps | {string: PackageProps}
+---@alias PackageItemSpec string | PackageSchema
+---@alias PackageList PackageItemSpec[]
 
----@alias Packages PackageUnion[]
+local t                 = require("tableshape").types
+local inspect           = require("inspect")
 
-local v = require("validation")
-local inspect = require("inspect")
+-- 1. Atomic Validators
+local any_command       = t.string
+local path_string       = t.string
+local target_list       = path_string + t.array_of(path_string)
+local os_pkg_spec       = t.string + t.map_of(t.string, t.string)
+local hook_action       = any_command + t.func + t.array_of(any_command + t.func)
 
-local is_os_package = v.one_of(
-   v.is_string(),
-   v.is_array(v.is_string(), true)
-)
-local is_path = v.is_string()
-local is_targets = v.one_of(
-   is_path,
-   v.is_array(is_path)
-)
-
-local is_link_entry = v.is_table {
-   source = v.optional(is_path),
-   targets = v.optional(is_targets),
-   override = v.optional(v.is_boolean()),
-   backup = v.optional(v.is_boolean()),
+-- 2. Link Component Validators
+local link_obj_spec     = t.shape {
+   source   = path_string:is_optional(),
+   targets  = target_list:is_optional(),
+   override = t.boolean:is_optional(),
+   backup   = t.boolean:is_optional(),
 }
-local is_links = v.is_array(
-   v.one_of(
-      v.table_key_value(
-         is_path,
-         is_targets
-      ),
-      is_link_entry
-   )
-)
+local link_entry_spec   = link_obj_spec + t.map_of(path_string, target_list)
+local links_array_spec  = t.array_of(link_entry_spec)
 
-local is_package = v.is_table {
-   enabled = v.optional(v.one_of(
-      v.is_boolean(), v.is_function()
-   )),
-   --depends = v.optional(v.is_boolean()),
-   name = v.optional(v.is_string()),
-   app_name = v.optional(v.is_string()),
-   package_name = v.optional(is_os_package),
-   default_target = v.optional(is_path),
-   links = v.optional(is_links),
-   exclude = v.optional(is_targets),
-   templates = v.optional(is_templates),
+-- 3. Package Schema (Root)
+local package_list -- Forward declaration for recursion
+
+local package_base      = t.shape {
+   -- TODO: `name` must be a valid filename path.
+   name           = t.string:is_optional(),
+   [1]            = t.string:is_optional(),
+   package_name   = os_pkg_spec:is_optional(),
+   enabled        = (t.boolean + t.func):is_optional(),
+   depends        = t.proxy(function() return package_list end):is_optional(),
+   links          = links_array_spec:is_optional(),
+   excludes       = target_list:is_optional(),
+   templates      = target_list:is_optional(),
+   default_target = path_string:is_optional(),
+   on_install     = hook_action:is_optional(),
+   on_deploy      = hook_action:is_optional(),
 }
-local is_package2 = v.one_of(
-   is_package,
-   v.is_string()
-)
 
-local val, err = is_package2({
-   enabled = ""
-})
-print(inspect(val), inspect(err))
+local package_schema    = t.custom(function(val)
+   local success, err = package_base(val)
+   if not success then
+      return nil, err
+   end
+
+   local has_named = val.name
+   local has_indexed = val[1]
+
+   if has_named and has_indexed then
+      return nil, "provide 'name' OR [1], but not both"
+   end
+
+   if not has_named and not has_indexed then
+      return nil, "package must have a name (at index [1] or as 'name' field)"
+   end
+
+   return true
+end)
+
+-- 4. Final Recursive Aggregator
+-- local package_item_spec = t.custom(function(val)
+--    if t.string(val) then return true end
+--    local ok, err = package_schema(val)
+--    if not ok then return nil, err end
+--    return true
+-- end) --TODO: a bit overkill, but it works...
+local package_item_spec = (t.string + t.any) * package_schema
+package_list            = t.array_of(package_item_spec):describe("List of Packages")
 
 return {
-   is_package = is_package,
-   is_package2 = is_package2,
+   is_package = package_schema,
+   is_package_item = package_item_spec,
+   is_package_list = package_list,
 }
