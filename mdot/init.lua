@@ -14,7 +14,7 @@
 ---@alias LinkTableEntry LinkEntry | { [Path]: Targets }
 ---@alias Links LinkTableEntry[]
 
----@class (exact) PackageSpec
+---@class (exact) PackageProps
 ---@field enabled? boolean | fun(): boolean Defaults to true
 ---@field depends? Packages
 ---@field name? string
@@ -28,7 +28,7 @@
 ---@field on_install? Hook Will be executed after the package and dependencies are installed.
 ---@field on_deploy? Hook Will be executed after the files has been linked.
 
----@alias PackageUnion string | PackageSpec | {string: PackageSpec}
+---@alias PackageUnion string | PackageProps | {string: PackageProps}
 
 ---@alias Packages PackageUnion[]
 
@@ -37,90 +37,92 @@ local inspect = require("inspect")
 local tablex = require("pl.tablex")
 local dir = require("pl.dir")
 local pl_path = require("pl.path")
+local schema = require("mdot.schema")
 local M = {}
 
+function M.assert_unhandled_type(name, value)
+   assert(false, string.format("Unhandled '%s' type: %s = %s", name, type(self.targets), inspect(value)))
+end
+
+PackageProps = {}
+
+-- TODO: Rename PackageProps -> PackageProps
+---@param p PackageProps | string
+---@returm PackageProps
+function PackageProps:new(p)
+   --local val, err = schema.is_package2(p)
+   --print(inspect(val), inspect(err))
+   if not val then print(inspect(err)) end
+
+   p = tablex.deepcopy(p)
+   if type(p) == "string" then
+      p = { name = p }
+   end
+   setmetatable(p, self)
+   self.__index = self
+
+   self._set_defaults(name)
+   p.exclude = M.normalize_targets(p.exclude)
+   p.templates = M.normalize_targets(p.templates)
+   return p
+end
+
+function PackageProps:normalize_targets()
+   if type(self.targets) == "string" then
+      self.targets = { self.targets }
+   elseif type(self.targets) == "table" then
+      self.targets = self.targets
+   end
+end
+
 ---@param name string
----@param pkg PackageSpec
-local function pkg_set_defaults(name, pkg)
-   if pkg.enabled == nil then
-      pkg.enabled = true
+function PackageProps:_set_defaults(name)
+   if self.enabled == nil then
+      self.enabled = true
    end
-   pkg.name = pkg.name or name
-   pkg.app_name = pkg.app_name or name
-   pkg.default_target = pkg.default_target or M.ctx.platform_dirs:user_config_dir()
-   pkg.depends = pkg.depends or {}
-   pkg.links = pkg.links or {}
-   pkg.exclude = pkg.exclude or {}
+   self.depends = self.depends or {}
+   self.name = self.name or name
+   self.app_name = self.app_name or name
+   --self.package_name = self.package_name or name
+   self.default_target = self.default_target or M.ctx.platform_dirs:user_config_dir()
+   self.links = self.links or {}
+   self.exclude = self.exclude or {}
+   self.templates = self.templates or {}
 end
 
----@param targets Targets
----@return Path[] | nil
-function M.normalize_targets(targets)
-   if type(targets) == "string" then
-      return { targets }
-   elseif type(targets) == "table" then
-      return targets
-   end
-   assert(type(targets) ~= nil, "Unhandled 'targets' type: (" .. type(targets) .. ") = " .. inspect(targets))
-   return nil
-end
-
----@param name string
----@param p string | PackageSpec
----@return PackageSpec
-function M.pkg_new_spec(name, p)
-   local ret = tablex.deepcopy(p)
-   if type(ret) == "string" then
-      ret = {
-         name = name
-      }
-   end
-   -- pkg_set_defaults(name, ret)
-   ret.exclude = M.normalize_targets(ret.exclude)
-   ret.templates = M.normalize_targets(ret.templates)
-
-   return ret
-end
-
----@param name string | integer
----@param spec string | PackageSpec
 ---@return string
-local function get_name(name, spec)
-   if type(name) == "string" and #name > 0 then
-      if not tonumber(name) then
-         return name
+function PackageProps:get_name()
+   if type(self.name) == "string" and #self.name > 0 then
+      if not tonumber(self.name) then
+         return self.name
       end
    end
 
-   if type(spec) == "string" then
-      return spec
-   end
-
-   if spec.package_name then
-      local pkg = spec.package_name
+   if self.package_name then
+      local pkg = self.package_name
       if type(pkg) == "string" then
          return pkg
       end
 
-      if #tablex.values(spec) > 0 then
-         return tablex.values(spec)[1]
+      if #tablex.values(pkg) > 0 then
+         return tablex.values(pkg)[1]
       end
    end
 
-   return spec.app_name
-       or spec.name
-       or error("Package spec must define package_name or app_name or name\n" .. inspect(spec))
+   return self.app_name
+       or self.name
+       or error("The field package_name or app_name or name must exist on PackageProps\n" .. inspect(self))
 end
 
 --- Recursively normalize packages and their dependencies
 ---@param packages Packages
----@return table<string, PackageSpec>
+---@return table<string, PackageProps>
 function M.normalize_packages(packages)
    local normalized = {}
 
    for name, pkg in pairs(packages) do
-      local pkg_name = get_name(name, pkg)
-      local spec = M.pkg_new_spec(pkg_name, pkg)
+      local spec = PackageProps:new(pkg_name, pkg)
+      local pkg_name = spec:get_name()
 
       -- Recursively normalize dependencies
       if spec.depends and type(spec.depends) == "table" then
@@ -133,8 +135,8 @@ function M.normalize_packages(packages)
    return normalized
 end
 
----@param packages table<string, PackageSpec>
----@return table<string, PackageSpec>
+---@param packages table<string, PackageProps>
+---@return table<string, PackageProps>
 function M.fix_dependencies(packages)
    local function is_map(t)
       if type(t) ~= "table" then return false end
@@ -144,9 +146,9 @@ function M.fix_dependencies(packages)
       return false
    end
 
-   ---@param top_pkg PackageSpec | nil
-   ---@param dep_pkg PackageSpec
-   ---@return PackageSpec
+   ---@param top_pkg PackageProps | nil
+   ---@param dep_pkg PackageProps
+   ---@return PackageProps
    local function handle_conflict(top_pkg, dep_pkg)
       -- TODO: will handle confict options, for now, use default.
       return top_pkg or dep_pkg
@@ -229,7 +231,7 @@ function M.deploy(pkgs)
    all_packages = M.fix_dependencies(all_packages)
    for name, spec in pairs(all_packages) do
       assert(type(name) == "string")
-      ---@cast spec PackageSpec
+      ---@cast spec PackageProps
       pkg_set_defaults(tostring(name), spec)
    end
    all_packages = init_links(all_packages)
@@ -314,6 +316,6 @@ local function test()
    M.deploy(require("mdot"))
 end
 
--- test()
+--test()
 
 return M

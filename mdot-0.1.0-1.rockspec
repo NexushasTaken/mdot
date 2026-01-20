@@ -21,11 +21,12 @@ build_dependencies = {}
 build = {
    type = "builtin",
    modules = {
-      mdot = "./src/mdot.lua"
+      mdot = "./mdot/init.lua",
+      validation = "./external/validation.lua",
    },
    install = {
       bin = {
-         mdot = "./src/mdot.lua",
+         mdot = "./mdot/init.lua",
       },
    }
 }
