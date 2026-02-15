@@ -84,6 +84,21 @@ function Class:is(T)
    return false
 end
 
+--- Checks if a value is a class (Class or subclass).
+---@param value any
+---@return boolean
+function Class.isClass(value)
+   if type(value) ~= "table" then return false end
+   local mt = getmetatable(value)
+   while mt do
+      if mt == Class then
+         return true
+      end
+      mt = getmetatable(mt)
+   end
+   return false
+end
+
 --- String representation of the class.
 ---@param self Class
 ---@return string
