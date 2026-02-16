@@ -330,7 +330,9 @@ function MapOfType:__call(value)
 
    if all_ok then
       return true, ""
-   elseif #errors > 0 then
+   elseif #errors == 1 then
+      return false, errors[1]
+   elseif #errors > 1 then
       return false, errors
    else
       return false, string_expect(value, valid_key_types)
