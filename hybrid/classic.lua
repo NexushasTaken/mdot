@@ -29,7 +29,6 @@ function Class:initialize(...) end
 ---@return T
 function Class:new(...)
    local obj = setmetatable({}, self)
-   -- call the instance initializer; subclasses override initialize
    if obj.initialize then
       obj:initialize(...)
    end
