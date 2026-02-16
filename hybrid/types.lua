@@ -1,12 +1,13 @@
 local inspect = require("inspect")
 local Class = require("hybrid.classic")
+local dbg = require("debugger")
 
 ---@class Type : Class
 ---@field type_name string
 local Type = Class:extend("Type")
 
 ---@class UnionType : Type
----@field types PrimitiveType[]
+---@field types Type[]
 local UnionType = Type:extend("UnionType")
 
 ---@class PrimitiveType : Type
@@ -81,13 +82,13 @@ end
 ---@param value any
 ---@param expected_type Type
 local function assertIsClass(value, expected_type)
-   assert(Class.isClass(value), ("expected Class subtype %s, got %s"):format(expected_type, type(value)))
+   assert(Class.isClass(value), ("expected Class subtype of %s, got %s: %s"):format(expected_type, type(value), value))
 end
 
 ---@param value Type
 ---@param expected_type Type
 local function assertIsInstance(value, expected_type)
-   assert(value:is(expected_type), ("expected Class subtype %s, got %s"):format(expected_type, value))
+   assert(value:is(expected_type), ("expected Class subtype of %s, got %s"):format(expected_type, value))
 end
 
 ---@param value any
@@ -108,7 +109,7 @@ end
 
 ---@return string
 function Type:__tostring()
-   return ("<abstract Type '%s'>"):format(self.type_name or "?")
+   return self.name or "Type"
 end
 
 ---@param ... any
@@ -130,7 +131,8 @@ end
 function UnionType:add(...)
    local types = { ... }
    for _, p_type in ipairs(types) do
-      assertIsClass(p_type, PrimitiveType)
+      assertIsClass(p_type, Type)
+      assertIsInstance(p_type, Type)
       table.insert(self.types, p_type)
    end
    return self
@@ -145,9 +147,11 @@ end
 ---@return boolean, any
 function UnionType:__call(value)
    for _, p_type in ipairs(self.types) do
-      local ok, _ = p_type(value)
+      local ok, err = p_type(value)
       if ok then
          return true, nil
+      elseif not p_type:is(PrimitiveType) then
+         return false, err
       end
    end
 
@@ -183,6 +187,11 @@ function MapType:initialize(schema)
       assert(Class.isClass(value), ("field %s: %s"):format(enclose_key(key), string_expect(value, "Type")))
    end
    self.schema = schema
+end
+
+---@return string
+function MapType:__tostring()
+   return "Type" .. enclose(self.type_name, "()")
 end
 
 ---@param value any
@@ -290,7 +299,7 @@ local M = {
    null = PrimitiveType:new("nil"),
    any = PrimitiveType:new("any"),
 
-   ---@param ... PrimitiveType
+   ---@param ... Type
    ---@return UnionType
    union = function(...) return UnionType:new(...) end,
    ---@param schema table<string, Type>
