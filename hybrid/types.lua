@@ -306,24 +306,31 @@ function MapOfType:__call(value)
    local valid_key_types = conjoin(valid_key_types_list, "or")
    ---@type string[]
    local errors = {}
+   local all_ok = true
+
    for k, v in pairs(value) do
+      local matched = false
       for _, paired_type in pairs(self.paired_types) do
          local ok_k, _ = (paired_type[1])(k)
          if ok_k then
+            matched = true
             local ok_v, err_v = (paired_type[2])(v)
             if not ok_v then
+               all_ok = false
                table.insert(errors, ("field %s value: %s"):format(enclose_key(k), err_v))
-               goto continue
             end
-            if ok_k and ok_v then
-               return true, ""
-            end
-            ::continue::
+            break -- key matched one type, no need to check other key types
          end
+      end
+      if not matched then
+         all_ok = false
+         table.insert(errors, ("field %s key: %s"):format(enclose_key(k), string_expect(k, valid_key_types)))
       end
    end
 
-   if #errors > 0 then
+   if all_ok then
+      return true, ""
+   elseif #errors > 0 then
       return false, errors
    else
       return false, string_expect(value, valid_key_types)
