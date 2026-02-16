@@ -113,7 +113,13 @@ function Type:__tostring()
 end
 
 ---@param ... any
----@return boolean, any
+---@return boolean
+function Type:accepts(...)
+   return false
+end
+
+---@param ... any
+---@return boolean, string
 function Type:__call(...)
    return false, "method '__call' is abstract and must be implemented by a subclass."
 end
@@ -144,18 +150,24 @@ function UnionType:__tostring()
 end
 
 ---@param value any
----@return boolean, any
+---@return boolean, string | string[]
 function UnionType:__call(value)
+   ---@type string[]
+   local errors = {}
    for _, p_type in ipairs(self.types) do
       local ok, err = p_type(value)
       if ok then
-         return true, nil
-      elseif not p_type:is(PrimitiveType) then
-         return false, err
+         return true, ""
+      elseif p_type:accepts(value) then
+         table.insert(errors, err)
       end
    end
 
-   return false, string_expect(value, conjoin(self.types, "or"))
+   if #errors > 0 then
+      return false, '{ "' .. concat_tostring(errors, '", "') .. '" }'
+   else
+      return false, string_expect(value, conjoin(self.types, "or"))
+   end
 end
 
 ---@param type_name string
@@ -169,10 +181,16 @@ function PrimitiveType:__tostring()
 end
 
 ---@param value any
----@return boolean, any
+---@return boolean
+function PrimitiveType:accepts(value)
+   return self.type_name == "any" or type(value) == self.type_name
+end
+
+---@param value any
+---@return boolean, string
 function PrimitiveType:__call(value)
-   if self.type_name == "any" or type(value) == self.type_name then
-      return true, nil
+   if self:accepts(value) then
+      return true, ""
    else
       return false, string_expect(value, self.type_name)
    end
@@ -195,9 +213,15 @@ function MapType:__tostring()
 end
 
 ---@param value any
----@return boolean, any
+---@return boolean
+function MapType:accepts(value)
+   return type(value) == "table"
+end
+
+---@param value any
+---@return boolean, string
 function MapType:__call(value)
-   if type(value) ~= "table" then
+   if not self:accepts(value) then
       return false, string_expect(value, "table")
    end
 
@@ -218,7 +242,7 @@ function MapType:__call(value)
          return ok, ("field %s: %s"):format(enclose_key(key), err)
       end
    end
-   return true, nil
+   return true, ""
 end
 
 ---@param ... [Type, Type]
@@ -248,9 +272,15 @@ function MapOfType:__tostring()
 end
 
 ---@param value any
----@return boolean, any
+---@return boolean
+function MapOfType:accepts(value)
+   return type(value) == "table"
+end
+
+---@param value any
+---@return boolean, string
 function MapOfType:__call(value)
-   if type(value) ~= "table" then
+   if not self:accepts(value) then
       return false, string_expect(value, "table")
    end
 
@@ -279,7 +309,7 @@ function MapOfType:__call(value)
          end
       end
    end
-   return true, nil
+   return true, ""
 end
 
 ---@class hybrid.types
