@@ -33,7 +33,26 @@
 ---}
 
 local t = require("hybrid.types")
+local inspect = require("inspect")
 
 local M = {}
 
-M.PackageConfigs = t.map_of()
+M.PackageSpec = t.map({
+   name = t.string,
+   -- enabled = t.union(t.string, t.func),
+   -- depends = M.PackageConfigs,
+   -- links = M.Links,
+   -- excludes = M.Links,
+})
+M.PackageEntry = t.union(t.string, M.PackageSpec)
+M.PackageConfigs = t.map_of(
+   { t.number, t.string },
+   { t.string, M.PackageEntry }
+)
+
+local ok, err = M.PackageConfigs({
+   "git",
+   hypr = {}, -- TODO: it only returns "field 'hypr' value: table: 0x560496eda5c0"
+})
+print(ok, inspect(err))
+return M
