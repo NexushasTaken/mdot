@@ -16,6 +16,10 @@ local PrimitiveType = Type:extend("PrimitiveType")
 ---@field schema table<string, Type>
 local MapType = Type:extend("MapType")
 
+---@class MapOfType : Type
+---@field paired_types [Type, Type][]
+local MapOfType = Type:extend("MapOfType")
+
 ---
 ---Given a list, returns the string `tostring(list[i])..sep..tostring(list[i+1]) ··· sep..tostring(list[j])`.
 ---All elements are first converted to strings using `tostring`, so numbers, tables with a `__tostring` metamethod,
@@ -59,7 +63,7 @@ end
 ---@param str any
 ---@param close string
 local function enclose(str, close)
-   assert(#close == 2, "close: '" .. close .. "'")
+   assert(#close == 2, "delimiter must be 2 characters")
    return close:sub(1, 1) .. tostring(str) .. close:sub(2, 2)
 end
 
@@ -67,7 +71,7 @@ end
 local function enclose_key(key)
    if type(key) == "number" then
       return enclose(key, "[]")
-   elseif type(key) == "string" then
+   elseif type(key) == "string" or type(key) == "boolean" then
       return enclose(key, "''")
    else
       return key
@@ -75,25 +79,25 @@ local function enclose_key(key)
 end
 
 ---@param value any
----@param expected Type
-local function assertIsClass(value, expected)
-   assert(Class.isClass(value), ("expected Class subtype '%s', got '%s'"):format(expected.name, type(value)))
+---@param expected_type Type
+local function assertIsClass(value, expected_type)
+   assert(Class.isClass(value), ("expected Class subtype %s, got %s"):format(expected_type, type(value)))
 end
 
 ---@param value Type
----@param expected Type
-local function assertIsInstance(value, expected)
-   assert(value:is(expected), ("expected Class subtype %s, got %s"):format(expected, value))
+---@param expected_type Type
+local function assertIsInstance(value, expected_type)
+   assert(value:is(expected_type), ("expected Class subtype %s, got %s"):format(expected_type, value))
 end
 
 ---@param value any
----@param expected string
+---@param expected_type string
 ---@return string
-local function string_expect(value, expected)
-   if type(value) == "string" then
+local function string_expect(value, expected_type)
+   if type(value) == "string" or type(value) == "function" then
       value = enclose(value, "''")
    end
-   return ("expected '%s', got '%s': %s"):format(expected, type(value), tostring(value))
+   return ("expected %s, got %s: %s"):format(expected_type, type(value), tostring(value))
 end
 
 
@@ -114,27 +118,11 @@ function Type:__call(...)
 end
 
 function UnionType:initialize(...)
-   assert(select("#", ...) > 0, "cannot create an empty UnionType")
-
    Type.initialize(self, "union")
+
+   assert(select("#", ...) > 0, "cannot create an empty UnionType")
    self.types = {}
    self:add(...)
-end
-
----@param value any
----@return boolean, any
-function UnionType:__call(value)
-   ---@type string[]
-   local expected_types = {}
-   for _, p_type in ipairs(self.types) do
-      local ok, _ = p_type(value)
-      if ok then
-         return true, nil
-      end
-      table.insert(expected_types, p_type.type_name)
-   end
-
-   return false, string_expect(value, conjoin(expected_types, "or"))
 end
 
 ---@param ... PrimitiveType
@@ -153,6 +141,19 @@ function UnionType:__tostring()
    return conjoin(self.types, "or")
 end
 
+---@param value any
+---@return boolean, any
+function UnionType:__call(value)
+   for _, p_type in ipairs(self.types) do
+      local ok, _ = p_type(value)
+      if ok then
+         return true, nil
+      end
+   end
+
+   return false, string_expect(value, conjoin(self.types, "or"))
+end
+
 ---@param type_name string
 function PrimitiveType:initialize(type_name)
    Type.initialize(self, type_name)
@@ -160,7 +161,7 @@ end
 
 ---@return string
 function PrimitiveType:__tostring()
-   return "'" .. self.type_name .. "'"
+   return "Type" .. enclose(self.type_name, "()")
 end
 
 ---@param value any
@@ -175,12 +176,12 @@ end
 
 ---@param schema table<string, Type>
 function MapType:initialize(schema)
+   Type.initialize(self, "map")
    assert(type(schema) == "table", string_expect(schema, "table"))
    for key, value in pairs(schema) do
       -- TODO: Maybe, allow non-Class values?
-      assert(Class.isClass(value), ("field %s: %s"):format(enclose_key(key), string_expect(value, "type")))
+      assert(Class.isClass(value), ("field %s: %s"):format(enclose_key(key), string_expect(value, "Type")))
    end
-   Type.initialize(self, "map")
    self.schema = schema
 end
 
@@ -211,6 +212,67 @@ function MapType:__call(value)
    return true, nil
 end
 
+---@param ... [Type, Type]
+function MapOfType:initialize(...)
+   Type.initialize(self, "map_of")
+   self.paired_types = { ... }
+   for arg_idx, value in ipairs(self.paired_types) do
+      -- TODO: maybe, this is too verbose?
+      assert(type(value) == "table", ("argument %s: %s"):format(arg_idx, string_expect(value, "{Type, Type}")))
+      assert(#value == 2,
+         ("argument %s: expected %s, got {%s}"):format(arg_idx, "{Type, Type}", concat_tostring(value, ", ")))
+      for idx, element in ipairs(value) do
+         assert(Class.isClass(element),
+            ("argument %s(index[%s]): %s"):format(arg_idx, idx, string_expect(element, "Type")))
+      end
+   end
+end
+
+---@return string
+function MapOfType:__tostring()
+   ---@type string[]
+   local types = {}
+   for _, paired_type in pairs(self.paired_types) do
+      table.insert(types, ("%s = %s"):format(tostring(paired_type[1]), tostring(paired_type[2])))
+   end
+   return conjoin(types, "or")
+end
+
+---@param value any
+---@return boolean, any
+function MapOfType:__call(value)
+   if type(value) ~= "table" then
+      return false, string_expect(value, "table")
+   end
+
+   if #value == 0 then
+      return false, ("expected %s key-value pairs, got empty table"):format(tostring(self))
+   end
+
+   ---@type string[]
+   local valid_key_types_list = {}
+   for _, paired_type in pairs(self.paired_types) do
+      table.insert(valid_key_types_list, tostring(paired_type[1]))
+   end
+   local valid_key_types = conjoin(valid_key_types_list, "or")
+   for k, v in pairs(value) do
+      for _, paired_type in pairs(self.paired_types) do
+         local ok_k, _ = (paired_type[1])(k)
+         if not ok_k then
+            return ok_k, ("expected %s key, got '%s': %s"):format(valid_key_types, type(k), k)
+         end
+         local ok_v, err_v = (paired_type[2])(v)
+         if not ok_v then
+            return ok_v, ("field %s value: %s"):format(enclose_key(k), err_v)
+         end
+         if ok_k and ok_v then
+            break
+         end
+      end
+   end
+   return true, nil
+end
+
 ---@class hybrid.types
 ---@field string PrimitiveType
 ---@field number PrimitiveType
@@ -234,6 +296,9 @@ local M = {
    ---@param schema table<string, Type>
    ---@return MapType
    map = function(schema) return MapType:new(schema) end,
+   ---@param ... [Type, Type]
+   ---@return MapOfType
+   map_of = function(...) return MapOfType:new(...) end,
 }
 M["function"] = M.func
 M["nil"] = M.null
