@@ -26,7 +26,7 @@ local MapOfType = Type:extend("MapOfType")
 ---All elements are first converted to strings using `tostring`, so numbers, tables with a `__tostring` metamethod,
 ---and other values are handled safely.
 ---
----@param list table
+---@param list any[]
 ---@param sep? string
 ---@param i?   integer
 ---@param j?   integer
@@ -45,7 +45,7 @@ local function concat_tostring(list, sep, i, j)
    return table.concat(tmp, sep, 1, #tmp)
 end
 
----@param list table
+---@param list any[]
 ---@param conj? string "default: 'and'"
 ---@return string
 local function conjoin(list, conj)
@@ -77,6 +77,16 @@ local function enclose_key(key)
    else
       return key
    end
+end
+
+---@param t table
+---@return number
+local function table_size(t)
+   local count = 0
+   for _ in pairs(t) do
+      count = count + 1
+   end
+   return count
 end
 
 ---@param value any
@@ -164,7 +174,7 @@ function UnionType:__call(value)
    end
 
    if #errors > 0 then
-      return false, '{ "' .. concat_tostring(errors, '", "') .. '" }'
+      return false, errors
    else
       return false, string_expect(value, conjoin(self.types, "or"))
    end
@@ -278,13 +288,13 @@ function MapOfType:accepts(value)
 end
 
 ---@param value any
----@return boolean, string
+---@return boolean, string | string[]
 function MapOfType:__call(value)
    if not self:accepts(value) then
       return false, string_expect(value, "table")
    end
 
-   if #value == 0 then
+   if table_size(value) == 0 then
       return false, ("expected %s key-value pairs, got empty table"):format(tostring(self))
    end
 
@@ -294,22 +304,30 @@ function MapOfType:__call(value)
       table.insert(valid_key_types_list, tostring(paired_type[1]))
    end
    local valid_key_types = conjoin(valid_key_types_list, "or")
+   ---@type string[]
+   local errors = {}
    for k, v in pairs(value) do
       for _, paired_type in pairs(self.paired_types) do
          local ok_k, _ = (paired_type[1])(k)
-         if not ok_k then
-            return ok_k, ("expected %s key, got '%s': %s"):format(valid_key_types, type(k), k)
-         end
-         local ok_v, err_v = (paired_type[2])(v)
-         if not ok_v then
-            return ok_v, ("field %s value: %s"):format(enclose_key(k), err_v)
-         end
-         if ok_k and ok_v then
-            break
+         if ok_k then
+            local ok_v, err_v = (paired_type[2])(v)
+            if not ok_v then
+               table.insert(errors, ("field %s value: %s"):format(enclose_key(k), err_v))
+               goto continue
+            end
+            if ok_k and ok_v then
+               return true, ""
+            end
+            ::continue::
          end
       end
    end
-   return true, ""
+
+   if #errors > 0 then
+      return false, errors
+   else
+      return false, string_expect(value, valid_key_types)
+   end
 end
 
 ---@class hybrid.types
