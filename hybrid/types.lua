@@ -3,9 +3,11 @@ local Class = require("hybrid.classic")
 local dbg = require("debugger")
 local utils = require("hybrid.utils")
 
+---@class hybrid.types
+local types = {}
+
 ---@class BaseType : Class
 ---@field _type_name string
----@field _optional boolean
 local BaseType = Class:extend("BaseType")
 
 ---@class UnionType : BaseType
@@ -22,6 +24,10 @@ local MapType = BaseType:extend("MapType")
 ---@class MapOfType : BaseType
 ---@field _paired_types [BaseType, BaseType][]
 local MapOfType = BaseType:extend("MapOfType")
+
+---@class OptionalType : BaseType
+---@field _target_type BaseType
+local OptionalType = Class:extend("OptionalType")
 
 ---@alias Result boolean | Error
 ---@class Error
@@ -75,15 +81,11 @@ end
 ---@param _type_name string
 function BaseType:initialize(_type_name)
    self._type_name = _type_name
-   self._optional = false
 end
 
----@generic T
----@param self T
----@return T
+---@return OptionalType
 function BaseType:optional()
-   self._optional = true
-   return self
+   return OptionalType:new(self)
 end
 
 ---@return string
@@ -114,9 +116,51 @@ function BaseType:__call(...)
    return false, "method '__call' is abstract and must be implemented by a subclass."
 end
 
----@param _type_name string
-function BuiltinType:initialize(_type_name)
-   BaseType.initialize(self, _type_name)
+---@param target_type BaseType
+function OptionalType:initialize(target_type)
+   BaseType.initialize(self, "optional")
+   self._target_type = target_type
+end
+
+---@return string
+function OptionalType:_describe_type()
+   return self._type_name .. " " .. self._target_type:_describe_type()
+end
+
+---@return string
+function OptionalType:__tostring()
+   return self:_describe_type()
+end
+
+---@param value any
+---@return Result, string
+function OptionalType:check(value)
+   if value == nil then
+      return true, ""
+   end
+
+   local ok, _ = self._target_type(value)
+   if ok then
+      return true, ""
+   else
+      return Error, expect_got_value(value, self)
+   end
+end
+
+---@param value any
+---@return boolean, string
+function OptionalType:__call(value)
+   local ok, err = self:check(value)
+   if ok == Error or not ok then
+      return false, err
+   else
+      return true, ""
+   end
+end
+
+---@param type_name string
+function BuiltinType:initialize(type_name)
+   BaseType.initialize(self, type_name)
 end
 
 ---@return string
@@ -132,9 +176,7 @@ end
 ---@param value any
 ---@return Result, string
 function BuiltinType:check(value)
-   if self._optional and value == nil then
-      return true, ""
-   elseif self._type_name == "any" or type(value) == self._type_name then
+   if self._type_name == "any" or type(value) == self._type_name then
       return true, ""
    else
       return false, expect_got_value(value, self)
@@ -165,11 +207,11 @@ function UnionType:_describe_type()
    return utils.conjoin(self._types, "or")
 end
 
----@param ... BuiltinType
+---@param ... BaseType
 ---@return UnionType
 function UnionType:add(...)
-   local types = { ... }
-   for _, p_type in ipairs(types) do
+   local base_types = { ... }
+   for _, p_type in ipairs(base_types) do
       assertIsClass(p_type, BaseType)
       assertIsInstance(p_type, BaseType)
       table.insert(self._types, p_type)
@@ -348,26 +390,23 @@ function MapOfType:__call(value)
    end
 end
 
----@class hybrid.types
-local types = {
-   string = BuiltinType:new("string"),
-   number = BuiltinType:new("number"),
-   func = BuiltinType:new("function"),
-   boolean = BuiltinType:new("boolean"),
-   userdata = BuiltinType:new("userdata"),
-   table = BuiltinType:new("table"),
-   null = BuiltinType:new("nil"),
-   any = BuiltinType:new("any"),
+types.string = BuiltinType:new("string")
+types.number = BuiltinType:new("number")
+types.func = BuiltinType:new("function")
+types.boolean = BuiltinType:new("boolean")
+types.userdata = BuiltinType:new("userdata")
+types.table = BuiltinType:new("table")
+types.null = BuiltinType:new("nil")
+types.any = BuiltinType:new("any")
 
-   ---@param ... BaseType
-   ---@return UnionType
-   union = function(...) return UnionType:new(...) end,
-   ---@param schema table<string, BaseType>
-   ---@return MapType
-   map = function(schema) return MapType:new(schema) end,
-   ---@param ... [BaseType, BaseType]
-   ---@return MapOfType
-   map_of = function(...) return MapOfType:new(...) end,
-}
+---@param ... BaseType
+---@return UnionType
+types.union = function(...) return UnionType:new(...) end
+---@param schema table<string, BaseType>
+---@return MapType
+types.map = function(schema) return MapType:new(schema) end
+---@param ... [BaseType, BaseType]
+---@return MapOfType
+types.map_of = function(...) return MapOfType:new(...) end
 
 return types

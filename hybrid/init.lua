@@ -16,14 +16,14 @@ local dbg = require("debugger")
 
 -- local t = types.number
 
-local t = types.union(types.string, types.number)
+local t = types.union(types.string, types.number):optional()
 local v = {
    -- [1] = "dev",
    -- name = 1
    name = "",
 }
 
-local p = {}
+local p = true
 -- dbg()
 local ok, err = t(p)
 print(ok, inspect(err))
