@@ -173,7 +173,9 @@ function UnionType:__call(value)
       end
    end
 
-   if #errors > 0 then
+   if #errors == 1 then
+      return false, errors[1]
+   elseif #errors > 1 then
       return false, errors
    else
       return false, string_expect(value, conjoin(self.types, "or"))
@@ -315,7 +317,7 @@ function MapOfType:__call(value)
          if ok_k then
             matched = true
             local ok_v, err_v = (paired_type[2])(v)
-            if not ok_v then
+            if not ok_v or ((paired_type[2]):accepts(v) and not ok_v) then
                all_ok = false
                table.insert(errors, ("field %s value: %s"):format(enclose_key(k), err_v))
             end

@@ -34,6 +34,7 @@
 
 local t = require("hybrid.types")
 local inspect = require("inspect")
+local dbg = require("debugger")
 
 local M = {}
 
@@ -52,7 +53,7 @@ M.PackageConfigs = t.map_of(
 
 local ok, err = M.PackageConfigs({
    "git",
-   hypr = {}, -- TODO: it only returns "field 'hypr' value: table: 0x560496eda5c0"
+   hypr = {},
 })
 print(ok, inspect(err))
 return M
