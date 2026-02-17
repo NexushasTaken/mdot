@@ -4,6 +4,7 @@ local dbg = require("debugger")
 
 ---@class Type : Class
 ---@field type_name string
+---@field is_optional boolean
 local Type = Class:extend("Type")
 
 ---@class UnionType : Type
@@ -115,6 +116,15 @@ end
 ---@param type_name string
 function Type:initialize(type_name)
    self.type_name = type_name
+   self.is_optional = false
+end
+
+---@generic T
+---@param self T
+---@return T
+function Type:optional()
+   self.is_optional = true
+   return self
 end
 
 ---@return string
@@ -201,7 +211,7 @@ end
 ---@param value any
 ---@return boolean, string
 function PrimitiveType:__call(value)
-   if self:accepts(value) then
+   if self:accepts(value) or (self.is_optional and value == nil) then
       return true, ""
    else
       return false, string_expect(value, self.type_name)
