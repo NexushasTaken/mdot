@@ -325,11 +325,11 @@ end
 ---@return string
 function MapOfType:__tostring()
    ---@type string[]
-   local types = {}
+   local types_string = {}
    for _, paired_type in pairs(self._paired_types) do
-      table.insert(types, ("%s = %s"):format(tostring(paired_type[1]), tostring(paired_type[2])))
+      table.insert(types_string, ("%s = %s"):format(tostring(paired_type[1]), tostring(paired_type[2])))
    end
-   return utils.conjoin(types, "or")
+   return utils.conjoin(types_string, "or")
 end
 
 ---@param value any
