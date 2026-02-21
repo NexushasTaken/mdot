@@ -1,165 +1,147 @@
----@class Link
----@field source PathString
----@field targets PathString[]
----@field backup boolean
----@field override boolean
+---@alias mdot.Enabled fun(): boolean
+---@alias mdot.DependOn string
+---@alias mdot.Targets spec.PathString[]
+---@alias mdot.Links table<spec.PathString, mdot.Targets>
 
----@class Package
+---@class mdot.Package
 ---@field name string
----@field enabled fun(): boolean
----@field depends Package[]
----@field links LinkSpec[]
----@field excludes PathString[]
+---@field enabled mdot.Enabled
+---@field depends string[] | mdot.Packages
+---@field links mdot.Links
+---@field excludes spec.PathString[]
+
+---@alias mdot.Packages table<string, mdot.Package>
 
 local log = require("mdot.log")
 local tablex = require("pl.tablex")
 local inspect = require("inspect")
-local hybrid = require("hybrid")
+local t = require("tableshape").types
+local utils = require("mdot.utils")
 
 local spec = require("mdot.spec")
 
----@param pkg? Package | {}
----@return Package
-local function new_package(pkg)
-   pkg = pkg or {}
-   ---@type Package
-   local defaults = {
-      name = "",
-      enabled = function() return true end,
-      depends = {},
-      links = {},
-      excludes = {},
-   }
-   return tablex.merge(defaults, pkg, true)
-end
+local M = {}
 
----@param link_spec? LinkSpec | {}
----@return Link
-local function link_from_link_spec(link_spec)
-   link_spec = link_spec or {}
+M._DefaultEnable = function() return true end
 
-   ---@type Link
-   local link = {
-      source = "",
-      targets = {},
-      backup = link_spec.backup,
-      override = link_spec.override,
-   }
-
-   ---@type PathString
-   local source = ""
-   ---@type TargetList
-   local targets = {}
-
-   local indexed = link_spec[1] and link_spec[2]
-   local keyed = link_spec.source and link_spec.targets
-
-   if indexed and keyed then
-      -- TODO: throws an error
-   elseif indexed then
-      source = link_spec[1]
-      targets = link_spec[2]
-   elseif keyed then
-      source = link_spec.source
-      targets = link_spec.targets
-   end
-
-   ---@cast source PathString
-   link.source = source
-   if type(targets) == "string" then
-      link.targets = { targets }
-   elseif type(targets) == "table" then
-      for _, target in ipairs(targets) do
-         if type(target) == "string" then
-            table.insert(link.targets, target)
-         else
-            -- Error
-         end
+---@param user_config spec.Packages
+---@param memo? table<spec.Package, boolean> avoids recursion
+---@return mdot.Packages
+local function user_config_to_packages(user_config, memo)
+   memo = memo or {}
+   ---@type mdot.Packages
+   local packages = {}
+   for name, config in pairs(user_config) do
+      if memo[config] then
+         utils.throw_err(("recursive package config is not allowed: %s = %s"):format(name, config))
+         goto continue
       end
-   end
 
-   return link
-end
+      local enabled = config.enabled
+      if enabled == nil then
+         enabled = M._DefaultEnable
+      end
 
----@param links Links
----@return LinkSpec[]
-local function config_links_to_links(links)
-   ---@type LinkSpec[]
-   local links_specs = {}
-   for key, value in pairs(links) do
-      if type(key) == "integer" then
-         -- TODO: use link_from_link_spec
-      elseif type(key) == "string" then
-         -- TODO: use link_from_link_spec
+      ---@type mdot.Enabled
+      local pkg_enabled
+      if type(enabled) == "function" then
+         pkg_enabled = enabled
       else
-         -- Error
+         pkg_enabled = function() return enabled end
       end
+
+      ---@type mdot.Package
+      local pkg = {
+         name = name,
+         enabled = pkg_enabled,
+         depends = {},
+         links = {},
+         excludes = {},
+      }
+
+      memo[config] = true
+      packages[name] = pkg
+
+      pkg.depends = user_config_to_packages(config.depends or {}, memo)
+      pkg.links = tablex.map(utils.as_list, config.links or {})
+      pkg.excludes = utils.as_list(config.excludes, {})
+
+      ::continue::
    end
-   return links_specs
+   return packages
 end
 
----@param name string
----@param config PackageSpec
----@return Package
-local function package_config_to_package(name, config)
-   local pkg = new_package()
+---@param pkgs mdot.Packages
+---@return mdot.Packages
+local function flatten_packages(pkgs)
+   ---@type mdot.Packages
+   local flattened = {}
 
-   tablex.update(pkg, {
-      name = name
-   })
+   ---@param p mdot.Package
+   local function process(p)
+      if flattened[p.name] then return end
 
-   local enabled = config.enabled
-   if type(enabled) == "boolean" then
-      pkg.enabled = function() return enabled end
-   elseif type(enabled) == "function" then
-      pkg.enabled = enabled
-   else
-      -- Error
-   end
+      local dep_names = {}
 
-   -- TODO: handle pkg.depends
-
-   local links = config.links
-   if type(links) == "table" then
-      pkg.links = config_links_to_links(links)
-   else
-      -- Error
-   end
-
-   return pkg
-end
-
----@param configs PackageConfigs
----@return Package[]
-local function package_configs_to_packages(configs)
-   ---@type Package[]
-   local out = {}
-
-   for key, value in pairs(configs) do
-      if type(key) == "integer" then
-         if type(value) == "string" then
-            table.insert(out, new_package({
-               name = value,
-            }))
-         elseif type(value) == "table" then
-         else
-            -- Error
+      if type(p.depends) == "table" then
+         for dep_name, dep_pkg in pairs(p.depends) do
+            if type(dep_pkg) == "table" then
+               process(dep_pkg)
+               table.insert(dep_names, dep_name)
+            else
+               table.insert(dep_names, dep_pkg)
+            end
          end
-      elseif type(key) == "string" then
-         if type(value) == "table" then
-            table.insert(out, package_config_to_package(key, value))
-         else
-            -- Error
-         end
+         p.depends = dep_names
       end
+
+      flattened[p.name] = p
    end
 
-   return out
+   for _, pkg in pairs(pkgs) do
+      process(pkg)
+   end
+
+   return flattened
 end
 
----@param configs PackageConfigs
-local function deploy(configs)
-   local _ = package_configs_to_packages(configs)
+---@param user_config spec.Package
+---@return mdot.Packages
+function M.normalize_user_config(user_config)
+   local ok, err = spec.Packages(user_config)
+   utils.throw(ok, err)
+
+   local pkgs = user_config_to_packages(user_config)
+   pkgs = flatten_packages(pkgs)
+   return pkgs
 end
 
-deploy({})
+---@param user_config spec.Packages
+function M.deploy(user_config)
+   local pkgs = M.normalize_user_config(user_config)
+   print(inspect(pkgs))
+end
+
+M.normalize_user_config({
+   git = {
+      depends = {
+         ["git-lfs"] = {
+            depends = {
+               neovim = {
+                  depends = {
+                     ["git"] = {}
+                  }
+               }
+            }
+         }
+      },
+      excludes = { "file" },
+      links = {
+         ["src"] = "dst",
+         ["src_list"] = { "dst_list" },
+      },
+   },
+})
+
+
+return M

@@ -1,59 +1,38 @@
----@alias Command string
----@alias HookAction Command | fun() | (Command | fun())[]
+---@alias spec.Command string
+---@alias spec.HookAction spec.Command | fun() | (spec.Command | fun())[]
 
----@alias OSPackageSpec string | table<string, string>
----@alias PathString string
----@alias TargetList PathString | PathString[]
+---@alias spec.OSPackageSpec string | table<string, string>
+---@alias spec.PathString string
+---@alias spec.TargetList spec.PathString | spec.PathString[]
 
----@class LinkSpec
----@field source? PathString
----@field targets? TargetList
----@field [1]? PathString
----@field [2]? TargetList
----@field backup? boolean
----@field override? boolean
+---@alias spec.Links table<spec.PathString, spec.TargetList>
 
----@class Links : {
----   [integer]: LinkSpec,     -- for { "s", "t" } or { source = "s", targets = "t" }
----   [PathString]: TargetList, -- for ["path/to/file"] = "target" or ["path/to/file"] = { "targetA", "targetB" }
----}
-
----@class PackageSpec
----@field [1]? string
----@field name? string
+---@class spec.Package
 ---@field enabled? boolean | fun(): boolean
----@field depends? PackageConfigs
----@field links? Links
----@field excludes? TargetList
+---@field depends? spec.Packages
+---@field links? spec.Links
+---@field excludes? spec.TargetList
 
----@alias PackageEntry string | PackageSpec
----@class PackageConfigs : {
----   [integer]: PackageEntry,
----   [string]: PackageSpec,
----}
+---@alias spec.Packages table<string, spec.Package>
 
-local t = require("hybrid.types")
+local t = require("tableshape").types
 local inspect = require("inspect")
+local log = require("mdot.log")
 local dbg = require("debugger")
 
 local M = {}
 
-M.PackageSpec = t.map({
-   name = t.string,
-   -- enabled = t.union(t.string, t.func),
-   -- depends = M.PackageConfigs,
-   -- links = M.Links,
-   -- excludes = M.Links,
-})
-M.PackageEntry = t.union(t.string, M.PackageSpec)
-M.PackageConfigs = t.map_of(
-   { t.number, t.string },
-   { t.string, M.PackageEntry }
-)
+M.PathString = t.string
+M.TargetList = M.PathString + t.array_of(M.PathString)
+M.Links = t.map_of(M.PathString, M.TargetList)
 
-local ok, err = M.PackageConfigs({
-   "git",
-   hypr = {},
+M.Package = t.shape({
+   enabled = (t.boolean + t.func):is_optional(),
+   depends = t.proxy(function() return M.Packages end):is_optional(),
+   links = M.Links:is_optional(),
+   excludes = M.TargetList:is_optional(),
 })
-print(ok, inspect(err))
+
+M.Packages = t.map_of(t.string, M.Package)
+
 return M

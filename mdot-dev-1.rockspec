@@ -31,6 +31,8 @@ build = {
 }
 test_dependencies = {
    "luaunit",
+   "inspect",
+   "penlight",
 }
 test = {
    type = "command",
