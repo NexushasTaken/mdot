@@ -51,7 +51,8 @@ return {
   },
 }
 ```
-> see [Package Fields](#package-fields) `links` field why this is the case.
+Use `exclude` field to specify this field to which what files to be ignored by automatic links.
+> see [Package Fields](#package-fields) `links` field for more info.
 The insertion of all entries will always happen even if you have specified the field `links`, for example:
 ```lua
 return {
@@ -81,47 +82,19 @@ internally, the links will become:
   - This is used as identifier for that package.
   - It is used to locate the sources and targets of that package configurations
 
-There are many ways to specify the name of the package.
+**Ways to specify the name of the package**
 
-**Ways**
-
-1. By the string itself
 ```lua
 return {
-  "bash" -- This package is called "bash"
-}
-```
+  "bash" -- By the string itself
+  { "bash" } -- Wrapping the string in a table (note, the name must be on the first index of the table)
+  bash = {} -- Using *key* as a name
+  { name = "bash" } -- Specifying name in the table field called *name*
 
-2. Wrapping the string in a table (note, the name must be on the first index of the table)
-```lua
-return {
-  { "bash" } -- This package is called "bash"
-}
-```
+  -- regardless of what used above, the package will translate to:
+  { name = "bash" }
 
-3. Using *key* as a name
-```lua
-return {
-  bash = {} -- This package is called "bash"
-}
-```
-
-4. Specifying name in the table field called *name*
-```lua
-return {
-  { name = "bash" } -- This package is called "bash"
-}
-```
-
-5. Every ways above, the package is always normalized regardless of where the name is specified:
-```lua
-{ name = "bash" }
-```
-
-6. specifying in the name using all of those ways will result in error:
-```lua
--- This is not allowed
-return {
+  -- specifying in the name using all of those ways will result in error:
   bash = { "bash", name = "another-name-or-bash" }
 }
 ```
@@ -134,45 +107,31 @@ The source will always be relative to `mdot/pkgs/<package-name>/`, for example, 
 
 There are many ways to make a link:
 
-1. By config path as string
-```lua
-{
-  "bash",
-  links = {
-    "bashrc.sh", -- this file is located in "mdot/pkgs/bash/bashrc.sh"
-  },
-}
-```
-Doing this will normalize that element into:
-```lua
-{
-  "bash",
-  links = {
-    ["bashrc.sh"] = {
-      "<default_target>/bashrc.sh", -- basically, its "~/.config/bash/bashrc.sh"
-    }
-  },
-}
-```
-
-
-2. using key-value pairs as source to target
+1.
 ```lua
 return {
-  "bash",
-  ["bashrc.sh"] = "~/.bashrc",
+  {
+    "bash" -- name of the package
+
+    --- By config path as string
+    links = { "bashrc.sh" }, -- this file is located in "mdot/pkgs/bash/bashrc.sh"
+
+    -- Doing the way above will normalize that element into:
+    links = {
+      ["bashrc.sh"] = {
+        "<default_target>/bashrc.sh", -- basically, its "~/.config/bash/bashrc.sh"
+      }
+    },
+
+
+    ["bashrc.sh"] = "~/.bashrc", -- using key-value pairs as source to target
+
+    ["bashrc.sh"] = { "~/.bashrc", "~/.config/bash/bashrc.sh"}, -- using key-value pairs as source to targets, but the targets is an array
+  }
 }
 ```
 
-3. using key-value pairs as source to targets, but the targets is an array
-```lua
-return {
-  "bash",
-  ["bashrc.sh"] = { "~/.bashrc", "~/.config/bash/bashrc.sh"},
-}
-```
-
-- `excludes` - specify this to which what files to be ignored by automatic links.
+- `excludes` - specify this field to which what files to be ignored by automatic links.
   Glob can be used, like `*`.
 
 for example:
@@ -210,8 +169,29 @@ want more control to linking the configs.
 > TODO: Still not sure how `depends` will affect `enabled`
 - `depends` - just like how literrary packages works, packages has dependencies.
 if the package1 depends on another package2, package2 will be installed(its configs will be linked).
+the dependencies of a packages must be enabled, but if any dependencies are disabled, error will be thrown;
+unless, DependencySpec is specified instead of regular Package definition.
+
+Example:
+```lua
+return {
+  "fish",
+  {
+    "alacritty",
+
+    -- "fish" package is required for "alacritty", disabling "fish" package will result in error
+    depends = { "fish" },
+    -- The definition above, translate to
+    depends = { { "fish", type = "required" } },
+
+    -- "fish" package is optional and "fish" package can be disabled
+    depends = { { "fish", type = "optional" } },
+  },
+}
+```
 
 - `enabled` - This controls if the package should be installed or not.
+  Defaults to `true`
 
 Example of managing dotfiles for Hyprland setup.
 
@@ -285,3 +265,4 @@ includes:
 - [Yolk](https://elkowar.github.io/yolk/book/getting_started.html)
 - [GNU Stow](https://www.gnu.org/software/stow/)
 - [Nix Flakes](https://nixos.wiki/wiki/flakes) and [Home Manager](https://github.com/nix-community/home-manager)
+- [Lazy - Folke](https://lazy.folke.io/)

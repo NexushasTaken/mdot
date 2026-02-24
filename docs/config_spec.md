@@ -26,7 +26,13 @@
 ---@field links? Links
 ---@field excludes? TargetList
 
----@alias PackageEntry string | PackageSpec
+---@alias DependencyMode "required" | "optional"
+
+---@class DependencySpec
+---@field [1] string -- The package name
+---@field type? DependencyMode -- Defaults to "required"
+
+---@alias PackageEntry string | DependencySpec | PackageSpec
 ---@class PackageConfigs : {
 ---   [integer]: PackageEntry,
 ---   [string]: PackageSpec,
