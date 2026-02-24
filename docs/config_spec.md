@@ -6,6 +6,7 @@
 ---@alias OSPackageSpec string | table<string, string>
 ---@alias PathString string
 ---@alias TargetList PathString | PathString[]
+---@alias Platforms string | string[]
 
 ---@class LinkSpec
 ---@field source? PathString
@@ -22,6 +23,7 @@
 ---@field [1]? string
 ---@field name? string
 ---@field enabled? boolean | fun(): boolean
+---@field platforms? Platforms
 ---@field depends? PackageConfigs
 ---@field links? Links
 ---@field excludes? TargetList

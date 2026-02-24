@@ -193,6 +193,10 @@ return {
 - `enabled` - This controls if the package should be installed or not.
   Defaults to `true`
 
+- `platforms` - Specify the supported platforms which the package is only available
+
+If the current platform, lets say "Windows", but the supported platforms is only "Linux", then the package is technically disabled, hence, error will be thrown.
+
 Example of managing dotfiles for Hyprland setup.
 
 `mdot/init.lua`
