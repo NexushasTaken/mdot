@@ -1,7 +1,8 @@
-```lua
----@alias Command string
----@alias HookAction Command | fun() | (Command | fun())[]
+# Package Spec
 
+> This is an unfinished specification, it will be updated in the future as more features are added.
+
+```lua
 ---@alias OSPackageSpec string | table<string, string>
 ---@alias PathString string
 ---@alias TargetList PathString | PathString[]
@@ -11,8 +12,6 @@
 ---@field targets? TargetList
 ---@field [1]? PathString
 ---@field [2]? TargetList
----@field backup? boolean
----@field override? boolean
 
 ---@class Links : {
 ---   [integer]: LinkSpec,     -- for { "s", "t" } or { source = "s", targets = "t" }
