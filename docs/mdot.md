@@ -172,14 +172,14 @@ return {
 }
 ```
 
-- `exclude` - specify this to which what files to be ignored by automatic links.
+- `excludes` - specify this to which what files to be ignored by automatic links.
   Glob can be used, like `*`.
 
 for example:
 ```lua
 {
   "bash",
-  exclude = "bash_*.sh",
+  excludes = "bash_*.sh",
 }
 ```
 This results in
@@ -188,11 +188,11 @@ This results in
   "bash",
   links = {
     "prompt.sh",
-    -- Both of these files will not be included, as it matches the exclude glob.
+    -- Both of these files will not be included, as it matches the excludes glob.
     -- "bashrc.sh",
     -- "bash_profile.sh",
   },
-  exclude = "bash*.sh",
+  excludes = "bash*.sh",
 }
 ```
 You can also use an array of exclude globs like so:
@@ -200,10 +200,10 @@ You can also use an array of exclude globs like so:
 {
   "bash",
   links = {}, -- `links` is then will be empty
-  exclude = { "bash*.sh", "prompt.sh" },
+  excludes = { "bash*.sh", "prompt.sh" },
 }
 ```
-Note that using `"*"` in `exclude`, will disable the automatic links, as it
+Note that using `"*"` in `excludes`, will disable the automatic links, as it
 matches all files, you then had to manually link the configs; use this if you
 want more control to linking the configs.
 
