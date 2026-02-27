@@ -86,15 +86,16 @@ internally, the links will become:
 
 ```lua
 return {
-  "bash" -- By the string itself
-  { "bash" } -- Wrapping the string in a table (note, the name must be on the first index of the table)
-  bash = {} -- Using *key* as a name
+  "bash", -- By the string itself
+  { "bash" }, -- Wrapping the string in a table (note, the name must be on the first index of the table)
+  bash = {}, -- Using *key* as a name
+  { name = "bash" },
 
   -- regardless of what used above, the package will translate to:
-  { name = "bash" }
+  { name = "bash" },
 
   -- specifying in the name using all of those ways will result in error:
-  bash = { "bash", name = "another-name-or-bash" }
+  bash = { "bash", name = "another-name-or-bash" },
 }
 ```
 

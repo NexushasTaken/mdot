@@ -10,24 +10,27 @@
 
 ---@alias Links table<PathString, TargetList>
 
----@class PackageSpec
+---@class Package
 ---@field [1]? string
 ---@field name? string
----@field enabled? boolean | fun(): boolean
+---@field enabled? boolean | fun(): boolean -- wrapped boolean into Function that returns it.
 ---@field platforms? Platforms
----@field depends? PackageConfigs
+---@field depends? Dependencies
 ---@field links? Links
 ---@field excludes? TargetList
 
 ---@alias DependencyMode "required" | "optional"
 
----@class DependencySpec
----@field [1] string -- The package name
----@field type? DependencyMode -- Defaults to "required"
+---@class Dependency
+---@field [1] string
+---@field mode? DependencyMode -- Defaults to "required"
 
----@alias PackageEntry string | DependencySpec | PackageSpec
+---@alias Dependencies string | Dependency | Package
+
+---@alias PackageEntry string | Package
+
 ---@class PackageConfigs : {
 ---   [integer]: PackageEntry,
----   [string]: PackageSpec,
+---   [string]: Package,
 ---}
 ```

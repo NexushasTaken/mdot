@@ -7,5 +7,5 @@ charset = utf-8
 trim_trailing_whitespace = true
 insert_final_newline = true
 
-[*.{lua,rockspec}]
-indent_size = 3
+[*.{rs}]
+indent_size = 4
