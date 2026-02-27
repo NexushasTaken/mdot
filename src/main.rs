@@ -2,7 +2,7 @@ use log::{debug, error, info, trace, warn};
 use mlua::{Error as LuaError, Function, Lua, Result as LuaResult, Table, Value};
 
 use colored::*;
-use std::{collections::HashMap, error::Error, io, iter::Map};
+use std::{collections::HashMap, error::Error, io};
 
 fn setup_logger() -> Result<(), fern::InitError> {
     fern::Dispatch::new()
@@ -79,7 +79,14 @@ struct Context {
     packages: HashMap<String, Package>,
 }
 
-fn extract_name(tbl: &Table, key: Option<&Value>) -> LuaResult<String> {
+fn value_to_string(v: &Value) -> LuaResult<String> {
+    match v {
+        Value::String(s) => Ok(s.to_str()?.to_owned()),
+        _ => Err(LuaError::external(format!("expected string, got: {:?}", v))),
+    }
+}
+
+fn extract_package_name(tbl: &Table, key: Option<&Value>) -> LuaResult<String> {
     let idx_name: Option<String> = tbl.get(1).ok();
     let field_name: Option<String> = tbl.get("name").ok();
 
@@ -102,29 +109,37 @@ fn extract_name(tbl: &Table, key: Option<&Value>) -> LuaResult<String> {
     }
 }
 
-fn as_string_or_vec_string(value: Value) -> LuaResult<Vec<String>> {
+fn as_string_or_vec_string(value: &Value) -> LuaResult<Vec<String>> {
     match value {
         Value::String(name) => Ok(vec![name.to_str()?.to_owned()]),
         Value::Table(platforms) => Ok(platforms
             .sequence_values::<String>()
             .collect::<LuaResult<Vec<String>>>()?),
         Value::Nil => Ok(vec![]),
-        other => {
-            return Err(LuaError::external(format!(
-                "expected string or array of strings, got: {:?}",
-                other
-            )));
-        }
+        other => Err(LuaError::external(format!(
+            "expected string or array of strings, got: {:?}",
+            other
+        ))),
     }
+}
+
+fn ensure_package(ctx: &mut Context, name: String, pkg: Package) -> LuaResult<()> {
+    if ctx.packages.contains_key(&name) {
+        return Err(LuaError::external(
+            format!("The \"{name}\" already exists",),
+        ));
+    }
+    ctx.packages.insert(name, pkg);
+    Ok(())
 }
 
 fn create_package(ctx: &mut Context, name: String, tbl: &Table) -> LuaResult<Vec<Dependency>> {
     let pkg = Package {
-        name: name.clone(),
+        name: name.to_owned(),
         enabled: match tbl.get("enabled")? {
             Value::Boolean(v) => Some(ctx.lua.create_function(move |_, ()| Ok(v))?),
             Value::Function(f) => Some(f),
-            Value::Nil => Default::default(),
+            Value::Nil => None,
             other => {
                 return Err(LuaError::external(format!(
                     "expected boolean or function, got: {:?}",
@@ -132,7 +147,7 @@ fn create_package(ctx: &mut Context, name: String, tbl: &Table) -> LuaResult<Vec
                 )));
             }
         },
-        platforms: as_string_or_vec_string(tbl.get("platforms")?)?,
+        platforms: as_string_or_vec_string(&tbl.get("platforms")?)?,
         links: match tbl.get("links")? {
             Value::Table(links) => links
                 .pairs::<String, Value>()
@@ -140,7 +155,7 @@ fn create_package(ctx: &mut Context, name: String, tbl: &Table) -> LuaResult<Vec
                     let (src, targets) = pair?;
                     Ok(Link {
                         source: src,
-                        targets: as_string_or_vec_string(targets)?,
+                        targets: as_string_or_vec_string(&targets)?,
                     })
                 })
                 .collect::<LuaResult<Vec<Link>>>()?,
@@ -152,33 +167,32 @@ fn create_package(ctx: &mut Context, name: String, tbl: &Table) -> LuaResult<Vec
                 )));
             }
         },
-        excludes: as_string_or_vec_string(tbl.get("excludes")?)?,
+        excludes: as_string_or_vec_string(&tbl.get("excludes")?)?,
     };
-    ctx.packages.insert(name.clone(), pkg);
+    ensure_package(ctx, name.to_owned(), pkg)?;
 
     match tbl.get("depends")? {
-        Value::Table(ref dep) => {
-            return Ok(collect_packages(ctx, dep)?);
-        }
+        Value::Table(ref dep) => Ok(parse_dependencies(ctx, dep)?),
         Value::Nil => return Ok(vec![]),
-        other => {
-            return Err(LuaError::external(format!(
-                "expected boolean or function, got: {:?}",
-                other
-            )));
-        }
-    };
+        other => Err(LuaError::external(format!(
+            "expected boolean or function, got: {:?}",
+            other
+        ))),
+    }
 }
 
-fn collect_packages(ctx: &mut Context, tbl: &Table) -> LuaResult<Vec<Dependency>> {
+fn parse_dependencies(ctx: &mut Context, tbl: &Table) -> LuaResult<Vec<Dependency>> {
     let mut depends: Vec<Dependency> = Vec::new();
 
     tbl.for_each(|named_key: Value, value_pkg: Value| {
         match named_key {
             Value::Integer(_) => match value_pkg {
                 Value::String(_) => {
-                    ctx.packages
-                        .insert(value_pkg.to_string()?, Package::new(value_pkg.to_string()?));
+                    ensure_package(
+                        ctx,
+                        value_pkg.to_string()?,
+                        Package::new(value_pkg.to_string()?),
+                    )?;
                     depends.push(Dependency {
                         name: value_pkg.to_string()?,
                         mode: DependencyMode::Required,
@@ -186,7 +200,7 @@ fn collect_packages(ctx: &mut Context, tbl: &Table) -> LuaResult<Vec<Dependency>
                     });
                 }
                 Value::Table(ref tbl) => {
-                    let name: String = extract_name(tbl, None)?;
+                    let name: String = extract_package_name(tbl, None)?;
                     match tbl.get("mode")? {
                         Value::String(mode) => {
                             depends.push(Dependency {
@@ -205,9 +219,9 @@ fn collect_packages(ctx: &mut Context, tbl: &Table) -> LuaResult<Vec<Dependency>
                         }
                         Value::Nil => {
                             depends.push(Dependency {
-                                name: name.clone(),
+                                name: name.to_owned(),
                                 mode: DependencyMode::Required,
-                                depends: create_package(ctx, name.clone(), tbl)?,
+                                depends: create_package(ctx, name.to_owned(), tbl)?,
                                 ..Default::default()
                             });
                         }
@@ -215,24 +229,27 @@ fn collect_packages(ctx: &mut Context, tbl: &Table) -> LuaResult<Vec<Dependency>
                     }
                 }
                 v => {
+                    // TODO: change the error message
                     return Err(LuaError::external(format!("value: {:#?}", v)));
                 }
             },
             Value::String(_) => match value_pkg {
                 Value::Table(ref tbl) => {
-                    let name: String = extract_name(tbl, Some(&named_key))?;
+                    let name: String = extract_package_name(tbl, Some(&named_key))?;
                     depends.push(Dependency {
-                        name: name.clone(),
+                        name: name.to_owned(),
                         mode: DependencyMode::Required,
-                        depends: create_package(ctx, name.clone(), tbl)?,
+                        depends: create_package(ctx, name.to_owned(), tbl)?,
                         ..Default::default()
                     });
                 }
                 ref v => {
+                    // TODO: change the error message
                     return Err(LuaError::external(format!("value: {:#?}", v)));
                 }
             },
             v => {
+                // TODO: change the error message
                 return Err(LuaError::external(format!("key: {:#?}", v)));
             }
         }
@@ -240,17 +257,24 @@ fn collect_packages(ctx: &mut Context, tbl: &Table) -> LuaResult<Vec<Dependency>
         Ok(())
     })?;
 
-    return Ok(depends);
+    Ok(depends)
 }
 
 fn packages_test(ctx: &mut Context) -> LuaResult<()> {
     let source: String = r#"
     return {
         "git",
-        { name = "hyprland" },
+        {
+            name = "hyprland",
+            depends = {
+                { "git", mode = "required" },
+                "waybar",
+            },
+        },
         neovim = {
             depends = {
-                { "vim", mode = "required" }
+                { "vim", mode = "required" },
+                { "git", mode = "required" },
             },
             platforms = "linux",
         },
@@ -258,7 +282,7 @@ fn packages_test(ctx: &mut Context) -> LuaResult<()> {
     .into();
 
     let pkgs: Table = ctx.lua.load(source).eval()?;
-    let packages = collect_packages(ctx, &pkgs)?;
+    let packages = parse_dependencies(ctx, &pkgs)?;
 
     info!("pkgs: {:#?}", pkgs);
 
