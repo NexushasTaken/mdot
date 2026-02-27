@@ -133,44 +133,41 @@ fn ensure_package(ctx: &mut Context, name: String, pkg: Package) -> LuaResult<()
     Ok(())
 }
 
-fn create_package(ctx: &mut Context, name: String, tbl: &Table) -> LuaResult<Vec<Dependency>> {
-    let pkg = Package {
-        name: name.to_owned(),
-        enabled: match tbl.get("enabled")? {
-            Value::Boolean(v) => Some(ctx.lua.create_function(move |_, ()| Ok(v))?),
-            Value::Function(f) => Some(f),
-            Value::Nil => None,
-            other => {
-                return Err(LuaError::external(format!(
-                    "expected boolean or function, got: {:?}",
-                    other
-                )));
-            }
-        },
-        platforms: as_string_or_vec_string(&tbl.get("platforms")?)?,
-        links: match tbl.get("links")? {
-            Value::Table(links) => links
-                .pairs::<String, Value>()
-                .map(|pair| {
-                    let (src, targets) = pair?;
-                    Ok(Link {
-                        source: src,
-                        targets: as_string_or_vec_string(&targets)?,
-                    })
-                })
-                .collect::<LuaResult<Vec<Link>>>()?,
-            Value::Nil => Default::default(),
-            other => {
-                return Err(LuaError::external(format!(
-                    "expected table (Links), got: {:?}",
-                    other
-                )));
-            }
-        },
-        excludes: as_string_or_vec_string(&tbl.get("excludes")?)?,
-    };
-    ensure_package(ctx, name.to_owned(), pkg)?;
+fn parse_enabled(ctx: &mut Context, tbl: &Table) -> LuaResult<Option<Function>> {
+    match tbl.get("enabled")? {
+        Value::Boolean(v) => Ok(Some(ctx.lua.create_function(move |_, ()| Ok(v))?)),
+        Value::Function(f) => Ok(Some(f)),
+        Value::Nil => Ok(None),
+        other => Err(LuaError::external(format!(
+            "expected boolean or function, got: {:?}",
+            other
+        ))),
+    }
+}
 
+fn parse_links(_: &mut Context, tbl: &Table) -> LuaResult<Vec<Link>> {
+    match tbl.get("links")? {
+        Value::Table(links) => Ok(links
+            .pairs::<String, Value>()
+            .map(|pair| {
+                let (src, targets) = pair?;
+                Ok(Link {
+                    source: src,
+                    targets: as_string_or_vec_string(&targets)?,
+                })
+            })
+            .collect::<LuaResult<Vec<Link>>>()?),
+        Value::Nil => Ok(vec![]),
+        other => {
+            return Err(LuaError::external(format!(
+                "expected table (Links), got: {:?}",
+                other
+            )));
+        }
+    }
+}
+
+fn parse_depends(ctx: &mut Context, tbl: &Table) -> LuaResult<Vec<Dependency>> {
     match tbl.get("depends")? {
         Value::Table(ref dep) => Ok(parse_dependencies(ctx, dep)?),
         Value::Nil => return Ok(vec![]),
@@ -181,76 +178,79 @@ fn create_package(ctx: &mut Context, name: String, tbl: &Table) -> LuaResult<Vec
     }
 }
 
+fn create_package(ctx: &mut Context, name: String, tbl: &Table) -> LuaResult<Vec<Dependency>> {
+    let pkg = Package {
+        name: name.to_owned(),
+        enabled: parse_enabled(ctx, tbl)?,
+        platforms: as_string_or_vec_string(&tbl.get("platforms")?)?,
+        links: parse_links(ctx, tbl)?,
+        excludes: as_string_or_vec_string(&tbl.get("excludes")?)?,
+    };
+
+    ensure_package(ctx, name.to_owned(), pkg)?;
+    parse_depends(ctx, tbl)
+}
+
 fn parse_dependencies(ctx: &mut Context, tbl: &Table) -> LuaResult<Vec<Dependency>> {
     let mut depends: Vec<Dependency> = Vec::new();
 
     tbl.for_each(|named_key: Value, value_pkg: Value| {
-        match named_key {
-            Value::Integer(_) => match value_pkg {
-                Value::String(_) => {
-                    ensure_package(
-                        ctx,
-                        value_pkg.to_string()?,
-                        Package::new(value_pkg.to_string()?),
-                    )?;
-                    depends.push(Dependency {
-                        name: value_pkg.to_string()?,
-                        mode: DependencyMode::Required,
-                        ..Default::default()
-                    });
-                }
-                Value::Table(ref tbl) => {
-                    let name: String = extract_package_name(tbl, None)?;
-                    match tbl.get(2)? {
-                        Value::String(mode) => {
-                            depends.push(Dependency {
-                                name,
-                                mode: match mode.to_str()?.as_ref() {
-                                    "required" => DependencyMode::Required,
-                                    "optional" => DependencyMode::Optional,
-                                    _ => {
-                                        return Err(LuaError::external(
-                                            "expected literal string \"required\" or \"optional\"",
-                                        ));
-                                    }
-                                },
-                                ..Default::default()
-                            });
-                        }
-                        Value::Nil => {
-                            depends.push(Dependency {
-                                name: name.to_owned(),
-                                mode: DependencyMode::Required,
-                                depends: create_package(ctx, name.to_owned(), tbl)?,
-                                ..Default::default()
-                            });
-                        }
-                        _ => {}
+        match (&named_key, &value_pkg) {
+            (Value::Integer(_), Value::String(_)) => {
+                ensure_package(
+                    ctx,
+                    value_pkg.to_string()?,
+                    Package::new(value_pkg.to_string()?),
+                )?;
+                depends.push(Dependency {
+                    name: value_pkg.to_string()?,
+                    mode: DependencyMode::Required,
+                    ..Default::default()
+                });
+            }
+            (Value::Integer(_), Value::Table(tbl)) => {
+                let name: String = extract_package_name(tbl, None)?;
+                match tbl.get(2)? {
+                    Value::String(mode) => {
+                        depends.push(Dependency {
+                            name,
+                            mode: match mode.to_str()?.as_ref() {
+                                "required" => DependencyMode::Required,
+                                "optional" => DependencyMode::Optional,
+                                _ => {
+                                    return Err(LuaError::external(
+                                        "expected literal string \"required\" or \"optional\"",
+                                    ));
+                                }
+                            },
+                            ..Default::default()
+                        });
                     }
+                    Value::Nil => {
+                        depends.push(Dependency {
+                            name: name.to_owned(),
+                            mode: DependencyMode::Required,
+                            depends: create_package(ctx, name.to_owned(), tbl)?,
+                            ..Default::default()
+                        });
+                    }
+                    _ => {}
                 }
-                v => {
-                    // TODO: change the error message
-                    return Err(LuaError::external(format!("value: {:#?}", v)));
-                }
-            },
-            Value::String(_) => match value_pkg {
-                Value::Table(ref tbl) => {
-                    let name: String = extract_package_name(tbl, Some(&named_key))?;
-                    depends.push(Dependency {
-                        name: name.to_owned(),
-                        mode: DependencyMode::Required,
-                        depends: create_package(ctx, name.to_owned(), tbl)?,
-                        ..Default::default()
-                    });
-                }
-                ref v => {
-                    // TODO: change the error message
-                    return Err(LuaError::external(format!("value: {:#?}", v)));
-                }
-            },
-            v => {
-                // TODO: change the error message
-                return Err(LuaError::external(format!("key: {:#?}", v)));
+            }
+            (Value::String(_), Value::Table(tbl)) => {
+                let name: String = extract_package_name(tbl, Some(&named_key))?;
+                depends.push(Dependency {
+                    name: name.to_owned(),
+                    mode: DependencyMode::Required,
+                    depends: create_package(ctx, name.to_owned(), tbl)?,
+                    ..Default::default()
+                });
+            }
+            (key, value) => {
+                return Err(LuaError::external(format!(
+                    "Invalid package definition: {:#?} = {:#?}",
+                    key, value
+                )));
             }
         }
 
