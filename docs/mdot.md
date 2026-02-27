@@ -89,7 +89,6 @@ return {
   "bash" -- By the string itself
   { "bash" } -- Wrapping the string in a table (note, the name must be on the first index of the table)
   bash = {} -- Using *key* as a name
-  { name = "bash" } -- Specifying name in the table field called *name*
 
   -- regardless of what used above, the package will translate to:
   { name = "bash" }

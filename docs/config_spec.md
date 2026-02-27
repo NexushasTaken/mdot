@@ -8,16 +8,7 @@
 ---@alias TargetList PathString | PathString[]
 ---@alias Platforms string | string[]
 
----@class LinkSpec
----@field source? PathString
----@field targets? TargetList
----@field [1]? PathString
----@field [2]? TargetList
-
----@class Links : {
----   [integer]: LinkSpec,     -- for { "s", "t" } or { source = "s", targets = "t" }
----   [PathString]: TargetList, -- for ["path/to/file"] = "target" or ["path/to/file"] = { "targetA", "targetB" }
----}
+---@alias Links table<PathString, TargetList>
 
 ---@class PackageSpec
 ---@field [1]? string
