@@ -2,7 +2,7 @@ use log::{debug, error, info, trace, warn};
 use mlua::{Error as LuaError, Function, Lua, Result as LuaResult, Table, Value};
 
 use colored::*;
-use std::{error::Error, io};
+use std::{collections::HashMap, error::Error, io, iter::Map};
 
 fn setup_logger() -> Result<(), fern::InitError> {
     fern::Dispatch::new()
@@ -35,16 +35,18 @@ struct Link {
     targets: Vec<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 enum DependencyMode {
+    #[default]
     Required,
     Optional,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct Dependency {
     name: String,
     mode: DependencyMode,
+    depends: Vec<Dependency>,
 }
 
 #[derive(Debug)]
@@ -70,6 +72,12 @@ impl Package {
             ..Default::default()
         }
     }
+}
+
+#[derive(Debug, Default)]
+struct Context {
+    lua: Lua,
+    packages: HashMap<String, Package>,
 }
 
 fn extract_name(tbl: &Table, key: Option<&Value>) -> LuaResult<String> {
@@ -111,9 +119,9 @@ fn as_string_or_vec_string(value: Value) -> LuaResult<Vec<String>> {
     }
 }
 
-fn normalize_package(lua: &Lua, mut pkg: Package, tbl: &Table) -> LuaResult<Package> {
+fn normalize_package(ctx: &mut Context, mut pkg: Package, tbl: &Table) -> LuaResult<Package> {
     pkg.enabled = match tbl.get("enabled")? {
-        Value::Boolean(v) => Some(lua.create_function(move |_, ()| Ok(v))?),
+        Value::Boolean(v) => Some(ctx.lua.create_function(move |_, ()| Ok(v))?),
         Value::Function(f) => Some(f),
         Value::Nil => Default::default(),
         other => {
@@ -126,7 +134,7 @@ fn normalize_package(lua: &Lua, mut pkg: Package, tbl: &Table) -> LuaResult<Pack
 
     pkg.platforms = as_string_or_vec_string(tbl.get("platforms")?)?;
     pkg.depends = match tbl.get("depends")? {
-        Value::Table(ref dep) => normalize_packages(lua, dep)?,
+        Value::Table(ref dep) => normalize_packages(ctx, dep)?,
         Value::Nil => Default::default(),
         other => {
             return Err(LuaError::external(format!(
@@ -161,20 +169,26 @@ fn normalize_package(lua: &Lua, mut pkg: Package, tbl: &Table) -> LuaResult<Pack
     Ok(pkg)
 }
 
-fn normalize_packages(lua: &Lua, tbl: &Table) -> LuaResult<Vec<Depend>> {
+fn normalize_packages(ctx: &mut Context, tbl: &Table) -> LuaResult<Vec<Depend>> {
     let mut depends: Vec<Depend> = Vec::new();
 
     tbl.for_each(|named_key: Value, value_pkg: Value| {
         match named_key {
             Value::Integer(_) => match value_pkg {
                 Value::String(_) => {
-                    depends.push(Depend::Package(Package::new(value_pkg.to_string()?)));
+                    ctx.packages
+                        .insert(value_pkg.to_string()?, Package::new(value_pkg.to_string()?));
+                    depends.push(Depend::Depend(Dependency {
+                        name: value_pkg.to_string()?,
+                        mode: DependencyMode::Required,
+                        ..Default::default()
+                    }));
                 }
                 Value::Table(ref tbl) => {
                     let name: String = extract_name(tbl, None)?;
                     match tbl.get("mode")? {
                         Value::String(mode) => {
-                            let dep = Dependency {
+                            depends.push(Depend::Depend(Dependency {
                                 name,
                                 mode: match mode.to_str()?.as_ref() {
                                     "required" => DependencyMode::Required,
@@ -185,35 +199,42 @@ fn normalize_packages(lua: &Lua, tbl: &Table) -> LuaResult<Vec<Depend>> {
                                         ));
                                     }
                                 },
-                            };
-                            depends.push(Depend::Depend(dep));
+                                ..Default::default()
+                            }));
                         }
                         Value::Nil => {
-                            let pkg = normalize_package(lua, Package::new(name), tbl)?;
-                            depends.push(Depend::Package(pkg));
+                            let pkg = normalize_package(ctx, Package::new(name.clone()), tbl)?;
+                            ctx.packages.insert(name.clone(), pkg);
+                            depends.push(Depend::Depend(Dependency {
+                                name,
+                                mode: DependencyMode::Required,
+                                ..Default::default()
+                            }));
                         }
                         _ => {}
                     }
                 }
                 v => {
-                    error!("value: {:#?}", v);
-                    return Err(LuaError::external("unexpected value type"));
+                    return Err(LuaError::external(format!("value: {:#?}", v)));
                 }
             },
             Value::String(_) => match value_pkg {
                 Value::Table(ref tbl) => {
                     let name: String = extract_name(tbl, Some(&named_key))?;
-                    let pkg = normalize_package(lua, Package::new(name), tbl)?;
-                    depends.push(Depend::Package(pkg));
+                    let pkg = normalize_package(ctx, Package::new(name.clone()), tbl)?;
+                    ctx.packages.insert(name.clone(), pkg);
+                    depends.push(Depend::Depend(Dependency {
+                        name,
+                        mode: DependencyMode::Required,
+                        ..Default::default()
+                    }));
                 }
                 ref v => {
-                    error!("value: {:#?}", v);
-                    return Err(LuaError::external("unexpected value type"));
+                    return Err(LuaError::external(format!("value: {:#?}", v)));
                 }
             },
             v => {
-                error!("key: {:#?}", v);
-                return Err(LuaError::external("unexpected key type"));
+                return Err(LuaError::external(format!("key: {:#?}", v)));
             }
         }
 
@@ -223,7 +244,7 @@ fn normalize_packages(lua: &Lua, tbl: &Table) -> LuaResult<Vec<Depend>> {
     return Ok(depends);
 }
 
-fn packages_test(lua: &Lua) -> LuaResult<()> {
+fn packages_test(ctx: &mut Context) -> LuaResult<()> {
     let source: String = r#"
     return {
         "git",
@@ -237,19 +258,21 @@ fn packages_test(lua: &Lua) -> LuaResult<()> {
     }"#
     .into();
 
-    let pkgs: Table = lua.load(source).eval()?;
-    let packages = normalize_packages(&lua, &pkgs)?;
+    let pkgs: Table = ctx.lua.load(source).eval()?;
+    let packages = normalize_packages(ctx, &pkgs)?;
 
     info!("pkgs: {:#?}", pkgs);
 
     info!("packaged: {:#?}", packages);
+
+    info!("ctx: {:#?}", ctx);
     Ok(())
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     setup_logger()?;
-    let lua = Lua::new();
+    let mut ctx = Context::default();
 
-    packages_test(&lua)?;
+    packages_test(&mut ctx)?;
     Ok(())
 }
