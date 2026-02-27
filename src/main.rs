@@ -58,7 +58,6 @@ enum Depend {
 #[derive(Debug, Default)]
 struct Package {
     name: String,
-    depends: Vec<Depend>,
     enabled: Option<Function>,
     platforms: Vec<String>,
     links: Vec<Link>,
@@ -119,58 +118,60 @@ fn as_string_or_vec_string(value: Value) -> LuaResult<Vec<String>> {
     }
 }
 
-fn normalize_package(ctx: &mut Context, mut pkg: Package, tbl: &Table) -> LuaResult<Package> {
-    pkg.enabled = match tbl.get("enabled")? {
-        Value::Boolean(v) => Some(ctx.lua.create_function(move |_, ()| Ok(v))?),
-        Value::Function(f) => Some(f),
-        Value::Nil => Default::default(),
-        other => {
-            return Err(LuaError::external(format!(
-                "expected boolean or function, got: {:?}",
-                other
-            )));
-        }
-    };
-
-    pkg.platforms = as_string_or_vec_string(tbl.get("platforms")?)?;
-    pkg.depends = match tbl.get("depends")? {
-        Value::Table(ref dep) => normalize_packages(ctx, dep)?,
-        Value::Nil => Default::default(),
-        other => {
-            return Err(LuaError::external(format!(
-                "expected boolean or function, got: {:?}",
-                other
-            )));
-        }
-    };
-
-    pkg.links = match tbl.get("links")? {
-        Value::Table(links) => links
-            .pairs::<String, Value>()
-            .map(|pair| {
-                let (src, targets) = pair?;
-                Ok(Link {
-                    source: src,
-                    targets: as_string_or_vec_string(targets)?,
+fn create_package(ctx: &mut Context, name: String, tbl: &Table) -> LuaResult<Vec<Dependency>> {
+    let pkg = Package {
+        name: name.clone(),
+        enabled: match tbl.get("enabled")? {
+            Value::Boolean(v) => Some(ctx.lua.create_function(move |_, ()| Ok(v))?),
+            Value::Function(f) => Some(f),
+            Value::Nil => Default::default(),
+            other => {
+                return Err(LuaError::external(format!(
+                    "expected boolean or function, got: {:?}",
+                    other
+                )));
+            }
+        },
+        platforms: as_string_or_vec_string(tbl.get("platforms")?)?,
+        links: match tbl.get("links")? {
+            Value::Table(links) => links
+                .pairs::<String, Value>()
+                .map(|pair| {
+                    let (src, targets) = pair?;
+                    Ok(Link {
+                        source: src,
+                        targets: as_string_or_vec_string(targets)?,
+                    })
                 })
-            })
-            .collect::<LuaResult<Vec<Link>>>()?,
-        Value::Nil => Default::default(),
+                .collect::<LuaResult<Vec<Link>>>()?,
+            Value::Nil => Default::default(),
+            other => {
+                return Err(LuaError::external(format!(
+                    "expected table (Links), got: {:?}",
+                    other
+                )));
+            }
+        },
+        excludes: as_string_or_vec_string(tbl.get("excludes")?)?,
+    };
+    ctx.packages.insert(name.clone(), pkg);
+
+    match tbl.get("depends")? {
+        Value::Table(ref dep) => {
+            return Ok(collect_packages(ctx, dep)?);
+        }
+        Value::Nil => return Ok(vec![]),
         other => {
             return Err(LuaError::external(format!(
-                "expected table (Links), got: {:?}",
+                "expected boolean or function, got: {:?}",
                 other
             )));
         }
     };
-
-    pkg.excludes = as_string_or_vec_string(tbl.get("excludes")?)?;
-
-    Ok(pkg)
 }
 
-fn normalize_packages(ctx: &mut Context, tbl: &Table) -> LuaResult<Vec<Depend>> {
-    let mut depends: Vec<Depend> = Vec::new();
+fn collect_packages(ctx: &mut Context, tbl: &Table) -> LuaResult<Vec<Dependency>> {
+    let mut depends: Vec<Dependency> = Vec::new();
 
     tbl.for_each(|named_key: Value, value_pkg: Value| {
         match named_key {
@@ -178,17 +179,17 @@ fn normalize_packages(ctx: &mut Context, tbl: &Table) -> LuaResult<Vec<Depend>> 
                 Value::String(_) => {
                     ctx.packages
                         .insert(value_pkg.to_string()?, Package::new(value_pkg.to_string()?));
-                    depends.push(Depend::Depend(Dependency {
+                    depends.push(Dependency {
                         name: value_pkg.to_string()?,
                         mode: DependencyMode::Required,
                         ..Default::default()
-                    }));
+                    });
                 }
                 Value::Table(ref tbl) => {
                     let name: String = extract_name(tbl, None)?;
                     match tbl.get("mode")? {
                         Value::String(mode) => {
-                            depends.push(Depend::Depend(Dependency {
+                            depends.push(Dependency {
                                 name,
                                 mode: match mode.to_str()?.as_ref() {
                                     "required" => DependencyMode::Required,
@@ -200,16 +201,15 @@ fn normalize_packages(ctx: &mut Context, tbl: &Table) -> LuaResult<Vec<Depend>> 
                                     }
                                 },
                                 ..Default::default()
-                            }));
+                            });
                         }
                         Value::Nil => {
-                            let pkg = normalize_package(ctx, Package::new(name.clone()), tbl)?;
-                            ctx.packages.insert(name.clone(), pkg);
-                            depends.push(Depend::Depend(Dependency {
-                                name,
+                            depends.push(Dependency {
+                                name: name.clone(),
                                 mode: DependencyMode::Required,
+                                depends: create_package(ctx, name.clone(), tbl)?,
                                 ..Default::default()
-                            }));
+                            });
                         }
                         _ => {}
                     }
@@ -221,13 +221,12 @@ fn normalize_packages(ctx: &mut Context, tbl: &Table) -> LuaResult<Vec<Depend>> 
             Value::String(_) => match value_pkg {
                 Value::Table(ref tbl) => {
                     let name: String = extract_name(tbl, Some(&named_key))?;
-                    let pkg = normalize_package(ctx, Package::new(name.clone()), tbl)?;
-                    ctx.packages.insert(name.clone(), pkg);
-                    depends.push(Depend::Depend(Dependency {
-                        name,
+                    depends.push(Dependency {
+                        name: name.clone(),
                         mode: DependencyMode::Required,
+                        depends: create_package(ctx, name.clone(), tbl)?,
                         ..Default::default()
-                    }));
+                    });
                 }
                 ref v => {
                     return Err(LuaError::external(format!("value: {:#?}", v)));
@@ -259,7 +258,7 @@ fn packages_test(ctx: &mut Context) -> LuaResult<()> {
     .into();
 
     let pkgs: Table = ctx.lua.load(source).eval()?;
-    let packages = normalize_packages(ctx, &pkgs)?;
+    let packages = collect_packages(ctx, &pkgs)?;
 
     info!("pkgs: {:#?}", pkgs);
 
