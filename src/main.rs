@@ -87,22 +87,24 @@ fn value_to_string(v: &Value) -> LuaResult<String> {
 }
 
 fn extract_package_name(tbl: &Table, key: Option<&Value>) -> LuaResult<String> {
-    let idx_name: Option<String> = tbl.get(1).ok();
-    let field_name: Option<String> = tbl.get("name").ok();
+    let names: Vec<String> = vec![
+        tbl.get(1).ok(),
+        tbl.get("name").ok(),
+        // Only consider key if it's a string
+        match key {
+            Some(Value::String(s)) => Some(s.to_str()?.to_string()),
+            _ => None,
+        },
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
 
-    // Only consider key if it's a string
-    let key_name: Option<String> = match key {
-        Some(Value::String(s)) => Some(s.to_str()?.to_string()),
-        _ => None,
-    };
-
-    match (key_name, idx_name, field_name) {
-        (Some(s1), None, None) => Ok(s1),
-        (None, Some(s2), None) => Ok(s2),
-        (None, None, Some(s3)) => Ok(s3),
-        (None, None, None) => Err(LuaError::external(
+    match names.len() {
+        0 => Err(LuaError::external(
             "Package must have either [1], [\"name\"], or named Package",
         )),
+        1 => Ok(names.first().unwrap().to_string()),
         _ => Err(LuaError::external(
             "Package cannot have more than one of [1], [\"name\"], or named Package",
         )),
