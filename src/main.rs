@@ -201,7 +201,7 @@ fn parse_dependencies(ctx: &mut Context, tbl: &Table) -> LuaResult<Vec<Dependenc
                 }
                 Value::Table(ref tbl) => {
                     let name: String = extract_package_name(tbl, None)?;
-                    match tbl.get("mode")? {
+                    match tbl.get(2)? {
                         Value::String(mode) => {
                             depends.push(Dependency {
                                 name,
@@ -267,14 +267,14 @@ fn packages_test(ctx: &mut Context) -> LuaResult<()> {
         {
             name = "hyprland",
             depends = {
-                { "git", mode = "required" },
+                { "git", "required" },
                 "waybar",
             },
         },
         neovim = {
             depends = {
-                { "vim", mode = "required" },
-                { "git", mode = "required" },
+                { "vim", "required" },
+                { "git", "required" },
             },
             platforms = "linux",
         },

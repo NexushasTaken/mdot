@@ -23,7 +23,7 @@
 
 ---@class Dependency
 ---@field [1] string
----@field mode? DependencyMode -- Defaults to "required"
+---@field [2] DependencyMode -- Defaults to "required"
 
 ---@alias Dependencies string | Dependency | Package
 
