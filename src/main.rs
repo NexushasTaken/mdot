@@ -205,6 +205,11 @@ fn parse_dependencies(ctx: &mut Context, tbl: &Table) -> LuaResult<Vec<Dependenc
             }
             (Value::Integer(_), Value::Table(tbl)) => {
                 let name: String = extract_package_name(tbl, None)?;
+
+                fn invalid_mode<T: std::fmt::Debug>(mode: T) -> LuaError {
+                    LuaError::external(format!("expected literal string \"required\" or \"optional\" on index [2]: got {:#?}", mode))
+                }
+
                 match tbl.get(2)? {
                     Value::String(mode) => {
                         depends.push(Dependency {
@@ -213,9 +218,7 @@ fn parse_dependencies(ctx: &mut Context, tbl: &Table) -> LuaResult<Vec<Dependenc
                                 "required" => DependencyMode::Required,
                                 "optional" => DependencyMode::Optional,
                                 _ => {
-                                    return Err(LuaError::external(
-                                        "expected literal string \"required\" or \"optional\"",
-                                    ));
+                                    return Err(invalid_mode(mode));
                                 }
                             },
                             ..Default::default()
@@ -229,7 +232,9 @@ fn parse_dependencies(ctx: &mut Context, tbl: &Table) -> LuaResult<Vec<Dependenc
                             ..Default::default()
                         });
                     }
-                    _ => {}
+                    other => {
+                        return Err(invalid_mode(other));
+                    }
                 }
             }
             (Value::String(_), Value::Table(tbl)) => {
@@ -306,6 +311,27 @@ mod tests {
             lua,
             packages: std::collections::HashMap::new(),
         }
+    }
+
+    #[test]
+    fn test_depedency_and_its_errors() {
+        let lua = Lua::new();
+        let mut ctx = ctx_with_lua(lua);
+
+        let v: Table = ctx
+            .lua
+            .load(r#"return { { "waybar", "required" } }"#)
+            .eval()
+            .unwrap();
+
+        assert!(parse_dependencies(&mut ctx, &v).is_ok());
+
+        let v: Table = ctx
+            .lua
+            .load(r#"return { { "waybar", 1 } }"#)
+            .eval()
+            .unwrap();
+        assert!(parse_dependencies(&mut ctx, &v).is_err());
     }
 
     #[test]
