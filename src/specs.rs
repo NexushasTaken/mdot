@@ -65,8 +65,145 @@ impl SpecContext {
     }
 
     pub fn parse_config(&mut self, tbl: &Table) -> LuaResult<()> {
-        self.depends = parse_dependencies(self, tbl)?;
+        self.depends = self.parse_dependencies(tbl)?;
         Ok(())
+    }
+
+    fn ensure_package(&mut self, name: String, pkg: Package) -> LuaResult<()> {
+        if self.packages.contains_key(&name) {
+            return Err(LuaError::external(
+                format!("The \"{name}\" already exists",),
+            ));
+        }
+        self.packages.insert(name, pkg);
+        Ok(())
+    }
+
+    fn parse_enabled(&mut self, tbl: &Table) -> LuaResult<Option<Function>> {
+        match tbl.get("enabled")? {
+            Value::Boolean(v) => Ok(Some(self.lua.create_function(move |_, ()| Ok(v))?)),
+            Value::Function(f) => Ok(Some(f)),
+            Value::Nil => Ok(None),
+            other => Err(LuaError::external(format!(
+                "expected boolean or function, got: {:?}",
+                other
+            ))),
+        }
+    }
+
+    fn parse_links(&mut self, tbl: &Table) -> LuaResult<Vec<Link>> {
+        match tbl.get("links")? {
+            Value::Table(links) => Ok(links
+                .pairs::<String, Value>()
+                .map(|pair| {
+                    let (src, targets) = pair?;
+                    Ok(Link {
+                        source: src,
+                        targets: as_string_or_vec_string(&targets)?,
+                    })
+                })
+                .collect::<LuaResult<Vec<Link>>>()?),
+            Value::Nil => Ok(vec![]),
+            other => {
+                return Err(LuaError::external(format!(
+                    "expected table (Links), got: {:?}",
+                    other
+                )));
+            }
+        }
+    }
+
+    fn parse_depends(&mut self, tbl: &Table) -> LuaResult<Vec<Dependency>> {
+        match tbl.get("depends")? {
+            Value::Table(ref dep) => Ok(self.parse_dependencies(dep)?),
+            Value::Nil => return Ok(vec![]),
+            other => Err(LuaError::external(format!(
+                "expected boolean or function, got: {:?}",
+                other
+            ))),
+        }
+    }
+
+    fn create_package(&mut self, name: String, tbl: &Table) -> LuaResult<Vec<Dependency>> {
+        let pkg = Package {
+            name: name.to_owned(),
+            enabled: self.parse_enabled(tbl)?,
+            platforms: as_string_or_vec_string(&tbl.get("platforms")?)?,
+            links: self.parse_links(tbl)?,
+            excludes: as_string_or_vec_string(&tbl.get("excludes")?)?,
+        };
+
+        self.ensure_package(name.to_owned(), pkg)?;
+        self.parse_depends(tbl)
+    }
+
+    fn parse_dependencies(&mut self, depends_value: &Table) -> LuaResult<Vec<Dependency>> {
+        let mut depends: Vec<Dependency> = Vec::new();
+
+        depends_value.for_each(|named_key: Value, value_pkg: Value| {
+        match (&named_key, &value_pkg) {
+            (Value::Integer(_), Value::String(_)) => {
+                depends.push(Dependency {
+                    name: value_pkg.to_string()?,
+                    mode: DependencyMode::Required,
+                    ..Default::default()
+                });
+            }
+            (Value::Integer(_), Value::Table(tbl)) => {
+                let name: String = extract_package_name(tbl, None)?;
+
+                fn invalid_mode<T: std::fmt::Debug>(mode: T) -> LuaError {
+                    LuaError::external(format!("expected literal string \"required\" or \"optional\" on index [2]: got {:#?}", mode))
+                }
+
+                match tbl.get(2)? {
+                    Value::String(mode) => {
+                        depends.push(Dependency {
+                            name,
+                            mode: match mode.to_str()?.as_ref() {
+                                "required" => DependencyMode::Required,
+                                "optional" => DependencyMode::Optional,
+                                _ => {
+                                    return Err(invalid_mode(mode));
+                                }
+                            },
+                            ..Default::default()
+                        });
+                    }
+                    Value::Nil => {
+                        depends.push(Dependency {
+                            name: name.to_owned(),
+                            mode: DependencyMode::Required,
+                            depends: self.create_package(name.to_owned(), tbl)?,
+                            ..Default::default()
+                        });
+                    }
+                    other => {
+                        return Err(invalid_mode(other));
+                    }
+                }
+            }
+            (Value::String(_), Value::Table(tbl)) => {
+                let name: String = extract_package_name(tbl, Some(&named_key))?;
+                depends.push(Dependency {
+                    name: name.to_owned(),
+                    mode: DependencyMode::Required,
+                    depends: self.create_package(name.to_owned(), tbl)?,
+                    ..Default::default()
+                });
+            }
+            (key, value) => {
+                return Err(LuaError::external(format!(
+                    "Invalid package definition: {:#?} = {:#?}",
+                    key, value
+                )));
+            }
+        }
+
+        Ok(())
+    })?;
+
+        Ok(depends)
     }
 }
 
@@ -109,143 +246,6 @@ fn as_string_or_vec_string(value: &Value) -> LuaResult<Vec<String>> {
     }
 }
 
-fn ensure_package(ctx: &mut SpecContext, name: String, pkg: Package) -> LuaResult<()> {
-    if ctx.packages.contains_key(&name) {
-        return Err(LuaError::external(
-            format!("The \"{name}\" already exists",),
-        ));
-    }
-    ctx.packages.insert(name, pkg);
-    Ok(())
-}
-
-fn parse_enabled(ctx: &mut SpecContext, tbl: &Table) -> LuaResult<Option<Function>> {
-    match tbl.get("enabled")? {
-        Value::Boolean(v) => Ok(Some(ctx.lua.create_function(move |_, ()| Ok(v))?)),
-        Value::Function(f) => Ok(Some(f)),
-        Value::Nil => Ok(None),
-        other => Err(LuaError::external(format!(
-            "expected boolean or function, got: {:?}",
-            other
-        ))),
-    }
-}
-
-fn parse_links(_: &mut SpecContext, tbl: &Table) -> LuaResult<Vec<Link>> {
-    match tbl.get("links")? {
-        Value::Table(links) => Ok(links
-            .pairs::<String, Value>()
-            .map(|pair| {
-                let (src, targets) = pair?;
-                Ok(Link {
-                    source: src,
-                    targets: as_string_or_vec_string(&targets)?,
-                })
-            })
-            .collect::<LuaResult<Vec<Link>>>()?),
-        Value::Nil => Ok(vec![]),
-        other => {
-            return Err(LuaError::external(format!(
-                "expected table (Links), got: {:?}",
-                other
-            )));
-        }
-    }
-}
-
-fn parse_depends(ctx: &mut SpecContext, tbl: &Table) -> LuaResult<Vec<Dependency>> {
-    match tbl.get("depends")? {
-        Value::Table(ref dep) => Ok(parse_dependencies(ctx, dep)?),
-        Value::Nil => return Ok(vec![]),
-        other => Err(LuaError::external(format!(
-            "expected boolean or function, got: {:?}",
-            other
-        ))),
-    }
-}
-
-fn create_package(ctx: &mut SpecContext, name: String, tbl: &Table) -> LuaResult<Vec<Dependency>> {
-    let pkg = Package {
-        name: name.to_owned(),
-        enabled: parse_enabled(ctx, tbl)?,
-        platforms: as_string_or_vec_string(&tbl.get("platforms")?)?,
-        links: parse_links(ctx, tbl)?,
-        excludes: as_string_or_vec_string(&tbl.get("excludes")?)?,
-    };
-
-    ensure_package(ctx, name.to_owned(), pkg)?;
-    parse_depends(ctx, tbl)
-}
-
-fn parse_dependencies(ctx: &mut SpecContext, depends_value: &Table) -> LuaResult<Vec<Dependency>> {
-    let mut depends: Vec<Dependency> = Vec::new();
-
-    depends_value.for_each(|named_key: Value, value_pkg: Value| {
-        match (&named_key, &value_pkg) {
-            (Value::Integer(_), Value::String(_)) => {
-                depends.push(Dependency {
-                    name: value_pkg.to_string()?,
-                    mode: DependencyMode::Required,
-                    ..Default::default()
-                });
-            }
-            (Value::Integer(_), Value::Table(tbl)) => {
-                let name: String = extract_package_name(tbl, None)?;
-
-                fn invalid_mode<T: std::fmt::Debug>(mode: T) -> LuaError {
-                    LuaError::external(format!("expected literal string \"required\" or \"optional\" on index [2]: got {:#?}", mode))
-                }
-
-                match tbl.get(2)? {
-                    Value::String(mode) => {
-                        depends.push(Dependency {
-                            name,
-                            mode: match mode.to_str()?.as_ref() {
-                                "required" => DependencyMode::Required,
-                                "optional" => DependencyMode::Optional,
-                                _ => {
-                                    return Err(invalid_mode(mode));
-                                }
-                            },
-                            ..Default::default()
-                        });
-                    }
-                    Value::Nil => {
-                        depends.push(Dependency {
-                            name: name.to_owned(),
-                            mode: DependencyMode::Required,
-                            depends: create_package(ctx, name.to_owned(), tbl)?,
-                            ..Default::default()
-                        });
-                    }
-                    other => {
-                        return Err(invalid_mode(other));
-                    }
-                }
-            }
-            (Value::String(_), Value::Table(tbl)) => {
-                let name: String = extract_package_name(tbl, Some(&named_key))?;
-                depends.push(Dependency {
-                    name: name.to_owned(),
-                    mode: DependencyMode::Required,
-                    depends: create_package(ctx, name.to_owned(), tbl)?,
-                    ..Default::default()
-                });
-            }
-            (key, value) => {
-                return Err(LuaError::external(format!(
-                    "Invalid package definition: {:#?} = {:#?}",
-                    key, value
-                )));
-            }
-        }
-
-        Ok(())
-    })?;
-
-    Ok(depends)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -264,14 +264,14 @@ mod tests {
             .eval()
             .unwrap();
 
-        assert!(parse_dependencies(&mut ctx, &v).is_ok());
+        assert!(ctx.parse_dependencies(&v).is_ok());
 
         let v: Table = ctx
             .lua
             .load(r#"return { { "waybar", 1 } }"#)
             .eval()
             .unwrap();
-        assert!(parse_dependencies(&mut ctx, &v).is_err());
+        assert!(ctx.parse_dependencies(&v).is_err());
     }
 
     #[test]
@@ -348,11 +348,11 @@ mod tests {
         let mut ctx = new_ctx();
 
         let pkg = Package::new("git".to_string());
-        ensure_package(&mut ctx, "git".to_string(), pkg).unwrap();
+        ctx.ensure_package("git".to_string(), pkg).unwrap();
 
         // inserting again should error
         let pkg2 = Package::new("git".to_string());
-        let res = ensure_package(&mut ctx, "git".to_string(), pkg2);
+        let res = ctx.ensure_package("git".to_string(), pkg2);
         assert!(res.is_err());
     }
 
@@ -363,7 +363,7 @@ mod tests {
         // boolean true -> wrapped function returning true
         let tbl: Table = ctx.lua.create_table().unwrap();
         tbl.set("enabled", true).unwrap();
-        let f_opt = parse_enabled(&mut ctx, &tbl).unwrap();
+        let f_opt = ctx.parse_enabled(&tbl).unwrap();
         assert!(f_opt.is_some());
         let f = f_opt.unwrap();
         let res: bool = f.call(()).unwrap();
@@ -373,20 +373,19 @@ mod tests {
         let tbl2: Table = ctx.lua.create_table().unwrap();
         let func: Function = ctx.lua.create_function(|_, ()| Ok(true)).unwrap();
         tbl2.set("enabled", func.clone()).unwrap();
-        let f_opt2 = parse_enabled(&mut ctx, &tbl2).unwrap();
+        let f_opt2 = ctx.parse_enabled(&tbl2).unwrap();
         assert!(f_opt2.is_some());
         let res2: bool = f_opt2.unwrap().call(()).unwrap();
         assert!(res2);
-
         // nil -> None
         let tbl3: Table = ctx.lua.create_table().unwrap();
-        let f_opt3 = parse_enabled(&mut ctx, &tbl3).unwrap();
+        let f_opt3 = ctx.parse_enabled(&tbl3).unwrap();
         assert!(f_opt3.is_none());
 
         // invalid -> error
         let tbl4: Table = ctx.lua.create_table().unwrap();
         tbl4.set("enabled", 123).unwrap();
-        assert!(parse_enabled(&mut ctx, &tbl4).is_err());
+        assert!(ctx.parse_enabled(&tbl4).is_err());
     }
 
     #[test]
@@ -395,7 +394,7 @@ mod tests {
 
         // links = nil -> empty vec
         let tbl: Table = ctx.lua.create_table().unwrap();
-        let links = parse_links(&mut ctx, &tbl).unwrap();
+        let links = ctx.parse_links(&tbl).unwrap();
         assert!(links.is_empty());
 
         // links as table with string and array
@@ -410,7 +409,7 @@ mod tests {
 
         tbl2.set("links", Value::Table(links_tbl)).unwrap();
 
-        let parsed = parse_links(&mut ctx, &tbl2).unwrap();
+        let parsed = ctx.parse_links(&tbl2).unwrap();
         // two links expected
         assert_eq!(parsed.len(), 2);
         // find src1 and src2
@@ -430,7 +429,7 @@ mod tests {
         // invalid type for links
         let tbl3: Table = ctx.lua.create_table().unwrap();
         tbl3.set("links", 123).unwrap();
-        assert!(parse_links(&mut ctx, &tbl3).is_err());
+        assert!(ctx.parse_links(&tbl3).is_err());
     }
 
     #[test]
@@ -459,7 +458,7 @@ mod tests {
         .into();
 
         let pkgs: Table = ctx.lua.load(&source).eval().unwrap();
-        let packages = parse_dependencies(&mut ctx, &pkgs).unwrap();
+        let packages = ctx.parse_dependencies(&pkgs).unwrap();
 
         // top-level dependencies should include "git" and the hyprland table and neovim entry
         // The returned vector corresponds to the numeric entries only (not named keys),
