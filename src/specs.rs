@@ -1,69 +1,11 @@
 use log::{debug, error, info, trace, warn};
 use mlua::{Error as LuaError, Function, Lua, Result as LuaResult, Table, Value};
 
+use crate::structs::*;
 use colored::*;
 use std::{collections::HashMap, error::Error, io, rc::Rc};
 
-#[derive(Debug, Default)]
-pub struct Link {
-    pub source: String,
-    pub targets: Vec<String>,
-}
-
-#[derive(Debug, Default)]
-pub enum DependencyMode {
-    #[default]
-    Required,
-    Optional,
-}
-
-#[derive(Debug, Default)]
-pub struct Dependency {
-    pub name: String,
-    pub mode: DependencyMode,
-    pub depends: Vec<Dependency>,
-}
-
-#[derive(Debug)]
-pub enum Depend {
-    Depend(Dependency),
-    Package(Package),
-}
-
-#[derive(Debug, Default)]
-pub struct Package {
-    name: String,
-    enabled: Option<Function>,
-    platforms: Vec<String>,
-    links: Vec<Link>,
-    excludes: Vec<String>,
-}
-
-impl Package {
-    pub fn new(name: String) -> Self {
-        Self {
-            name,
-            ..Default::default()
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct SpecContext {
-    pub lua: Rc<Lua>,
-    pub packages: HashMap<String, Package>,
-    pub depends: Vec<Dependency>,
-}
-
-impl SpecContext {
-    pub fn new(lua: Rc<Lua>) -> Self {
-        Self {
-            lua,
-            packages: Default::default(),
-            depends: Default::default(),
-        }
-    }
-
+impl Context {
     pub fn parse_config(&mut self, tbl: &Table) -> LuaResult<()> {
         self.depends = self.parse_dependencies(tbl)?;
         self.create_missing_dependencies();
@@ -147,6 +89,7 @@ impl SpecContext {
             platforms: as_string_or_vec_string(&tbl.get("platforms")?)?,
             links: self.parse_links(tbl)?,
             excludes: as_string_or_vec_string(&tbl.get("excludes")?)?,
+            ..Default::default()
         };
 
         self.ensure_package(name.to_owned(), pkg)?;
@@ -266,8 +209,8 @@ fn as_string_or_vec_string(value: &Value) -> LuaResult<Vec<String>> {
 mod tests {
     use super::*;
 
-    fn new_ctx() -> SpecContext {
-        SpecContext::new(Rc::new(Lua::new()))
+    fn new_ctx() -> Context {
+        Context::new().unwrap()
     }
 
     #[test]

@@ -1,6 +1,6 @@
 return {
-   pkgs.uwsm,
-   pkgs.hyprland,
+   "uwsm",
+   "hyprland",
    {
       "bash",
       excludes = "*",

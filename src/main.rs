@@ -1,41 +1,34 @@
+mod structs;
 mod logger;
 mod specs;
 
+use std::env;
+
+use structs::*;
 use log::{debug, error, info, trace, warn};
 use logger::setup_logger;
-use mlua::{FromLua, Function, IntoLua, Lua, Result as LuaResult, StdLib, Table};
-use specs::*;
-use std::{collections::hash_map::Entry, env, path::PathBuf, rc::Rc};
+use mlua::{FromLua, Function, IntoLua, Lua, Result as LuaResult, Table};
 
 const APPNAME: &str = "mdot";
 
-#[derive(Debug)]
-struct Context {
-    lua: Rc<Lua>,
-    spec_ctx: SpecContext,
-    config_dir: PathBuf,
-    appname: String,
-}
-
 impl Context {
-    fn new() -> Option<Self> {
-        let lua = Rc::new(Lua::new());
-
+    pub fn new() -> Option<Self> {
         Some(Self {
-            lua: lua.clone(),
-            spec_ctx: SpecContext::new(lua.clone()),
+            lua: Lua::new(),
             config_dir: dirs::config_dir()?,
             appname: env::var("MDOT_APPNAME").unwrap_or(APPNAME.into()),
+            packages: Default::default(),
+            depends: Default::default(),
         })
     }
 
     #[inline]
-    fn get_global<T: FromLua>(&self, key: impl IntoLua) -> LuaResult<T> {
-        let globals = self.spec_ctx.lua.globals();
+    pub fn get_global<T: FromLua>(&self, key: impl IntoLua) -> LuaResult<T> {
+        let globals = self.lua.globals();
         globals.get::<T>(key)
     }
 
-    fn setup_path(&mut self) -> LuaResult<()> {
+    pub fn setup_path(&mut self) -> LuaResult<()> {
         let package: Table = self.get_global("package")?;
         let path: String = package.get::<String>("path")?;
         let named = self.config_dir.join(format!("{}/?.lua", self.appname));
@@ -45,7 +38,7 @@ impl Context {
         Ok(())
     }
 
-    fn load_config(&self) -> LuaResult<Table> {
+    pub fn load_config(&self) -> LuaResult<Table> {
         let require: Function = self.get_global("require")?;
         let config: Table = require.call("mdot")?;
         Ok(config)
@@ -58,12 +51,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     ctx.setup_path()?;
 
     let pkgs: Table = ctx.load_config()?;
-    ctx.spec_ctx.parse_config(&pkgs)?;
+    ctx.parse_config(&pkgs)?;
 
     // info!("pkgs: {:#?}", pkgs);
 
     // info!("packaged: {:#?}", packages);
 
-    info!("ctx: {:#?}", ctx);
+    info!("packages: {:#?}", ctx.packages);
     Ok(())
 }

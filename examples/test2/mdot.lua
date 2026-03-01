@@ -7,6 +7,9 @@ return {
       { "git", "required" },
       "waybar",
     },
+    links = {
+      ["bashrc.sh"] = { "~/.bashrc" },
+    },
     excludes = "config",
   },
   neovim = {
