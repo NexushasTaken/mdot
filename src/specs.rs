@@ -49,9 +49,10 @@ impl Package {
 }
 
 #[derive(Debug, Default)]
-pub struct Context {
+pub struct SpecContext {
     pub lua: Lua,
     packages: HashMap<String, Package>,
+    depends: Vec<Dependency>,
 }
 
 fn extract_package_name(tbl: &Table, key: Option<&Value>) -> LuaResult<String> {
@@ -93,7 +94,7 @@ fn as_string_or_vec_string(value: &Value) -> LuaResult<Vec<String>> {
     }
 }
 
-fn ensure_package(ctx: &mut Context, name: String, pkg: Package) -> LuaResult<()> {
+fn ensure_package(ctx: &mut SpecContext, name: String, pkg: Package) -> LuaResult<()> {
     if ctx.packages.contains_key(&name) {
         return Err(LuaError::external(
             format!("The \"{name}\" already exists",),
@@ -103,7 +104,7 @@ fn ensure_package(ctx: &mut Context, name: String, pkg: Package) -> LuaResult<()
     Ok(())
 }
 
-fn parse_enabled(ctx: &mut Context, tbl: &Table) -> LuaResult<Option<Function>> {
+fn parse_enabled(ctx: &mut SpecContext, tbl: &Table) -> LuaResult<Option<Function>> {
     match tbl.get("enabled")? {
         Value::Boolean(v) => Ok(Some(ctx.lua.create_function(move |_, ()| Ok(v))?)),
         Value::Function(f) => Ok(Some(f)),
@@ -115,7 +116,7 @@ fn parse_enabled(ctx: &mut Context, tbl: &Table) -> LuaResult<Option<Function>> 
     }
 }
 
-fn parse_links(_: &mut Context, tbl: &Table) -> LuaResult<Vec<Link>> {
+fn parse_links(_: &mut SpecContext, tbl: &Table) -> LuaResult<Vec<Link>> {
     match tbl.get("links")? {
         Value::Table(links) => Ok(links
             .pairs::<String, Value>()
@@ -137,7 +138,7 @@ fn parse_links(_: &mut Context, tbl: &Table) -> LuaResult<Vec<Link>> {
     }
 }
 
-fn parse_depends(ctx: &mut Context, tbl: &Table) -> LuaResult<Vec<Dependency>> {
+fn parse_depends(ctx: &mut SpecContext, tbl: &Table) -> LuaResult<Vec<Dependency>> {
     match tbl.get("depends")? {
         Value::Table(ref dep) => Ok(parse_dependencies(ctx, dep)?),
         Value::Nil => return Ok(vec![]),
@@ -148,7 +149,7 @@ fn parse_depends(ctx: &mut Context, tbl: &Table) -> LuaResult<Vec<Dependency>> {
     }
 }
 
-fn create_package(ctx: &mut Context, name: String, tbl: &Table) -> LuaResult<Vec<Dependency>> {
+fn create_package(ctx: &mut SpecContext, name: String, tbl: &Table) -> LuaResult<Vec<Dependency>> {
     let pkg = Package {
         name: name.to_owned(),
         enabled: parse_enabled(ctx, tbl)?,
@@ -161,10 +162,10 @@ fn create_package(ctx: &mut Context, name: String, tbl: &Table) -> LuaResult<Vec
     parse_depends(ctx, tbl)
 }
 
-pub fn parse_dependencies(ctx: &mut Context, tbl: &Table) -> LuaResult<Vec<Dependency>> {
+fn parse_dependencies(ctx: &mut SpecContext, depends_value: &Table) -> LuaResult<Vec<Dependency>> {
     let mut depends: Vec<Dependency> = Vec::new();
 
-    tbl.for_each(|named_key: Value, value_pkg: Value| {
+    depends_value.for_each(|named_key: Value, value_pkg: Value| {
         match (&named_key, &value_pkg) {
             (Value::Integer(_), Value::String(_)) => {
                 ensure_package(
@@ -233,4 +234,9 @@ pub fn parse_dependencies(ctx: &mut Context, tbl: &Table) -> LuaResult<Vec<Depen
     })?;
 
     Ok(depends)
+}
+
+pub fn parse_config(ctx: &mut SpecContext, tbl: &Table) -> LuaResult<()> {
+    ctx.depends = parse_dependencies(ctx, tbl)?;
+    Ok(())
 }
