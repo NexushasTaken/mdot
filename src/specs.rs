@@ -5,13 +5,13 @@ use colored::*;
 use std::{collections::HashMap, error::Error, io, rc::Rc};
 
 #[derive(Debug, Default)]
-struct Link {
-    source: String,
-    targets: Vec<String>,
+pub struct Link {
+    pub source: String,
+    pub targets: Vec<String>,
 }
 
 #[derive(Debug, Default)]
-enum DependencyMode {
+pub enum DependencyMode {
     #[default]
     Required,
     Optional,
@@ -19,19 +19,19 @@ enum DependencyMode {
 
 #[derive(Debug, Default)]
 pub struct Dependency {
-    name: String,
-    mode: DependencyMode,
-    depends: Vec<Dependency>,
+    pub name: String,
+    pub mode: DependencyMode,
+    pub depends: Vec<Dependency>,
 }
 
 #[derive(Debug)]
-enum Depend {
+pub enum Depend {
     Depend(Dependency),
     Package(Package),
 }
 
 #[derive(Debug, Default)]
-struct Package {
+pub struct Package {
     name: String,
     enabled: Option<Function>,
     platforms: Vec<String>,
@@ -40,7 +40,7 @@ struct Package {
 }
 
 impl Package {
-    fn new(name: String) -> Self {
+    pub fn new(name: String) -> Self {
         Self {
             name,
             ..Default::default()
@@ -51,8 +51,8 @@ impl Package {
 #[derive(Debug)]
 pub struct SpecContext {
     pub lua: Rc<Lua>,
-    packages: HashMap<String, Package>,
-    depends: Vec<Dependency>,
+    pub packages: HashMap<String, Package>,
+    pub depends: Vec<Dependency>,
 }
 
 impl SpecContext {
@@ -66,7 +66,23 @@ impl SpecContext {
 
     pub fn parse_config(&mut self, tbl: &Table) -> LuaResult<()> {
         self.depends = self.parse_dependencies(tbl)?;
+        self.create_missing_dependencies();
         Ok(())
+    }
+
+    fn create_missing_dependencies(&mut self) {
+        let mut stack: Vec<&Dependency> = self.depends.iter().collect();
+
+        while let Some(dep) = stack.pop() {
+            if !self.packages.contains_key(&dep.name) {
+                self.packages
+                    .insert(dep.name.clone(), Package::new(dep.name.clone()));
+
+                for child in &dep.depends {
+                    stack.push(child);
+                }
+            }
+        }
     }
 
     fn ensure_package(&mut self, name: String, pkg: Package) -> LuaResult<()> {

@@ -3,9 +3,9 @@ mod specs;
 
 use log::{debug, error, info, trace, warn};
 use logger::setup_logger;
-use mlua::{Function, Lua, Result as LuaResult, StdLib, Table};
+use mlua::{FromLua, Function, IntoLua, Lua, Result as LuaResult, StdLib, Table};
 use specs::*;
-use std::{env, path::PathBuf, rc::Rc};
+use std::{collections::hash_map::Entry, env, path::PathBuf, rc::Rc};
 
 const APPNAME: &str = "mdot";
 
@@ -29,9 +29,14 @@ impl Context {
         })
     }
 
-    fn setup_path(&mut self) -> LuaResult<()> {
+    #[inline]
+    fn get_global<T: FromLua>(&self, key: impl IntoLua) -> LuaResult<T> {
         let globals = self.spec_ctx.lua.globals();
-        let package: Table = globals.get("package")?;
+        globals.get::<T>(key)
+    }
+
+    fn setup_path(&mut self) -> LuaResult<()> {
+        let package: Table = self.get_global("package")?;
         let path: String = package.get::<String>("path")?;
         let named = self.config_dir.join(format!("{}/?.lua", self.appname));
         let init = self.config_dir.join(format!("{}/?/init.lua", self.appname));
@@ -41,8 +46,7 @@ impl Context {
     }
 
     fn load_config(&self) -> LuaResult<Table> {
-        let globals = self.spec_ctx.lua.globals();
-        let require: Function = globals.get("require")?;
+        let require: Function = self.get_global("require")?;
         let config: Table = require.call("mdot")?;
         Ok(config)
     }
@@ -50,7 +54,6 @@ impl Context {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     setup_logger()?;
-    // env::set_var("CARGO_PKG_NAME", "");
     let mut ctx = Context::new().unwrap();
     ctx.setup_path()?;
 
