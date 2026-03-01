@@ -4,8 +4,8 @@ use mlua::{FromLua, Function, IntoLua, Lua, Result as LuaResult, Table};
 
 #[derive(Debug, Default)]
 pub struct Link {
-    pub source: String,
-    pub targets: Vec<String>,
+    pub source: PathBuf,
+    pub targets: Vec<PathBuf>,
 }
 
 #[derive(Debug, Default)]
@@ -31,7 +31,7 @@ pub enum Depend {
 #[derive(Debug, Default)]
 pub struct Package {
     pub name: String,
-    pub default_target: Option<String>,
+    pub default_target: PathBuf,
     pub enabled: Option<Function>,
     pub platforms: Vec<String>,
     pub links: Vec<Link>,
@@ -50,8 +50,11 @@ impl Package {
 #[derive(Debug)]
 pub struct Context {
     pub lua: Lua,
-    pub config_dir: PathBuf,
     pub appname: String,
+
+    pub config_dir: PathBuf,
+    pub app_config_dir: PathBuf,
+    pub pkgs_dir: PathBuf,
 
     pub packages: HashMap<String, Package>,
     pub depends: Vec<Dependency>,

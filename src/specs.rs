@@ -3,7 +3,7 @@ use mlua::{Error as LuaError, Function, Lua, Result as LuaResult, Table, Value};
 
 use crate::structs::*;
 use colored::*;
-use std::{collections::HashMap, error::Error, io, rc::Rc};
+use std::{collections::HashMap, error::Error, io, path::PathBuf, rc::Rc};
 
 impl Context {
     pub fn parse_config(&mut self, tbl: &Table) -> LuaResult<()> {
@@ -56,8 +56,12 @@ impl Context {
                 .map(|pair| {
                     let (src, targets) = pair?;
                     Ok(Link {
-                        source: src,
-                        targets: as_string_or_vec_string(&targets)?,
+                        source: src.into(),
+                        targets: as_string_or_vec_string(&targets)?
+                            .iter()
+                            .map(|str_path: &String| -> PathBuf {
+                                str_path.into()
+                            }).collect(),
                     })
                 })
                 .collect::<LuaResult<Vec<Link>>>()?),
@@ -375,10 +379,10 @@ mod tests {
         let mut found_src1 = false;
         let mut found_src2 = false;
         for l in parsed {
-            if l.source == "src1" {
+            if *l.source == *"src1" {
                 assert_eq!(l.targets, vec!["target1".to_string()]);
                 found_src1 = true;
-            } else if l.source == "src2" {
+            } else if *l.source == *"src2" {
                 assert_eq!(l.targets, vec!["t1".to_string(), "t2".to_string()]);
                 found_src2 = true;
             }
