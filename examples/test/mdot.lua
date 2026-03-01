@@ -1,9 +1,6 @@
 return {
   "ly",
   "fish",
-  {
-    name = "hypr"
-  },
   hypr = {
     depends = {
       "fish",
