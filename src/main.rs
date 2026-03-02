@@ -8,7 +8,7 @@ use log::{debug, error, info, trace, warn};
 use logger::setup_logger;
 use mlua::{Error as LuaError, FromLua, Function, IntoLua, Lua, Result as LuaResult, Table};
 use structs::*;
-use walkdir::WalkDir;
+use walkdir::{DirEntry, WalkDir};
 
 const APPNAME: &str = "mdot";
 
@@ -110,7 +110,8 @@ impl Context {
             if pkg.strategy == Strategy::Shallow {
                 pkg.shallow_links(&self.pkgs_dir)?;
             } else if pkg.strategy == Strategy::Deep {
-                pkg.deep_links(&self.pkgs_dir)?;
+                let files = pkg.get_config_files(&self.pkgs_dir)?;
+                pkg.deep_links(&self.pkgs_dir, &files)?;
             }
         }
         Ok(())
@@ -119,13 +120,28 @@ impl Context {
     fn show_links(&self) {
         for pkg in self.packages.values() {
             for link in &pkg.links {
-                info!("{:?}: {:?} -> {:#?}", pkg.strategy, link.source, link.targets);
+                info!(
+                    "{:?}: {:?} -> {:#?}",
+                    pkg.strategy, link.source, link.targets
+                );
             }
         }
     }
 }
 
 impl Package {
+    pub fn get_config_files(&self, pkgs_dir: &PathBuf) -> Result<Vec<PathBuf>, Box<dyn Error>> {
+        let pkg_source_dir = pkgs_dir.join(&self.name);
+        let mut files: Vec<PathBuf> = vec![];
+        for entry in WalkDir::new(&pkg_source_dir) {
+            let entry = entry?;
+            if entry.file_type().is_file() {
+                files.push(entry.into_path());
+            }
+        }
+        Ok(files)
+    }
+
     pub fn get_or_create_targets(&mut self, source: &PathBuf) -> &mut Vec<PathBuf> {
         let index = self.links.iter().position(|l| l.source == *source);
 
@@ -155,16 +171,9 @@ impl Package {
         Ok(())
     }
 
-    fn deep_links(&mut self, pkgs_dir: &PathBuf) -> Result<(), Box<dyn Error>> {
+    fn deep_links(&mut self, pkgs_dir: &PathBuf, files: &[PathBuf]) -> Result<(), Box<dyn Error>> {
         let pkg_source_config_dir = pkgs_dir.join(&self.name);
-        for entry in WalkDir::new(&pkg_source_config_dir) {
-            let entry = entry?;
-            if !entry.file_type().is_file() {
-                continue;
-            }
-
-            let source_path = entry.into_path();
-            let rel = source_path.strip_prefix(&pkg_source_config_dir)?;
+        for entry in files {
             if self
                 .excludes
                 .iter()
@@ -174,8 +183,9 @@ impl Package {
                 break;
             }
 
+            let rel = entry.strip_prefix(&pkg_source_config_dir)?;
             let target = self.default_target.join(rel);
-            let targets = self.get_or_create_targets(&source_path);
+            let targets = self.get_or_create_targets(&entry);
             targets.push(target);
         }
         Ok(())
