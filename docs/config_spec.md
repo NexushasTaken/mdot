@@ -10,12 +10,15 @@
 
 ---@alias Links table<PathString, TargetList>
 
+---@alias Strategy "deep" | "shallow" | "none"
+
 ---@class Package
 ---@field [1]? string
 ---@field name? string
 ---@field enabled? boolean | fun(): boolean -- wrapped boolean into Function that returns it.
 ---@field platforms? Platforms
 ---@field depends? Dependencies
+---@field strategy? Strategy
 ---@field links? Links
 ---@field excludes? TargetList
 

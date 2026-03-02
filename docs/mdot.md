@@ -34,21 +34,59 @@ all *Package* configurations must be located in `mdot/pkgs/<package-name>`, for 
 When you define a package in the table array like:
 ```lua
 return {
-  { "bash" },
+  "bash",
 }
 ```
 > see [Package Fields](#package-fields) `name` field for more info on how to specify the name for package.
 
-All package configs will automatically be linked and insert all the entries in `links` like so:
-> This is similar GNU Stow behavior.
+All package configs will automatically be linked and insert all the entries in `links` but depending on the value of `strategy`, it will change the behavior, either its `deep`, `shallow` or `none`.
+
+#### strategy "none"
+
+The automatic config linking will be disabled, its neither `shallow` or `deep`.
+This is useful if you want a full control what config files should be link.
+
+#### strategy "shallow"
+
+It's simple as linking the `mdot/pkgs/<package-name>` to `default_target`.
+
+for example:
 ```lua
 return {
-  "bash",
-  links = {
-    "bashrc.sh",
-    "bash_profile.sh",
-    "prompt.sh",
-  },
+  {
+    "bash",
+    strategy = "shallow",
+  }
+}
+```
+
+the `links` field will just become:
+```lua
+return {
+  {
+    "bash",
+    strategy = "shallow",
+    links = {
+      ["."] = "<default_target>/<package.name>"
+    }
+  }
+}
+```
+
+In this case, the link is just `$XDG_CONFIG_HOME/mdot/pkgs/bash/` -> `~/XDG_CONFIG_HOME/bash`
+
+#### strategy "deep"
+
+```lua
+return {
+  {
+    "bash",
+    links = {
+      "bashrc.sh",
+      "bash_profile.sh",
+      "prompt.sh",
+    },
+  }
 }
 ```
 Use `exclude` field to specify this field to which what files to be ignored by automatic links.

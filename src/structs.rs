@@ -28,12 +28,21 @@ pub enum Depend {
     Package(Package),
 }
 
+#[derive(Debug, Default, PartialEq)]
+pub enum Strategy {
+    Shallow,
+    #[default]
+    Deep,
+    None,
+}
+
 #[derive(Debug, Default)]
 pub struct Package {
     pub name: String,
     pub default_target: PathBuf,
     pub enabled: Option<Function>,
     pub platforms: Vec<String>,
+    pub strategy: Strategy,
     pub links: Vec<Link>,
     pub excludes: Vec<String>,
 }

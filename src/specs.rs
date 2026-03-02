@@ -37,6 +37,25 @@ impl Context {
         Ok(())
     }
 
+    fn parse_strategy(&mut self, tbl: &Table) -> LuaResult<Strategy> {
+        match tbl.get("strategy")? {
+            Value::String(v) => match v.to_str()?.as_ref() {
+                "deep" => Ok(Strategy::Deep),
+                "shallow" => Ok(Strategy::Shallow),
+                "none" => Ok(Strategy::None),
+                other => Err(LuaError::external(format!(
+                    "expected \"deep\" or \"shallow\", got: {:#?}",
+                    other
+                ))),
+            },
+            Value::Nil => Ok(Default::default()),
+            other => Err(LuaError::external(format!(
+                "expected boolean or function, got: {:?}",
+                other
+            ))),
+        }
+    }
+
     fn parse_enabled(&mut self, tbl: &Table) -> LuaResult<Option<Function>> {
         match tbl.get("enabled")? {
             Value::Boolean(v) => Ok(Some(self.lua.create_function(move |_, ()| Ok(v))?)),
@@ -59,9 +78,8 @@ impl Context {
                         source: src.into(),
                         targets: as_string_or_vec_string(&targets)?
                             .iter()
-                            .map(|str_path: &String| -> PathBuf {
-                                str_path.into()
-                            }).collect(),
+                            .map(|str_path: &String| -> PathBuf { str_path.into() })
+                            .collect(),
                     })
                 })
                 .collect::<LuaResult<Vec<Link>>>()?),

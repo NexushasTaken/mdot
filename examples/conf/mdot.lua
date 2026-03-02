@@ -5,7 +5,7 @@ return {
       "bash",
       excludes = "*",
       links = {
-         ["bashrc.sh"] = "~/.bashrc"
+         ["bashrc.sh"] = { "bashrc-config.sh" }
       }
    }
 }
