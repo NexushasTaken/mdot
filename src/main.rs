@@ -16,7 +16,10 @@ impl Context {
     fn new() -> Option<Self> {
         let appname = env::var("MDOT_APPNAME").unwrap_or(APPNAME.into());
         let config_dir = dirs::config_dir()?;
-        let app_config_dir = config_dir.join(&appname);
+        let app_config_dir: PathBuf = env::var("MDOT_CONFIG_HOME")
+            .map(PathBuf::from)
+            .unwrap_or(dirs::config_dir()?)
+            .join(&appname);
         let pkgs_dir = app_config_dir.join("pkgs");
 
         Some(Self {
@@ -112,6 +115,14 @@ impl Context {
         }
         Ok(())
     }
+
+    fn show_links(&self) {
+        for pkg in self.packages.values() {
+            for link in &pkg.links {
+                info!("{:?}: {:?} -> {:#?}", pkg.strategy, link.source, link.targets);
+            }
+        }
+    }
 }
 
 impl Package {
@@ -182,6 +193,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // info!("packaged: {:#?}", packages);
 
-    info!("packages: {:#?}", ctx.packages);
+    // info!("packages: {:#?}", ctx.packages);
+    ctx.show_links();
     Ok(())
 }

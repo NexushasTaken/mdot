@@ -1,6 +1,9 @@
 return {
    "uwsm",
-   "hyprland",
+   {
+      "hyprland",
+      strategy = "deep",
+   },
    {
       "bash",
       excludes = "*",
