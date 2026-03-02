@@ -109,6 +109,7 @@ impl Context {
             name: name.to_owned(),
             enabled: self.parse_enabled(tbl)?,
             platforms: as_string_or_vec_string(&tbl.get("platforms")?)?,
+            strategy: self.parse_strategy(tbl)?,
             links: self.parse_links(tbl)?,
             excludes: as_string_or_vec_string(&tbl.get("excludes")?)?,
             ..Default::default()
