@@ -115,23 +115,32 @@ impl Context {
 }
 
 impl Package {
+    pub fn get_or_create_targets(&mut self, source: &PathBuf) -> &mut Vec<PathBuf> {
+        let index = self.links.iter().position(|l| l.source == *source);
+
+        match index {
+            Some(i) => &mut self.links[i].targets,
+            None => {
+                self.links.push(Link {
+                    source: source.to_owned(),
+                    targets: Vec::new(),
+                });
+                &mut self.links.last_mut().unwrap().targets
+            }
+        }
+    }
+
     fn shallow_links(&mut self, pkgs_dir: &PathBuf) -> Result<(), Box<dyn Error>> {
         let pkg_src = pkgs_dir.join(&self.name).canonicalize()?;
 
-        let already_linked = self.links.iter_mut().any(|link| {
-            if link.targets.contains(&self.default_target) {
-                return true;
-            }
-            link.targets.push(pkg_src.clone());
-            true
-        });
+        let target_to_add = self.default_target.clone();
 
-        if !already_linked {
-            self.links.push(Link {
-                source: pkg_src,
-                targets: vec![self.default_target.clone()],
-            });
+        let targets = self.get_or_create_targets(&pkg_src);
+
+        if !targets.contains(&target_to_add) {
+            targets.push(target_to_add);
         }
+
         Ok(())
     }
 
@@ -155,16 +164,8 @@ impl Package {
             }
 
             let target = self.default_target.join(rel);
-            if let Some(link) = self.links.iter_mut().find(|p| p.source == source_path) {
-                if link.targets.contains(&target) {
-                    link.targets.push(target);
-                }
-            } else {
-                self.links.push(Link {
-                    source: source_path,
-                    targets: vec![target],
-                });
-            }
+            let targets = self.get_or_create_targets(&source_path);
+            targets.push(target);
         }
         Ok(())
     }

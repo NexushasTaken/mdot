@@ -30,8 +30,8 @@ pub enum Depend {
 
 #[derive(Debug, Default, PartialEq)]
 pub enum Strategy {
-    Shallow,
     #[default]
+    Shallow,
     Deep,
     None,
 }
