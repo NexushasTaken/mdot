@@ -1,17 +1,15 @@
 # mdot — Design
 
-Status: draft v1 (2026-10-06). Supersedes [archive/comtrya-port-plan.md](archive/comtrya-port-plan.md).
+Status: draft spec (2026-10-06). Supersedes [archive/comtrya-port-plan.md](archive/comtrya-port-plan.md).
 
-## 1. Why
+## 1. About this document
 
-The user's current dotfiles (`~/dotfiles-v2`) use a personal comtrya fork. Before that they used GNU stow. Neither fits:
+This is the **current spec**: what mdot is meant to be, kept short and up to date. Related documents:
 
-- **stow** only links files. It doesn't record which packages a config needs.
-- **comtrya** is a general provisioning tool:
-  - Every config ends up as a `file.link` action wrapped around a `before: package.install` block. The real unit ("this config belongs to this package") isn't modeled.
-  - Nothing tracks removal or drift. If you delete a manifest entry, the link and package stay behind and no one knows.
-  - AUR support is a Lua plugin wrapped around `makepkg` (`plugins/aur.lua`), and bootstrapping paru is awkward.
-  - Plan, dry-run and error output are weak.
+- [research.md](research.md): motivation, related work, design trade-offs, open research questions, planned experiments and the dotfiles-v2 translation.
+- [adr/](adr/): one record per decision, with its context.
+
+When a decision changes, add a new ADR and update this spec to match.
 
 mdot is a **declarative dotfile/config manager** in the spirit of NixOS/home-manager, without Nix:
 
@@ -188,7 +186,7 @@ The same engine powers the standalone CLI:
 mdot query <file> '<query>' [--lang L] [--set VALUE] [--capture NAME] [--in-place]
 ```
 
-Initial grammars: json, toml, ini, css, yaml, lua. Grammars are vendored and compiled in. The final set is an open question.
+Initial grammars: json, toml, ini, css, yaml, lua. Grammars are vendored and compiled in. The final set depends on experiment S1 (research.md §7).
 
 ## 9. Resource model, plan and diff
 
@@ -279,7 +277,7 @@ A generation record looks like this:
   2. load specs from that worktree
   3. plan against the current state and live system
   4. show the plan and confirm
-  5. apply. Links point into the **main repo path**, never into the temp worktree. Any file whose content differs at the old commit goes through a `render`-style copy, or mdot warns and asks the user to `git checkout` first. See open question Q5.
+  5. apply. Links point into the **main repo path**, never into the temp worktree. Any file whose content differs at the old commit goes through a `render`-style copy, or mdot warns and asks the user to `git checkout` first. Unresolved; see research question RQ4.
   6. remove the worktree
 - Applying with a dirty tree records `dirty: true`. Rolling back to such a generation warns that it can't be reproduced exactly.
 
@@ -343,6 +341,7 @@ The core config manager comes first. Package handling and the other extras come 
 
 | Phase | Scope |
 |---|---|
+| 0 | Research experiments S1–S6 ([research.md §7](research.md#7-methodology-experiments)). Their results may change this spec before Phase 1 is locked |
 | 1 | Skeleton (CMake + vcpkg + CI build). Lua loader + sandbox, `dirs`/`host`/`os`, `config()` links (incl. `walk`, `from`), state file, `plan` / `apply` / `status` / `specs`. User scope only |
 | 2 | `adopt`, `on_remove` policies, generations + `rollback` via git worktree, backups |
 | 3 | System scope: `sysfile`, `dirs.etc`, sudo batch executor |
@@ -360,110 +359,4 @@ The core config manager comes first. Package handling and the other extras come 
 
 ## 14. Open questions
 
-- **Q1.** Which grammars ship in v1? Hyprland now uses Lua, so it's covered. kanata's `.kbd` has no maintained grammar.
-- **Q2.** Should duplicate spec names stay an error forever, or should a later `extend(name)` clause allow host-specific additions?
-- **Q3.** Can `enabled` take a function, evaluated after all specs load (e.g. "enabled if spec X is enabled")?
-- **Q4.** Secrets: out of scope until phase 6+. Candidates are `age` via an external CLI and `pass`.
-- **Q5.** Rollback for `Link` resources whose *content* changed between commits. Symlinks point into the working tree, so getting the old content back means checking out the old commit. Options: let rollback do `git checkout <commit>` itself (needs a clean tree), or only restore the link *set* and leave content to git.
-- **Q6.** Multi-user and system-wide user config (`/etc/skel`, other users' homes) are deferred. `dirs.home` always means the invoking user.
-- **Q7.** Unmanaged scripts (`dotfiles-v2/unmanaged/`, `scripts/`): they stay plain scripts in the repo until hooks exist in phase 6+.
-- **Q8.** `pkg_alts` debugging: should `mdot specs` show the resolved package name per platform? (Probably yes.)
-
-## Appendix A — dotfiles-v2 translated
-
-This appendix is an expressiveness check against the real comtrya manifests.
-
-**`hyprland.yaml`.** The link plus a package list becomes one spec per package:
-
-```lua
--- specs/hyprland.lua
-return {
-  spec {
-    name("hyprland"),
-    depends("hyprpicker", "hyprshot", "cliphist", "awww"),
-    config(dirs.home_config["hypr"]),
-  },
-  spec { name("hyprpicker") },
-  spec { name("hyprshot") },
-  spec { name("cliphist") },
-  spec { name("awww") },
-}
-```
-
-**`utils.yaml` / `dev-utils.yaml`.** A long tail of packages with no config is just Lua:
-
-```lua
--- specs/cli-tools.lua
-local out = {
-  spec { name("btop"),    config(dirs.home_config["btop"]) },
-  spec { name("bat"),     config(dirs.home_config["bat"]) },
-  spec { name("mpv"),     config(dirs.home_config["mpv"]) },
-  spec { name("github-cli"), config(dirs.home_config["gh/config.yml"]) }, -- file-level: gh writes hosts.yml itself
-}
-for _, p in ipairs { "eza", "zoxide", "fzf", "wget", "rsync", "tldr", "unzip", "zip" } do
-  out[#out + 1] = spec { name(p) }
-end
-return out
-```
-
-`clangd`'s config with no package (commented out in comtrya) becomes `name("clangd", { pkg = false })`. `.inputrc` becomes `spec { name("inputrc", { pkg = false }), config(dirs.home[".inputrc"]) }`.
-
-**`modules/bash`.** Renamed files and multiple paths:
-
-```lua
-return spec {
-  name("bash"),
-  config(dirs.home_config["bash"]),
-  config(dirs.home[".bashrc"],       { from = "configs/bash/bashrc.sh" }),
-  config(dirs.home[".bash_profile"], { from = "configs/bash/bash_profile.sh" }),
-}
-```
-
-**`modules/krita`.** Comtrya uses `walk_dir` into `~/.config`, and krita rewrites `kritarc`:
-
-```lua
-return spec {
-  name("krita"),
-  config(dirs.home_config["kritashortcutsrc"]),          -- static files: link
-  patch(dirs.home_config["kritarc"], { lang = "ini", edits = {
-    set(q[[(setting (setting_name) @k (#eq? @k "canvasState") (setting_value) @v)]], "OPENGL_SUCCESS"),
-  } }),
-}
-```
-
-The exact krita keys are illustrative.
-
-**`Comtrya.yaml` variables.** These become `vars` + `render`:
-
-```lua
--- config.lua
-return {
-  vars = { font = "Hack Nerd Font", cursor = { name = "phinger-cursor-dark", size = 16 } },
-  defaults = { on_remove = { files = "remove", package = "ask" } },
-}
-```
-
-```lua
--- specs/waybar.lua
-return spec {
-  name("waybar"),
-  depends("ttf-hack-nerd"),
-  config(dirs.home_config["waybar/config.jsonc"]),
-  render(dirs.home_config["waybar/style.css"], {
-    base = "templates/waybar/style.css", lang = "css",
-    edits = { set(q[[(declaration (property_name) @p (#eq? @p "font-family") (plain_value) @v)]], vars.font, { all = true }) },
-  }),
-}
-```
-
-**`modules/kanata`, `tablet.yaml`, `phinger-cursors.yaml`, `paru.yaml`.** These are AUR packages, possibly built from a custom git repo (`NexushasTaken/kanata-bin`). In v1 they're written with config only. Their package source arrives in phase 6, presumably as `name("kanata-bin", { source = aur { repo = "..." } })`; the exact form isn't designed yet. kanata's uinput group/udev setup is system scope (phase 3 for files, phase 6+ for groups).
-
-**`nexos.yaml`.** Its `depends` list of modules and fonts becomes `enabled(host.name == "nexos")` on host-specific specs. Package-only specs cover the fonts and misc packages.
-
-**Coverage result.** Every comtrya construct used in dotfiles-v2 maps to one of:
-
-- an expressible spec today
-- phase 3/5/6 features: AUR source, groups, hooks
-- open questions Q5 and Q7 (rollback content, unmanaged scripts)
-
-Nothing is silently dropped.
+Open questions and unproven claims are tracked as research questions in [research.md §6](research.md#6-research-questions). Known limitations are in [research.md §9](research.md#9-limitations-and-future-work).
