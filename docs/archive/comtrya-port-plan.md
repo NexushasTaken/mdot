@@ -1,3 +1,5 @@
+> **Superseded** by [../design.md](../design.md). Kept for reference only; the 1:1 comtrya port is no longer the plan.
+
 # Comtrya: Rust → C++ Port Plan
 
 Source: https://github.com/NexushasTaken/comtrya
