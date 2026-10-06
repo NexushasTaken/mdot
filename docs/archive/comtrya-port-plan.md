@@ -1,4 +1,4 @@
-> **Superseded** by [../design.md](../design.md). Kept for reference only; the 1:1 comtrya port is no longer the plan.
+> **Superseded** by `../design.typ` (spec), `../research.typ` and `../adr/`. Kept for reference only; the 1:1 comtrya port is no longer the plan.
 
 # Comtrya: Rust → C++ Port Plan
 
