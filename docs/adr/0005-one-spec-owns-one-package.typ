@@ -1,6 +1,6 @@
 #import "../template.typ": adr
 
-#adr(number: 5, title: [One spec owns at most one package], status: [Accepted], date: [2026-10-06])[
+#adr(number: 5, title: [One spec owns at most one package], status: [Accepted (`pkg` default amended by 0014)], date: [2026-10-06])[
 = Context
 The core unit should be "this config belongs to this package". The interview considered how strictly
 mdot should own packages (all explicit packages, only its own, or its own plus warnings).

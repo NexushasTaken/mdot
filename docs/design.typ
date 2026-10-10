@@ -56,30 +56,55 @@ These rules decide every later design question:
 
 ```
 dotfiles/
-  config.lua        -- runs first: vars, global defaults
-  specs/**/*.lua    -- auto-merged; each file returns a spec or a list of specs
-  configs/          -- mirror root for dirs.home_config  (~/.config)
-  home/             -- mirror root for dirs.home         (~)
-  data/             -- mirror root for dirs.home_data    (~/.local/share)
-  system/etc/       -- mirror root for dirs.etc          (/etc)      [system scope]
-  templates/        -- base files for render()
+  config.lua              -- optional: runs first, vars
+  specs/
+    <name>/               -- one directory per spec (flat; no grouping yet)
+      spec.lua            -- optional; if present it controls the directory
+      ...                 -- the spec's files, any layout
 ```
 
-*How auto-merge works* (lazy.nvim style):
+A spec is a directory under `specs/`. Its name is the directory name. There are two modes, decided
+only by whether `spec.lua` exists:
 
-+ mdot finds the repo root: `--repo <dir>`, else `$PWD` if it contains `config.lua`, else error.
-+ `config.lua` runs in its own environment and returns a table `{ vars = {...}, defaults = {...} }`.
-  Both are optional.
-+ mdot globs every `specs/**/*.lua`, in sorted order so error messages come out deterministic. Each
-  file runs in a *fresh `sol::environment`*, so a global set in one spec file can't leak into
-  another.
-+ A file returns either one `spec{...}` or a plain Lua list of them. All of them are collected into
-  a single `SpecSet` keyed by `name`. *A duplicate name is an error*, and the error lists both file
-  paths.
-+ `depends` edges form a DAG, sorted with a hand-rolled topological sort. A cycle is an error that
-  prints the cycle. File order never matters.
-+ Disabled specs (`enabled(false)`) are dropped _after_ graph checks. If an enabled spec depends on
-  a disabled one, that's an error.
+#table(
+  columns: (auto, 1fr),
+  [Mode], [Behavior],
+  [*Implicit* (no `spec.lua`)],
+  [Config-only spec. The whole directory is symlinked to `~/.config/<name>`. It never owns a package.],
+  [*Explicit* (`spec.lua`)],
+  [`spec.lua` has full control. *Nothing is linked automatically*; every link is declared. `name`
+    defaults to the directory name. A `spec.lua` that declares nothing is an error.],
+)
+
+```
+specs/
+  gdb/                    -- implicit: linked to ~/.config/gdb
+    gdbinit
+  hypr/                   -- explicit: spec.lua says what goes where
+    spec.lua
+    hyprland.lua
+```
+
+Consequences worth knowing:
+
+- Adding a `spec.lua` to an implicit directory turns its automatic link off. `mdot plan` must show
+  that link being removed, so the change is never silent.
+- Implicit mode only covers `~/.config/<dirname>`. Anything else (`~/.bashrc`, `~/.local/share/...`)
+  needs a `spec.lua`.
+- *Packages are opt-in.* A directory name is a config name, not necessarily a package name
+  (`nvim/` vs `neovim`), so implicit specs never own a package. Ownership is declared in `spec.lua`
+  (Phase 5).
+- *System scope is parked.* It is deliberately not part of this layout yet. See ADR 0014.
+
+*Loading:*
+
++ mdot finds the repo root: `--repo <dir>`, else `$PWD` if it contains `specs/`, else error.
++ If `config.lua` exists it runs in its own environment and returns `{ vars = {...} }`.
++ mdot lists `specs/*/` in sorted order, so error messages are deterministic. A directory with a
+  `spec.lua` runs it in a *fresh `sol::environment`*, so globals can't leak between specs. A
+  directory without one becomes an implicit spec.
++ Specs are collected into a `SpecSet` keyed by name. Names are directory names, so duplicates cannot
+  happen.
 
 *Sandbox.* Spec and config environments get `string`, `table`, `math`, `utf8`,
 `ipairs`/`pairs`/`select`/`type`/`tostring`/`tonumber`/`error`/`assert`/`pcall`, and `require`

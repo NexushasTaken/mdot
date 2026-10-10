@@ -1,6 +1,6 @@
 #import "../template.typ": adr
 
-#adr(number: 4, title: [Auto-merged `specs/` folder with mirror roots], status: [Accepted], date: [2026-10-06])[
+#adr(number: 4, title: [Auto-merged `specs/` folder with mirror roots], status: [Superseded by 0014], date: [2026-10-06])[
 = Context
 The earlier session used a single `config.lua`. Options discussed: single file, lazy.nvim-style
 auto-merge folder, or a spec file next to its config files (`pkgs/<name>/spec.lua`).
