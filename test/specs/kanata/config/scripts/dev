@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+config_dir="${XDG_CONFIG_HOME:-$HOME/.config/kanata}"
+exa -a -1 --icons=never "$config_dir" | entr -cr kanata -dc "${config_dir}/config.kbd"

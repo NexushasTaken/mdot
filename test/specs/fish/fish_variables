@@ -1,0 +1,19 @@
+# This file contains fish universal variable definitions.
+# VERSION: 3.0
+SETUVAR --export ANDROID_HOME:/home/nexus/\x2eandroid
+SETUVAR --export BUN_INSTALL:/home/nexus/\x2ebun
+SETUVAR --export EDITOR:nvim
+SETUVAR --export JAVA_HOME:/usr/lib/jvm/default
+SETUVAR --export MANOPT:\x2d\x2dnh\x20\x2d\x2dnj
+SETUVAR --export PAGER:bat\x20\x2d\x2dplain
+SETUVAR --export --path PKG_CONFIG_PATH:/usr/local/pkgconfig\x1e/usr/local/lib/pkgconfig\x1e/usr/local/lib/pkgconfig
+SETUVAR --export SUDO_EDITOR:nvim
+SETUVAR --export VISUAL:nvim
+SETUVAR --export W3M_DIR:/home/nexus/\x2econfig/w3m
+SETUVAR --export XDG_CACHE_HOME:/home/nexus/\x2ecache
+SETUVAR --export XDG_CONFIG_DIRS:/etc/xdg
+SETUVAR --export XDG_CONFIG_HOME:/home/nexus/\x2econfig
+SETUVAR --export XDG_DATA_DIRS:/usr/local/share\x3a/usr/share
+SETUVAR --export XDG_DATA_HOME:/home/nexus/\x2elocal/share
+SETUVAR --export XDG_STATE_HOME:/home/nexus/\x2elocal/state
+SETUVAR fish_user_paths:/usr/lib/jvm/default/bin\x1e/home/nexus/\x2eodin\x1e/home/nexus/\x2elocal/bin

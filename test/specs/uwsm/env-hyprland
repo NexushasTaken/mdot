@@ -1,0 +1,3 @@
+# vi: ft=sh
+# {# replace_number(data.cursor.size) #}
+export HYPRCURSOR_SIZE=16

@@ -1,0 +1,54 @@
+set termguicolors
+set nocompatible
+call plug#begin(expand('$XDG_CONFIG_HOME') . '/vim/.plugged')
+Plug 'itchyny/lightline.vim'
+Plug 'ghifarit53/tokyonight-vim'
+Plug 'sheerun/vim-polyglot'
+call plug#end()
+
+" Options {
+set number
+set relativenumber
+set noshowmode
+set laststatus=2
+set magic
+set number
+set undofile
+set autoread
+set expandtab
+set smartcase
+set linebreak
+set autoindent
+set shiftround
+set cursorline
+set smartindent
+set equalalways
+set termguicolors
+set relativenumber
+set nowrap
+set nobackup
+set notimeout
+set noshowmode
+set noautochdir
+set nofoldenable
+set nocompatible
+set nofixendofline
+set tabstop=2
+set scrolloff=2
+set shiftwidth=2
+set softtabstop=2
+set showtabline=2
+set mouse=""
+set belloff=""
+set cursorlineopt=number
+set cinoptions = "l1,N-s,E-s,t0,U1"
+" }
+
+" Tokyonight {
+let g:lightline = {'colorscheme' : 'tokyonight'}
+let g:tokyonight_style = 'night'
+let g:tokyonight_enable_italic = 0
+colorscheme tokyonight
+" }
+
+syntax on

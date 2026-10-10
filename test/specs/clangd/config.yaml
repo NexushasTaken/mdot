@@ -1,0 +1,22 @@
+InlayHints:
+  BlockEnd: false
+  Designators: false
+  Enabled: true
+  ParameterNames: true
+  DeducedTypes: true
+  TypeNameLimit: 24
+
+Index:
+  StandardLibrary: true
+
+Hover:
+  ShowAKA: true
+
+CompileFlags:
+  Add: [
+      -Wall, -Wno-old-style-cast, -Wno-switch, -Wno-sign-conversion,
+      -Wno-implicit-int-conversion, -Wno-padded, -Wno-sign-compare,
+      -Wno-shorten-64-to-32, -Wno-double-promotion, -Wno-implicit-int-float-conversion,
+      -Wno-zero-as-null-pointer-constant, -Wno-exit-time-destructors, -Wno-global-constructors,
+      -Wno-missing-variable-declarations
+    ]

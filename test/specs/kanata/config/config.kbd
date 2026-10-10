@@ -1,0 +1,117 @@
+(defcfg
+  linux-dev-names-exclude (
+    "USB OPTICAL MOUSE"
+    "USB OPTICAL MOUSE "
+    "HUION 420 Mouse"
+    "Evision RGB Keyboard Mouse"
+    "OpenTabletDriver Virtual Mouse"
+    "HUION 420 Keyboard"
+    "OpenTabletDriver Virtual Artist Tablet"
+    "OpenTabletDriver Virtual Keyboard"
+  )
+  process-unmapped-keys yes
+)
+
+(defsrc
+  esc caps
+  `   1   2   3   4   5   6   7   8   9   0   -   =
+  q   w   e   r   t   y   u   i   o   p   [   ]   \
+  a   s   d   f   h   j   k   l   ;   '
+  spc
+  lsft rsft
+  lctl rctl
+  lmet rmet
+  lalt ralt
+  left down up right
+)
+
+(defvar
+  tap-time 150
+  hold-time 150
+)
+
+(defalias
+  a (tap-hold $tap-time $hold-time a lctl)
+  s (tap-hold $tap-time $hold-time s lmet)
+  d (tap-hold $tap-time $hold-time d lalt)
+  f (tap-hold $tap-time $hold-time f lsft)
+
+  j (tap-hold $tap-time $hold-time j rsft)
+  k (tap-hold $tap-time $hold-time k ralt)
+  l (tap-hold $tap-time $hold-time l rmet)
+  ; (tap-hold $tap-time $hold-time ; rctl)
+
+  mwu (mwheel-up $hold-time 120)
+  mwd (mwheel-down $hold-time 120)
+  mwl (mwheel-left $hold-time 120)
+  mwr (mwheel-right $hold-time 120)
+
+  spc    (tap-hold-release 0 $hold-time spc (layer-while-held nums))
+  arrows (tap-hold-release 0 $hold-time lalt (layer-while-held arrows))
+  wheels (tap-hold-release 0 $hold-time ralt (layer-while-held wheels))
+)
+
+(deflayer base
+  caps esc
+  XX  XX  XX  XX  XX  XX  XX  XX  XX  XX  XX  XX  XX
+  q   w   e   r   t   y   u   i   o   p   [   ]   \
+  @a  @s  @d  @f  h   @j  @k  @l  @;  '
+  @spc
+  spc XX
+  lctl (tap-hold 0 400 XX (layer-switch default))
+  XX XX
+  @arrows @wheels
+  XX XX XX XX
+)
+
+(deflayer nums
+  caps esc
+  XX  XX  XX  XX  XX  XX  XX  XX  XX  XX  XX  XX  XX
+  1   2   3   4   5   6   7   8   9   0   -   =   `
+  @a  @s  @d  @f  h   @j  @k  @l  @;  bspc
+  spc
+  XX XX
+  XX (layer-switch default)
+  XX XX
+  XX XX
+  XX XX XX XX
+)
+
+(deflayer arrows
+  caps esc
+  XX  XX  XX  XX  XX  XX  XX  XX  XX  XX  XX  XX  XX
+  q   w   e   r   t   y   u   i   o   p   [   ]   \
+  @a  @s  @d  @f  left down up right  ;   '
+  spc
+  XX XX
+  XX (layer-switch default)
+  XX XX
+  XX XX
+  XX XX XX XX
+)
+
+(deflayer wheels
+  caps esc
+  XX  XX  XX  XX  XX  XX  XX  XX  XX  XX  XX  XX  XX
+  q   w   e   r   t   y   u   i   o   p   [   ]   \
+  @a  @s  @d  @f  @mwl @mwd @mwu @mwr ;   '
+  spc
+  XX XX
+  XX (layer-switch default)
+  XX XX
+  XX XX
+  XX XX XX XX
+)
+
+(deflayer default
+  caps esc
+  `   1   2   3   4   5   6   7   8   9   0   -   =
+  q   w   e   r   t   y   u   i   o   p   [   ]   \
+  a   s   d   f   h   j   k   l   ;   '
+  spc
+  lsft rsft
+  lctl (layer-switch base)
+  lmet rmet
+  lalt ralt
+  left down up right
+)

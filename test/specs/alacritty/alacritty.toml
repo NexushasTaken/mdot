@@ -1,0 +1,19 @@
+[general]
+import = [
+  "./tokyonight_night.toml"
+]
+live_config_reload = true
+
+[window]
+dynamic_padding = true
+
+[scrolling]
+history = 0
+
+[font]
+# {# replace_quoted(data.font) #}
+normal = { family = "Hack Nerd Font" }
+size = 9
+
+[cursor]
+style = { blinking = "Never" }

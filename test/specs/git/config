@@ -1,0 +1,43 @@
+# vi: ft=gitconfig
+[core]
+  editor="nvim"
+  compression = 0
+[init]
+  defaultBranch="master"
+[diff]
+  submodule = log
+[advice]
+  statusHints = false
+  addEmptyPathspec = false
+[alias]
+  sdiff = diff --staged
+[merge]
+  tool = nvimdiff
+[mergetool]
+  keepBackup = false
+[mergetool.vimdiff]
+  layout = "LOCAL,REMOTE/MERGED"
+[gui]
+  fontui = "-family \"Hack Nerd Font\" -size 9 -weight normal -slant roman -underline 0 -overstrike 0"
+  fontdiff = "-family \"Hack Nerd Font\" -size 9 -weight normal -slant roman -underline 0 -overstrike 0"
+  tabsize = 2
+[http]
+  postBuffer = 52428800
+[filter "lfs"]
+  clean = git-lfs clean -- %f
+  smudge = git-lfs smudge -- %f
+  process = git-lfs filter-process
+  required = true
+[protocol "file"]
+  allow = always
+[safe]
+  directory = /opt/lampp/htdocs
+	directory = /var/cache/pacman/pkg
+[user]
+  name = "NexushasTaken" # {< replace_quoted(data.git.name) >}
+  email = "nexushastaken@gmail.com" # {< replace_quoted(data.git.email) >}
+# URL Redirection
+[url "file:///home/nexus/dev/repos/astal"]
+    insteadOf = https://github.com/Aylur/astal
+[url "file:///home/nexus/dev/repos/astal.git"]
+    insteadOf = https://github.com/Aylur/astal.git

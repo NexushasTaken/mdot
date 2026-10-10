@@ -1,0 +1,32 @@
+# vi: ft=ini
+hide-cursor = true
+text-cursor = true
+history = true
+
+fuzzy-match = true
+width = 40%
+height = 30%
+border-width = 0
+result-spacing = 2
+num-results = 0
+
+outline-width = 1
+outline-color = #414868
+
+prompt-text = 
+prompt-padding = 10
+
+anchor = center
+padding-top = 10
+padding-bottom = 10
+padding-left = 10
+padding-right = 10
+
+font = Hack Nerd Font
+font-size = 10
+background-color = #1a1b26
+text-color = #c0caf5
+
+selection-color = #c0caf5
+selection-background = #283457
+

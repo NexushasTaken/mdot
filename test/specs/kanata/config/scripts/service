@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+command="$1"
+if [[ -n "$command" ]]; then
+  systemctl --user "$command" kanata
+else
+  echo "usage: $BASH_SOURCE <command>"
+  exit 1
+fi

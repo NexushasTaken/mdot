@@ -1,0 +1,8 @@
+{
+  "FormattingOptions": {
+    "EnableEditorConfigSupport": true,
+    "OrganizeImports": true,
+    "TabSize": 2,
+    "IndentationSize": 2
+  }
+}

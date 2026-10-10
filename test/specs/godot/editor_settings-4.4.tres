@@ -1,0 +1,107 @@
+[gd_resource type="EditorSettings" load_steps=11 format=3]
+
+[sub_resource type="InputEventKey" id="InputEventKey_hw8pv"]
+device = -1
+ctrl_pressed = true
+keycode = 69
+unicode = 101
+
+[sub_resource type="InputEventKey" id="InputEventKey_xvjuw"]
+keycode = 4194309
+
+[sub_resource type="InputEventKey" id="InputEventKey_cf5yi"]
+keycode = 4194310
+
+[sub_resource type="InputEventKey" id="InputEventKey_cwdnh"]
+shift_pressed = true
+keycode = 4194309
+
+[sub_resource type="InputEventKey" id="InputEventKey_mmag4"]
+shift_pressed = true
+keycode = 4194310
+
+[sub_resource type="InputEventKey" id="InputEventKey_o5tpk"]
+keycode = 4194322
+
+[sub_resource type="InputEventKey" id="InputEventKey_rcajx"]
+device = -1
+physical_keycode = 4194306
+
+[sub_resource type="InputEventKey" id="InputEventKey_3wpo8"]
+keycode = 4194320
+
+[sub_resource type="InputEventKey" id="InputEventKey_15484"]
+device = -1
+shift_pressed = true
+physical_keycode = 4194306
+
+[sub_resource type="InputEventKey" id="InputEventKey_pit71"]
+keycode = 4194326
+
+[resource]
+interface/editor/display_scale = 1
+interface/editor/main_font = "/usr/share/fonts/noto/NotoSans-Regular.ttf"
+interface/editor/main_font_bold = "/usr/share/fonts/noto/NotoSans-Bold.ttf"
+interface/editor/code_font = "/usr/share/fonts/TTF/HackNerdFont-Regular.ttf"
+interface/editor/save_on_focus_loss = true
+interface/editor/keep_screen_on = true
+interface/theme/base_color = Color(0.21, 0.24, 0.29, 1)
+interface/theme/accent_color = Color(0.44, 0.73, 0.98, 1)
+interface/theme/contrast = 0.3
+interface/scene_tabs/show_script_button = true
+filesystem/directories/autoscan_project_path = "/home/nexus/dev/code/godot"
+filesystem/directories/default_project_path = "/home/nexus/dev/code/godot"
+filesystem/file_dialog/display_mode = 1
+text_editor/appearance/caret/caret_blink = false
+text_editor/appearance/whitespace/line_spacing = 0
+text_editor/behavior/navigation/scroll_past_end_of_file = true
+text_editor/behavior/indent/size = 2
+text_editor/behavior/files/trim_trailing_whitespace_on_save = true
+text_editor/behavior/files/auto_reload_scripts_on_external_change = true
+text_editor/completion/add_string_name_literals = true
+text_editor/completion/add_node_path_literals = true
+editors/3d_gizmos/gizmo_settings/bone_axis_length = 0.1
+version_control/username = "NexushasTaken"
+export/android/debug_keystore = "/home/nexus/.local/share/godot/keystores/debug.keystore"
+export/android/debug_keystore_pass = "android"
+export/android/java_sdk_path = "/usr/lib/jvm/default"
+export/android/android_sdk_path = "/home/nexus/.android"
+export/macos/rcodesign = ""
+export/web/http_port = 8060
+export/web/tls_key = ""
+export/web/tls_certificate = ""
+export/windows/rcedit = ""
+export/windows/osslsigncode = ""
+export/windows/wine = ""
+_editor_settings_advanced_mode = true
+_project_settings_advanced_mode = true
+_export_template_download_directory = ""
+_default_feature_profile = ""
+_script_setup_templates_dictionary = {}
+_use_favorites_root_selection = false
+_script_setup_use_script_templates = false
+network/language_server/show_native_symbols_in_editor = true
+network/language_server/use_thread = true
+shortcuts = [{
+"name": "spatial_editor/viewport_zoom_modifier_1",
+"shortcuts": [SubResource("InputEventKey_pit71")]
+}, {
+"name": "spatial_editor/viewport_zoom_modifier_2",
+"shortcuts": []
+}]
+builtin_action_overrides = [{
+"events": [SubResource("InputEventKey_hw8pv")],
+"name": "ui_text_completion_query"
+}, {
+"events": [SubResource("InputEventKey_xvjuw"), SubResource("InputEventKey_cf5yi")],
+"name": "ui_text_completion_replace"
+}, {
+"events": [SubResource("InputEventKey_cwdnh"), SubResource("InputEventKey_mmag4")],
+"name": "ui_text_completion_accept"
+}, {
+"events": [SubResource("InputEventKey_o5tpk"), SubResource("InputEventKey_rcajx")],
+"name": "ui_down"
+}, {
+"events": [SubResource("InputEventKey_3wpo8"), SubResource("InputEventKey_15484")],
+"name": "ui_up"
+}]
