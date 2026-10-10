@@ -140,83 +140,47 @@ A spec is a function call that receives a list of _clauses_. Each clause is a pl
 that returns a tagged table, so there's no metatable or syntax trickery:
 
 ```lua
--- specs/waybar.lua
+-- specs/hypr/spec.lua
 return spec {
-  name("waybar"),
-  depends("fonts", "hyprland"),
-  enabled(host.name == "nexos"),
-  config(dirs.home_config["waybar"]),
-  on_remove { files = "remove", package = "ask" },
+  link("config", "~/.config/hypr"),
 }
 ```
 
+A spec in explicit mode is a `spec.lua` like this one (see the layout section). Implicit specs have no
+Lua at all.
+
 == Clauses
+
+*Designed:*
 
 #table(
   columns: (auto, 1fr),
   [Clause], [Meaning],
-  [`name(str, opts?)`],
-  [*Required*, exactly once. Stable identity of the spec. `opts.pkg` (default `true`) means the spec
-    *owns* a package called `str`. `opts.pkg_alts = { ["alt-name"] = { "platform", ... } }` gives
-    per-platform name overrides; mdot falls back to `str` when no platform matches. Platform ids are
-    flat: `arch`, `debian`, `fedora`, `windows`, `termux`, ...],
-  [`depends(names...)`],
-  [References other specs by name. Those specs are loaded first. Their packages are _referenced_,
-    not owned.],
-  [`enabled(bool)`],
-  [Per-machine variation. Any Lua expression over `host`, `os`, `vars`, `env()`. Default `true`.],
-  [`config(paths...)`],
-  [Symlink deployment. Each path is a `dirs.*` location and is handled independently
-    (@config-links). Optional per-call opts:
-    `config(dirs.x["p"], { from = "rel/repo/path", walk = true })`.],
-  [`render(path, opts)`],
-  [Builds a managed *copy* from `opts.base` (repo-relative) plus tree-sitter `opts.edits`
-    (@tree-sitter).],
-  [`patch(path, opts)`],
-  [Enforces tree-sitter `opts.edits` on a live, app-owned file in place (@tree-sitter).],
-  [`sysfile(path, opts)`], [System-scope copy with `owner`, `group`, `mode` (@system-scope).],
-  [`on_remove { files=..., package=... }`], [Removal policy for this spec (@removal).],
+  [`name(str)`],
+  [Optional. Stable identity of the spec; defaults to the directory name. Packages are opt-in and
+    not designed yet, so a spec owns no package.],
+  [`link(src, dst)`],
+  [Symlink deployment: `dst` becomes a symlink to `src`, relative to the spec directory
+    (@config-links).],
 )
 
-*One spec owns at most one package.* That's the rule that makes declarative package management
-possible:
+*Planned, not designed yet.* These are not part of Phase 1, and their syntax may change:
 
-- A config belongs to exactly one package.
-- Other packages are reached only through `depends`.
-- A spec with only a name is a package-only spec: `spec { name("hyprshot") }`.
-- A config-only spec uses `name("bash-prompt", { pkg = false })`.
+#table(
+  columns: (auto, 1fr, auto),
+  [Clause], [Purpose], [Phase],
+  [`enabled(bool)`], [Per-machine variation (ADR 0006). Needs `host`, `os`, `vars`, `env()`.], [later],
+  [`depends(names...)`], [Order specs; reference other specs' packages.], [later],
+  [`on_remove {...}`], [Removal policy for the spec (@removal).], [2],
+  [`sysfile(...)`], [Root-owned copies (@system-scope). On hold, see ADR 0014.], [3],
+  [`render(...)`, `patch(...)`], [Tree-sitter editing (@tree-sitter).], [4],
+  [package ownership], [Opt-in per spec; `pkg_alts` per-platform names.], [5],
+)
 
 == Context values
 
-#table(
-  columns: (auto, 1fr),
-  [Global], [Content],
-  [`host`], [`{ name = <hostname> }`],
-  [`os`],
-  [`{ family = "linux"/"windows"/..., id = "arch"/"debian"/"termux"/..., version = ... }` from
-    `/etc/os-release` and similar sources],
-  [`vars`], [read-only copy of `config.lua`'s `vars`],
-  [`dirs`], [location roots (below)],
-)
-
-== `dirs` <dirs>
-
-`dirs.<root>["relative/path"]` returns a `Location` userdata `{ root, rel }`. The index is a plain
-`__index`, valid Lua. Every root has a *mirror directory* in the repo:
-
-#table(
-  columns: 3,
-  [Root], [Target], [Mirror],
-  [`dirs.home_config`], [`$XDG_CONFIG_HOME` (`~/.config`)], [`configs/`],
-  [`dirs.home`], [`$HOME`], [`home/`],
-  [`dirs.home_data`], [`$XDG_DATA_HOME` (`~/.local/share`)], [`data/`],
-  [`dirs.home_state`], [`$XDG_STATE_HOME`], [`state/`],
-  [`dirs.etc`], [`/etc`], [`system/etc/`],
-)
-
-By default, the repo source for `dirs.home["x"]` is `<mirror>/x`. `config(..., { from = "..." })`
-overrides that, which covers renamed files like `bashrc.sh` → `~/.bashrc`, but the recommended
-layout is to keep repo and target names identical.
+Nothing is exposed to specs in Phase 1. `host`, `os` and `vars` come with `enabled` and are not
+designed yet.
 
 = Deployment kinds
 
