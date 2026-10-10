@@ -136,13 +136,37 @@ Read-only helpers come from mdot itself: `env("NAME")` and `exists(path)`.
 
 = Lua API <lua-api>
 
-A spec is a function call that receives a list of _clauses_. Each clause is a plain function call
-that returns a tagged table, so there's no metatable or syntax trickery:
+A `spec.lua` returns a plain table of _clauses_. Each clause is an ordinary function call that
+returns a tagged value; it does not do anything by itself:
 
 ```lua
 -- specs/hypr/spec.lua
 return spec {
   link("config", "~/.config/hypr"),
+}
+```
+
+*Clauses are declarations.* Calling `link(...)` builds a description of a link and returns it. mdot
+collects the returned table after the file has run, then decides what to do with it and when:
+validation, planning, ordering and execution are all mdot's job (ADR 0018). `spec.lua` never touches
+the system, so loading stays pure. Arguments are still ordinary Lua values, so
+`enabled(host.name == "nexos")` is evaluated when the file loads.
+
+*Helpers and nesting.* An entry in `spec { ... }` may also be a list of clauses, so a helper
+function can return several `link()`s. mdot flattens such lists in order before it reads them. Any
+other entry is an error that names its position (ADR 0018):
+
+```lua
+local function user_units(...)
+  local out = {}
+  for _, f in ipairs({...}) do
+    out[#out + 1] = link(f, "~/.config/systemd/user/" .. f)
+  end
+  return out
+end
+
+return spec {
+  user_units("i3-session.service", "i3-session.target", "kanata.service"),
 }
 ```
 
@@ -162,6 +186,11 @@ Lua at all.
   [`link(src, dst)`],
   [Symlink deployment: `dst` becomes a symlink to `src`, relative to the spec directory
     (@config-links).],
+  [`enabled(bool)`],
+  [Per-machine variation. A plain boolean, evaluated when `spec.lua` loads. Default `true`.
+    Example: `enabled(host.name == "nexos")`. A disabled spec is treated exactly like a deleted one:
+    its links show up as removals in `plan`. Implicit specs have no `spec.lua` and so cannot be
+    conditional; give them a `spec.lua` and a `config/` folder (ADR 0017).],
 )
 
 *Planned, not designed yet.* These are not part of Phase 1, and their syntax may change:
@@ -169,7 +198,6 @@ Lua at all.
 #table(
   columns: (auto, 1fr, auto),
   [Clause], [Purpose], [Phase],
-  [`enabled(bool)`], [Per-machine variation (ADR 0006). Needs `host`, `os`, `vars`, `env()`.], [later],
   [`depends(names...)`], [Order specs; reference other specs' packages.], [later],
   [`on_remove {...}`], [Removal policy for the spec (@removal).], [2],
   [`sysfile(...)`], [Root-owned copies (@system-scope). On hold, see ADR 0014.], [3],
@@ -179,8 +207,13 @@ Lua at all.
 
 == Context values
 
-Nothing is exposed to specs in Phase 1. `host`, `os` and `vars` come with `enabled` and are not
-designed yet.
+#table(
+  columns: (auto, 1fr),
+  [Global], [Content],
+  [`host`], [`{ name = <hostname> }`, read-only],
+)
+
+`os`, `vars` and `env()` are not designed yet; add them when a real spec needs them.
 
 = Deployment kinds
 

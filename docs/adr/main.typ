@@ -22,7 +22,7 @@ directory and is collected here.
   link(<adr-0003>)[0003], [Plain-Lua, lazy.nvim-style spec DSL], [Accepted],
   link(<adr-0004>)[0004], [Auto-merged `specs/` folder with mirror roots], [Superseded by 0014],
   link(<adr-0005>)[0005], [One spec owns at most one package], [Accepted (`pkg` default amended by 0014)],
-  link(<adr-0006>)[0006], [Per-host variation via `enabled(<lua expr>)`], [Accepted],
+  link(<adr-0006>)[0006], [Per-host variation via `enabled(<lua expr>)`], [Accepted (refined by 0017)],
   link(<adr-0007>)[0007], [System-scope files are root-owned copies, not symlinks], [Proposed],
   link(<adr-0008>)[0008], [Tree-sitter structural editing instead of templating],
   [Accepted (strictness rules Proposed)],
@@ -35,6 +35,8 @@ directory and is collected here.
   link(<adr-0014>)[0014], [One directory per spec, implicit or explicit], [Accepted],
   link(<adr-0015>)[0015], [`link(src, dst)` with plain paths, `spec.lua` is absolute], [Accepted],
   link(<adr-0016>)[0016], [Link conflicts are hard errors; parent directories are tracked], [Accepted],
+  link(<adr-0017>)[0017], [`enabled(bool)` is an eager boolean over `host.name`], [Accepted],
+  link(<adr-0018>)[0018], [`spec { ... }` collects declarative clauses], [Accepted],
 )
 
 #include "0001-fresh-design-not-comtrya-port.typ"
@@ -53,3 +55,5 @@ directory and is collected here.
 #include "0014-per-spec-directories.typ"
 #include "0015-link-clause.typ"
 #include "0016-link-conflicts.typ"
+#include "0017-enabled-clause.typ"
+#include "0018-spec-returns-clause-table.typ"
