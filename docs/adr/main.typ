@@ -33,6 +33,8 @@ directory and is collected here.
   link(<adr-0012>)[0012], [Core config manager first; packages and extras later], [Accepted],
   link(<adr-0013>)[0013], [Spec loading is pure and sandboxed], [Proposed],
   link(<adr-0014>)[0014], [One directory per spec, implicit or explicit], [Accepted],
+  link(<adr-0015>)[0015], [`link(src, dst)` with plain paths, `spec.lua` is absolute], [Accepted],
+  link(<adr-0016>)[0016], [Link conflicts are hard errors; parent directories are tracked], [Accepted],
 )
 
 #include "0001-fresh-design-not-comtrya-port.typ"
@@ -49,3 +51,5 @@ directory and is collected here.
 #include "0012-core-first-roadmap.typ"
 #include "0013-pure-sandboxed-spec-loading.typ"
 #include "0014-per-spec-directories.typ"
+#include "0015-link-clause.typ"
+#include "0016-link-conflicts.typ"

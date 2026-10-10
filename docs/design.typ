@@ -106,6 +106,29 @@ Consequences worth knowing:
 + Specs are collected into a `SpecSet` keyed by name. Names are directory names, so duplicates cannot
   happen.
 
+*Links in `spec.lua`.* The one deployment clause for now is `link(src, dst)`:
+
+```lua
+-- specs/bash/spec.lua
+return spec {
+  link("bashrc", "~/.bashrc"),
+}
+
+-- specs/hypr/spec.lua   (files live in specs/hypr/config/)
+return spec {
+  link("config", "~/.config/hypr"),
+}
+```
+
+- `src` is a path relative to the spec's directory. `dst` is a plain string; a leading `~` expands
+  to `$HOME`.
+- A link is always "this path in the spec directory" to "that path on disk", whether it is a file or
+  a directory. There are no special modes.
+- *`spec.lua` is absolute.* mdot does not exclude or protect anything. `link(".", "~/.config/hypr")`
+  is allowed and will link `spec.lua` too. Keeping `spec.lua` out of a target is the author's job,
+  which is why the recommended layout for directory targets is a `config/` subfolder.
+- A missing `src` is a hard error at load time, before anything touches the system.
+
 *Sandbox.* Spec and config environments get `string`, `table`, `math`, `utf8`,
 `ipairs`/`pairs`/`select`/`type`/`tostring`/`tonumber`/`error`/`assert`/`pcall`, and `require`
 restricted to the repo. They do *not* get `os.execute`, `io`, `load` of arbitrary files, or `debug`.
@@ -197,25 +220,38 @@ layout is to keep repo and target names identical.
 
 = Deployment kinds
 
-== `config()` — symlinks <config-links>
+== `link()` — symlinks <config-links>
 
-A directory slot links the whole directory. `walk = true` instead links every file under the slot
-individually and creates real directories in between. Use it when the target directory also holds
-files the app writes itself (`~/.cargo`, krita's files directly in `~/.config`).
-
-First-run behavior, decided per path:
+`link(src, dst)` makes `dst` a symlink to `src` (see the layout section). The planner looks at what
+is at `dst` and never overwrites anything:
 
 #table(
-  columns: (auto, auto, 1fr),
-  [Repo slot], [Target], [Action],
-  [exists], [exists (not our link)], [*error*],
-  [missing], [missing], [*error*],
-  [exists], [missing], [create symlink],
-  [missing], [exists],
-  [*prompt*: adopt (move target into slot, symlink back). Declining stops mdot and prints manual
-    steps],
-  [exists], [our symlink], [noop],
+  columns: (auto, 1fr),
+  [`dst` is...], [Result],
+  [missing], [create the symlink (and any missing parent directories, below)],
+  [a symlink to our `src`], [no-op],
+  [a symlink to somewhere else], [*conflict*],
+  [a real file or directory], [*conflict*],
+  [a dangling symlink], [*conflict*],
 )
+
+*A conflict is a hard error.* There is no `--force`. `plan` reports every conflict, and `apply`
+re-checks all links before it changes anything, so it never stops half-applied. Each error names the
+spec, `src`, `dst` and what was found, for example:
+
+```
+error: hypr: cannot link ~/.config/hypr
+  expected: missing, or symlink to specs/hypr/config
+  found:    symlink to ~/old-hypr
+```
+
+If state says mdot created that link, the report adds that it *drifted*. It is still a conflict:
+mdot reports it and you fix it. `status` uses the same wording.
+
+*Parent directories.* If a parent of `dst` is missing, mdot creates it and records it in state.
+Directories that already existed are never recorded. When the link is removed, mdot tries to remove
+the recorded directories, deepest first, with `rmdir` semantics. A directory that is not empty is
+left alone and dropped from state, so mdot never deletes a file it doesn't know about.
 
 == `render()` — generated copy
 
