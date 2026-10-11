@@ -95,8 +95,8 @@ Consequences worth knowing:
 - Implicit mode only covers `~/.config/<dirname>`. Anything else (`~/.bashrc`, `~/.local/share/...`)
   needs a `spec.lua`.
 - *Packages are opt-in.* A directory name is a config name, not necessarily a package name
-  (`nvim/` vs `neovim`), so implicit specs never own a package. Ownership is declared in `spec.lua`
-  (Phase 5).
+  (`nvim/` vs `neovim`), so implicit specs never need a package. A spec says it needs one with the `package`
+  clause in `spec.lua` (Phase 5, ADR 0021).
 - *System scope is parked.* It is deliberately not part of this layout yet. See ADR 0014.
 - An implicit spec has no `spec.lua`, so it cannot call `depends`. It is always a leaf.
 
@@ -135,6 +135,8 @@ return spec { depends("hypr", "waybar", "dunst", "uwsm") }
 + `specs/*/` is listed in sorted order, so error messages (such as the list of known names) are
   deterministic. Names are directory names, so duplicates cannot happen.
 + The reachable specs are collected into a `SpecSet` keyed by name, in dependency order.
++ Two reachable specs (or two clauses) with the same `dst` are an error naming both. `plan` reports
+  every error it finds, and `apply` stops before the first write if the plan has any (ADR 0021).
 
 *Links in `spec.lua`.* The one deployment clause for now is `link(src, dst)`:
 
@@ -210,17 +212,16 @@ Lua at all.
 #table(
   columns: (auto, 1fr),
   [Clause], [Meaning],
-  [`name(str)`],
-  [Optional. Stable identity of the spec; defaults to the directory name. Packages are opt-in and
-    not designed yet, so a spec owns no package.],
   [`link(src, dst)`],
   [Symlink deployment: `dst` becomes a symlink to `src`, relative to the spec directory
     (@config-links).],
   [`depends(names...)`],
   [Names other specs from `<repo root>/specs/` that this one needs. A host or group spec uses it to
     select specs; any spec can use it to pull in what it needs (ADR 0019). Unknown names and cycles
-    are errors. Packages will use it for ownership and install reasons (Phase 5).],
+    are errors. Packages will use it for install reasons (Phase 5).],
 )
+
+A spec's identity is its directory name (ADR 0021); there is no `name()` clause.
 
 *Planned, not designed yet.* These are not part of Phase 1, and their syntax may change:
 
@@ -232,7 +233,8 @@ Lua at all.
   [`on_remove {...}`], [Removal policy for the spec (@removal).], [2],
   [`sysfile(...)`], [Root-owned copies (@system-scope). On hold, see ADR 0014.], [3],
   [`render(...)`, `patch(...)`], [Tree-sitter editing (@tree-sitter).], [4],
-  [package ownership], [Opt-in per spec; `pkg_alts` per-platform names.], [5],
+  [`package(name?, opts?)`], [The spec needs a package. No arguments means the spec's directory
+    name; `opts` carries `pkg_alts` per-platform names (ADR 0021).], [5],
 )
 
 == Context values
@@ -293,7 +295,7 @@ files fights the app. `patch` only enforces the queried nodes and leaves everyth
 
 = System scope <system-scope>
 
-- `sysfile()` and any `dirs.etc` target deploy as *root-owned copies with explicit
+- `sysfile()` (parked, ADR 0014) targets deploy as *root-owned copies with explicit
   `owner`/`group`/`mode`, never symlinks*. A root-read config that points into a user-writable repo
   would be a privilege-escalation path.
 - `render()` may target system locations. The result is still a copy.
@@ -482,8 +484,8 @@ Global flags: `--repo <dir>`, `-v`/`-q`, `--color`.
 ```
 src/
   lua/       loader: config.lua + specs/** -> SpecSet; sandboxed per-file sol::environment; clause constructors
-  model/     Spec, Location/Dirs, Host/OS context, Resource variants
-  graph/     depends DAG, topo sort, cycle reporting
+  model/     Spec, Host/OS context, Resource variants
+  graph/     depends DAG from hosts/<host>.lua, topo sort, cycle reporting
   ts/        tree-sitter query + edit engine, grammar registry
   planner/   desired x recorded x live -> Plan; pretty printer
   executor/  apply Plan; privileged batch via sudo re-exec
@@ -512,7 +514,7 @@ public:
 
 Package semantics:
 
-- An owned package (`name()` with `pkg = true`) is installed as *explicit*.
+- A spec's `package` clause (ADR 0021) installs the package as *explicit*.
 - A package reached only through `depends` is installed as a *dependency* (`--asdeps`). It becomes
   removable once nothing references it, using the provider's own orphan tracking (`pacman -Qdtq`).
 
@@ -527,12 +529,13 @@ The core config manager comes first. Package handling and the other extras come 
   [Research experiments S1–S6 (`research.typ`, Methodology). Their results may change this spec
     before Phase 1 is locked],
   [1],
-  [Skeleton (CMake + vcpkg + CI build). Lua loader + sandbox, `dirs`/`host`/`os`, `config()` links
-    (incl. `walk`, `from`), state file, `plan` / `apply` / `status` / `specs`. User scope only],
+  [Skeleton (CMake + vcpkg + CI build). Lua loader + sandbox, `spec {}` clause tables, `hosts/` +
+    `depends` selection, `link()`, `dst` conflict checks, state file, `plan` / `apply` / `status` /
+    `specs`. User scope only],
   [2], [`adopt`, `on_remove` policies, generations + `rollback` via git worktree, backups],
-  [3], [System scope: `sysfile`, `dirs.etc`, sudo batch executor],
+  [3], [System scope: `sysfile`, sudo batch executor (on hold, ADR 0014)],
   [4], [Tree-sitter engine: `mdot query`, then `render()` and `patch()`],
-  [5], [Package providers: pacman, with explicit/dep ownership semantics],
+  [5], [Package providers: pacman, the `package` clause, explicit/dep install reasons],
   [6+],
   [AUR / PKGBUILD-from-git source with bootstrap (no paru needed), hooks, lockfile, secrets,
     systemd units/groups, other distros/OSes, multi-user],

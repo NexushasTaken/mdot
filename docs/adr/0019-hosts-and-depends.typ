@@ -38,8 +38,7 @@ host or by another module.
   used by any Phase 1 clause.
 - With packages (Phase 5) a spec's own package can be installed as explicit and a dependency's as a
   dependency, so a command can answer "why is this here?" (not designed).
-- Open: whether `name()` stays. `depends` uses the directory name today.
-- Open: two specs linking the same `dst`. Likely an error naming both specs, as in ADR 0016.
+- Closed by ADR 0021: `name()` is dropped, and two specs linking the same `dst` is an error.
 - Parked: `config { git = { user, email } }` for per-spec settings. A symlink cannot carry values,
   so it needs a generating clause (`render`, Phase 4, or a small generated file such as a git
   `[include]`). Preferred shape is a plain table keyed by spec name, not a global function per spec;

@@ -39,6 +39,7 @@ directory and is collected here.
   link(<adr-0018>)[0018], [`spec { ... }` collects declarative clauses], [Accepted],
   link(<adr-0019>)[0019], [Specs are opt-in; hosts select them through `depends`], [Accepted],
   link(<adr-0020>)[0020], [`dst` expands only a leading `~`], [Accepted],
+  link(<adr-0021>)[0021], [Drop `name()`, reject same-`dst` conflicts, add a `package` clause], [Accepted],
 )
 
 #include "0001-fresh-design-not-comtrya-port.typ"
@@ -61,3 +62,4 @@ directory and is collected here.
 #include "0018-spec-returns-clause-table.typ"
 #include "0019-hosts-and-depends.typ"
 #include "0020-dst-expansion.typ"
+#include "0021-name-dst-conflicts-package.typ"
