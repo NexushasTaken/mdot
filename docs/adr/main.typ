@@ -18,7 +18,8 @@ directory and is collected here.
   columns: (auto, 1fr, auto),
   [ADR], [Title], [Status],
   link(<adr-0001>)[0001], [Fresh design instead of a comtrya port], [Accepted],
-  link(<adr-0002>)[0002], [Stack: C++20, CMake, vcpkg, sol2, tl::expected, Catch2], [Accepted],
+  link(<adr-0002>)[0002], [Stack: C++20, CMake, vcpkg, sol2, tl::expected, Catch2],
+  [Accepted (vcpkg superseded by 0025)],
   link(<adr-0003>)[0003], [Plain-Lua, lazy.nvim-style spec DSL], [Accepted],
   link(<adr-0004>)[0004], [Auto-merged `specs/` folder with mirror roots], [Superseded by 0014],
   link(<adr-0005>)[0005], [One spec owns at most one package], [Accepted (`pkg` default amended by 0014)],
@@ -43,6 +44,7 @@ directory and is collected here.
   link(<adr-0022>)[0022], [`link` has a batch form: `link { names..., into = dir, dot? }`], [Accepted],
   link(<adr-0023>)[0023], [Resource clauses are grouped: `link` becomes `file.link`], [Accepted],
   link(<adr-0024>)[0024], [`net.download` fetches one pinned file], [Accepted],
+  link(<adr-0025>)[0025], [Dependencies come from Conan, with libcurl and OpenSSL for downloads], [Accepted],
 )
 
 #include "0001-fresh-design-not-comtrya-port.typ"
@@ -69,3 +71,4 @@ directory and is collected here.
 #include "0022-link-batch-form.typ"
 #include "0023-clause-groups.typ"
 #include "0024-net-download.typ"
+#include "0025-conan-dependencies.typ"

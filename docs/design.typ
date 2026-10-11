@@ -41,7 +41,7 @@ These rules decide every later design question:
   columns: 2,
   [Concern], [Choice],
   [Language], [C++20],
-  [Build], [CMake + vcpkg (manifest mode)],
+  [Build], [CMake + Conan (ADR 0025)],
   [Config language], [Lua 5.4 via sol2 (plain Lua, no syntax extensions)],
   [Errors], [`tl::expected<T, Error>`],
   [Tests], [Catch2],
@@ -648,7 +648,7 @@ The core config manager comes first. Package handling and the other extras come 
   [Research experiments S1–S6 (`research.typ`, Methodology). Their results may change this spec
     before Phase 1 is locked],
   [1],
-  [Skeleton (CMake + vcpkg + CI build). Lua loader + sandbox, `spec {}` clause tables, `hosts/` +
+  [Skeleton (CMake + Conan + CI build). Lua loader + sandbox, `spec {}` clause tables, `hosts/` +
     `depends` selection, `file.link()`, `dst` conflict checks, state file, `plan` / `apply` / `status` /
     `specs`. User scope only],
   [2], [`adopt`, `on_remove` policies, generations + `rollback` via git worktree, backups],
