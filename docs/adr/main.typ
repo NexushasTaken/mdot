@@ -46,6 +46,7 @@ directory and is collected here.
   link(<adr-0024>)[0024], [`net.download` fetches one pinned file], [Accepted],
   link(<adr-0025>)[0025], [Dependencies come from Conan, with libcurl and OpenSSL for downloads], [Accepted],
   link(<adr-0026>)[0026], [`file.copy` and `net.download` share one regular-file mechanism], [Accepted],
+  link(<adr-0027>)[0027], [`requires` declares raw packages; `depends` names specs only], [Accepted (parts Proposed)],
 )
 
 #include "0001-fresh-design-not-comtrya-port.typ"
@@ -74,3 +75,4 @@ directory and is collected here.
 #include "0024-net-download.typ"
 #include "0025-conan-dependencies.typ"
 #include "0026-shared-regular-file-mechanism.typ"
+#include "0027-requires-clause.typ"
