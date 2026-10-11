@@ -67,3 +67,4 @@ directory and is collected here.
 #include "0021-name-dst-conflicts-package.typ"
 #include "0022-link-batch-form.typ"
 #include "0023-clause-groups.typ"
+#include "0024-net-download.typ"

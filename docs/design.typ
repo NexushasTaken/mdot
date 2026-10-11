@@ -256,8 +256,7 @@ conflict rules apply across groups.
     `render` or a generated-file clause to have any effect; see ADR 0019.], [4],
   [`on_remove {...}`], [Removal policy for the spec (@removal).], [2],
   [`file.copy(src, dst)`], [Copy a file from the spec directory instead of linking it.], [—],
-  [`net.download(url, dst)`], [Fetch a file at apply time. Would need a required hash so the diff has
-    something stable to compare, and specs stay pure (ADR 0013).], [—],
+  [`net.download(url, dst)`], [Fetch one pinned file at apply time, with a required `sha256` (ADR 0024).], [—],
   [`sysfile(...)`], [Root-owned copies (@system-scope). On hold, see ADR 0014.], [3],
   [`render(...)`, `patch(...)`], [Tree-sitter editing (@tree-sitter).], [4],
   [`package(name?, opts?)`], [The spec needs a package. No arguments means the spec's directory
