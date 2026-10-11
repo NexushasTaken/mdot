@@ -26,9 +26,9 @@
 This is the research companion to `design.typ`, which holds the current spec, and `adr/`, which
 records individual decisions. It explains why mdot exists, what it claims, which claims are still
 unproven, and how they will be tested. Everything here comes from the design interview and from
-inspecting the author's existing setup (`~/dotfiles-v2`, the comtrya fork at `~/dev/repos/comtrya`)
-and an earlier design session log. No outside survey has been done yet. @limitations lists that as
-future work.
+inspecting the author's existing setups (`~/dotfiles-v2`, the comtrya fork at `~/dev/repos/comtrya`,
+and the older Yolk setup at `~/dotfiles-yolk`) and an earlier design session log. No outside survey
+has been done yet. @limitations lists that as future work.
 
 = Introduction and motivation <intro>
 
@@ -49,6 +49,94 @@ Before that they used GNU stow. A typical comtrya manifest entry looks like this
 
 This pattern repeats for nearly every program, in `hyprland.yaml`, `utils.yaml`, `dev-utils.yaml`
 and the `modules/*` files.
+
+== The setup before it: Yolk <yolk-setup>
+
+`~/dotfiles-yolk` is the author's previous generation. By commit dates the tools ran in this order:
+GNU stow (the `unmanaged/` directory), Yolk (52 commits, 2025-12-07 to 2026-03-20), then comtrya
+(`~/dotfiles-v2`, 65 commits, from 2026-03-30). The author moved away from Yolk, so how it was used
+and where it fell short is evidence for mdot, the same as dotfiles-v2.
+
+*Layout.* One `yolk.rhai` at the repo root declares 19 _eggs_ (one per program, 18 enabled), and each
+egg is a directory under `eggs/`:
+
+```rhai
+bash: #{
+  enabled: true,
+  targets: #{ "bashrc.sh": "~/.bashrc", "bash_profile.sh": "~/.bash_profile", ".": "~/.config/bash" },
+},
+gh: #{
+  enabled: true, strategy: "merge", targets: "~/.config/gh",
+  unsafe_shell_hooks: #{ pre_deploy: "./bin/gh/pre_deploy.sh", post_undeploy: "./bin/gh/post_undeploy.sh" },
+},
+```
+
+An egg maps a repo directory (or individual files) to one or more targets. It has an `enabled` flag,
+an optional `strategy` (`merge` for `home` and `gh`) and optional shell hooks. This is already the
+shape of an mdot spec without packages.
+
+*Variables and templating.* A `data` table holds `git.name`, `git.email`, `font` and `cursor`. Five
+files in four eggs (`git`, `alacritty`, `hypr`, `uwsm`) carry comment markers that the tool
+evaluates, for example:
+
+```
+  email = "nexushastaken@gmail.com" # {< replace_quoted(data.git.email) >}
+# {# replace_number(data.cursor.size) #}
+export XCURSOR_SIZE=16
+```
+
+The marker sits in a comment, so the file stays valid for the program whether or not Yolk has run.
+The repo file holds the already-rendered value. This is the idea `render`/`patch` took from Yolk
+(@related), and the `data` table is the origin of the `font` and `cursor` variables in
+`Comtrya.yaml` and of the planned `config {...}` clause (git name and email).
+
+*Packages and everything else are a shell script.* The `home` egg has one `post_deploy` hook,
+`bin/archlinux.sh`. It holds a flat array of 37 official packages, one AUR package, two custom
+bootstrap steps (`paru` from the AUR, `kanata-bin` from the author's own git repo), service enabling
+(`systemctl --user enable` for four units) and a download (below). `bin/utils.sh` (228 lines)
+re-implements what a package provider would do: "is it installed", `pacman -S --needed`, and picking
+`paru` or `yay`. Idempotence comes from checks like `pacman -Q` and `command -v`.
+
+*Downloads.* There are two real fetches. They are the first concrete use cases for `net.download`:
+
+#table(
+  columns: (auto, 1fr, 1fr),
+  [What], [How it is done today], [What it needs],
+  [phinger-cursors theme],
+  [`wget` of `releases/latest/download/phinger-cursors-variants.tar.bz2` into `~/.cache/yolk`, then
+    `tar xvfj` into `~/.local/share/icons`. Skipped if `phinger-cursors-*` already exists there.],
+  [Archive extraction into a directory. The URL points at `latest`, so it is not reproducible and
+    cannot have a fixed hash. An AUR package for it also exists (`phinger-cursors.yaml` in v2).],
+  [kanata binary (in `unmanaged/`)],
+  [`wget` of `releases/download/v1.9.0/kanata` into `~/.local/bin/kanata`, then `chmod +x`. Skipped
+    if the file is executable. Later replaced by the `kanata-bin` AUR package.],
+  [A single file, an executable mode, a pinned version. A fixed hash is possible here.],
+)
+
+Nothing is verified: no checksum, no signature. `unmanaged/install.sh` adds a retry loop (3 seconds
+between attempts) around `wget -c`. Both downloads were later covered by a package, so the evidence
+for a download clause is two cases, each of which the author has already worked around.
+
+*What was never migrated.* `unmanaged/` still holds the stow-era configs: 31 entries under `.config` (i3, sway,
+polybar, picom, rofi, mpv, kitty, …), plus `.xinitrc`, `.Xresources`, `.gtkrc-2.0` and others. It also holds an `install.sh` that clones four git repositories (two GTK/icon themes
+with their own `./install.sh`, a tmux plugin, one more theme), sets up the `uinput` group and a
+udev rule for kanata, and copies a unit file to `/etc/systemd/system`. That is the same content as
+the part of dotfiles-v2 that needs system scope, groups and hooks (@translation).
+
+*What Yolk lacked,* as the author's setup shows it:
+
++ *No link between an egg and its package.* The egg list and the package array are separate, so
+  adding a program means editing two places in two languages. This is problem 1 (@problems) again,
+  with the package side moved into a shell script.
++ *Packages, services and downloads are imperative.* They run in a hook and are not recorded, so
+  nothing can plan them, show a diff or remove them (problem 2).
++ *No per-machine variation.* `yolk.rhai` has one global `data` table and no host logic. The
+  per-host files (`nexos.yaml`, `tablet.yaml`) appear only in dotfiles-v2.
++ *Hooks do filesystem bookkeeping.* The `gh` egg uses `pre_deploy` to `mkdir ~/.config/gh` and
+  `post_undeploy` to `rmdir` it, so Yolk needs a hook for what a deploy tool could do itself.
++ *The migration stalled.* Dozens of configs never left `unmanaged/`. Some of them (waybar, hypr)
+  also exist as eggs, so it is unclear which copy is current. This is evidence for keeping the first
+  version small enough to finish a translation (@scope).
 
 == Observed problems <problems>
 
@@ -140,8 +228,9 @@ This comparison is limited to tools the author has used or analysed in the earli
       with no state (@problems). The project was reportedly rewritten mid-2026, a warning against
       depending on niche tools.],
     [Yolk], [Rhai], [symlink + inline edits], [inline comment markers], [no], [no],
-    [Its config files stay valid whether or not the tool has processed them. That idea influenced
-      `render`/`patch`.],
+    [Used by the author for about four months (@yolk-setup). Its config files stay valid whether or
+      not the tool has processed them. That idea influenced `render`/`patch`. It has no package
+      concept and no per-machine logic; packages lived in a shell hook.],
     [Nix + home-manager], [Nix expressions], [symlinks into an immutable store],
     [declarative options], [yes], [yes (`flake.lock`)],
     [The model mdot wants (declarative, generations, rollback), but with heavy infrastructure. mdot
@@ -326,8 +415,8 @@ Each question is a claim the design depends on that hasn't been demonstrated yet
 ]
 
 #rq("RQ6", "Does the model cover the author's real dotfiles without escape hatches?")[
-  This is checked by translating `~/dotfiles-v2` (@translation). Constructs that need new features
-  are recorded as findings rather than hidden.
+  This is checked by translating `~/dotfiles-v2` and `~/dotfiles-yolk` (@translation). Constructs
+  that need new features are recorded as findings rather than hidden.
 ]
 
 = Methodology: experiments <experiments>
@@ -376,8 +465,8 @@ The order is S1/S2 first (highest uncertainty, most novel), then S4, S5, and S3.
 
 mdot v1, meaning the core config manager (phases 1–4), is successful if it meets all of these:
 
-+ *Expressiveness:* every construct in `~/dotfiles-v2` is either expressible or explicitly deferred
-  to a planned phase (@translation).
++ *Expressiveness:* every construct in `~/dotfiles-v2` and `~/dotfiles-yolk` is either expressible
+  or explicitly deferred to a planned phase (@translation).
 + *Purity:* `mdot plan` and `mdot status` never modify the filesystem. Testable by running them
   against a read-only `$HOME`.
 + *Idempotence:* `apply` followed by `plan` yields an empty plan.
@@ -529,3 +618,47 @@ host-specific specs. Package-only specs cover the fonts and misc packages.
   - `from`: a repo name that differs from the target name, for bash
 + AUR, groups and hooks are the only deferred constructs.
 + Nothing in dotfiles-v2 is silently unrepresentable.
+
+= Translating `~/dotfiles-yolk` <translation-yolk>
+
+The same exercise for the older setup (@yolk-setup). Yolk's constructs map onto mdot like this:
+
+#table(
+  columns: (1fr, 1.4fr, auto),
+  [Yolk], [mdot], [Status],
+  [egg with `targets: "~/.config/btop"`], [`spec { name("btop"), file.link(...) }`], [Phase 1],
+  [`targets` map (`"bashrc.sh": "~/.bashrc"`)], [`file.link` with `from`, as in @translation], [Phase 1],
+  [`enabled: true/false`], [`enabled(...)`], [Phase 1],
+  [`strategy: "merge"` (`home`, `gh`)], [file-level links (`walk`), as for `.cargo` and krita],
+  [Phase 1],
+  [`data` table + comment markers], [`vars` + `render`], [Phase 4],
+  [`data.git.name`, `data.git.email`], [per-spec `config {...}`, given by a host], [Phase 4],
+  [`pre_deploy` mkdir, `post_undeploy` rmdir], [parent directories created by the planner;
+    removing an emptied directory needs checking against the removal rules], [Phase 1/2],
+  [package array in `archlinux.sh`], [one package-only spec each, `package(...)`], [Phase 5],
+  [`paru` / `kanata-bin` from git], [AUR / PKGBUILD-from-git source], [Phase 5+],
+  [`systemctl --user enable`], [no clause yet (systemd units are future work)], [—],
+  [`wget` + `tar` (phinger-cursors)], [`net.download` plus extraction, or the AUR package], [—],
+  [`wget` + `chmod +x` (kanata)], [`net.download` plus a file mode, or the AUR package], [—],
+  [`git clone` + `./install.sh` (themes)], [no clause; not a file download], [—],
+  [uinput group, udev rule, `/etc` unit], [system scope and account management], [3 / deferred],
+)
+
+*Findings for `net.download`.* The two real downloads (@yolk-setup) differ in the two ways the open
+question in ADR 0023 cares about:
+
++ The kanata binary is a single file at a pinned version, so a required hash fits it.
++ The phinger-cursors archive is fetched from `latest` and unpacked into a directory. It would need
+  either a pinned URL plus a hash, or a package. Extraction is a separate feature from download
+  (the unpacked directory is many resources, not one).
+
+Both cases also have a package that does the job, so a download clause is a fallback for software
+with no package, not a replacement for the package provider.
+
+*Findings for the rest of the design:*
+
++ dotfiles-yolk adds no new `config()` option beyond `walk` and `from`.
++ It adds three constructs with no clause yet: enabling a systemd unit, running an installer after
+  `git clone`, and extracting an archive.
++ Yolk's per-egg `enabled` flag is the only per-machine switch it had. That is enough for one
+  machine, and the reason `enabled(...)` takes a Lua expression in mdot.
