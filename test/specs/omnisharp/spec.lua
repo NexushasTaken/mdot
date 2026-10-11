@@ -1,3 +1,3 @@
 return spec {
-  link("omnisharp.json", "~/.omnisharp/omnisharp.json"),
+  file.link("omnisharp.json", "~/.omnisharp/omnisharp.json"),
 }

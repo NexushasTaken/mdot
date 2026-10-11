@@ -1,3 +1,3 @@
 return spec {
-  link("inputrc", "~/.inputrc"),
+  file.link("inputrc", "~/.inputrc"),
 }

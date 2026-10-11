@@ -1,3 +1,3 @@
 return spec {
-  link { "Xresources", "xinitrc", "xsession", "gtkrc-2.0", into = "~", dot = true },
+  file.link { "Xresources", "xinitrc", "xsession", "gtkrc-2.0", into = "~", dot = true },
 }

@@ -6,7 +6,7 @@ Layout experiment only; nothing here is runnable yet.
   `specs/desktop`, `utils` and `dev-utils` are groups (a `spec.lua` with only `depends`).
   `legacy` (old i3/X11 stuff), `alacritty` and `rofi` are not reached, so they are not applied.
 - No `spec.lua` = implicit spec: the directory is linked to `~/.config/<name>`.
-- `spec.lua` present = explicit spec: only the listed `link()` calls apply.
+- `spec.lua` present = explicit spec: only the listed `file.link()` calls apply.
   Used when the target is not `~/.config/<name>`, is a single file, or the
   target dir is shared with other programs (gh, cargo, krita, systemd-user).
 

@@ -1,3 +1,3 @@
 return spec {
-  link("myclirc", "~/.myclirc"),
+  file.link("myclirc", "~/.myclirc"),
 }
