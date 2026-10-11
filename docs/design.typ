@@ -394,9 +394,13 @@ left and reported, as for links (@removal). Run `mdot verify` first if you want 
   extraction is designed.
 
 *Not designed.* A checksum file URL (such as `SHA256SUMS`), signatures, extraction, mirrors, a download
-cache, authentication, proxies and retries. Open: which algorithms beyond sha256, and which library
-provides them; whether the stat record and `verify` are shared with `file.copy`; whether `mode` is
-shared with `file.copy`; and whether a `mode`-only change counts as an update.
+cache, authentication, proxies and retries. Open: which algorithms beyond sha256. The libraries are
+libcurl and OpenSSL (ADR 0025).
+
+*Shared with `file.copy`* (ADR 0026). The stat record, the plan table, `verify` and `mode` are one
+mechanism for every clause that writes a regular file. The permission bits are part of the recorded
+stat, so a hand `chmod` is a conflict. A `mode` in the spec that differs from the recorded one, with
+the same identity, is an update that only runs `chmod`. `file.copy` itself is not designed.
 
 == `render()` — generated copy
 
