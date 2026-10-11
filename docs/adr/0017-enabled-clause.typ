@@ -1,6 +1,6 @@
 #import "../template.typ": adr
 
-#adr(number: 17, title: [`enabled(bool)` is an eager boolean over `host.name`], status: [Accepted], date: [2026-10-10])[
+#adr(number: 17, title: [`enabled(bool)` is an eager boolean over `host.name`], status: [Superseded by 0019], date: [2026-10-10])[
 = Context
 ADR 0006 chose `enabled(<lua expr>)` over `host`, `os`, `vars` and `env()`. With implicit specs (ADR
 0014) there is no `spec.lua` to hold it. RQ5 asked whether `enabled` should be lazy.

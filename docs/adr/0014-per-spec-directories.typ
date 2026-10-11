@@ -1,6 +1,6 @@
 #import "../template.typ": adr
 
-#adr(number: 14, title: [One directory per spec, implicit or explicit], status: [Accepted], date: [2026-10-10])[
+#adr(number: 14, title: [One directory per spec, implicit or explicit], status: [Accepted (applies-everything rule superseded by 0019)], date: [2026-10-10])[
 = Context
 ADR 0004 split a spec across `specs/<n>.lua` and mirror roots (`configs/`, `home/`, `data/`,
 `system/etc/`). Answering "where does this file end up?" meant combining the spec, the mirror table

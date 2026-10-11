@@ -57,14 +57,17 @@ These rules decide every later design question:
 ```
 dotfiles/
   config.lua              -- optional: runs first, vars
+  hosts/
+    <hostname>.lua        -- the root of a machine: says which specs it uses
   specs/
     <name>/               -- one directory per spec (flat; no grouping yet)
       spec.lua            -- optional; if present it controls the directory
       ...                 -- the spec's files, any layout
 ```
 
-A spec is a directory under `specs/`. Its name is the directory name. There are two modes, decided
-only by whether `spec.lua` exists:
+A spec is a directory under `specs/`. Its name is the directory name. *A spec in `specs/` is not
+applied just because it exists*: it is applied only when a host reaches it through `depends` (see
+below). There are two modes, decided only by whether `spec.lua` exists:
 
 #table(
   columns: (auto, 1fr),
@@ -95,16 +98,43 @@ Consequences worth knowing:
   (`nvim/` vs `neovim`), so implicit specs never own a package. Ownership is declared in `spec.lua`
   (Phase 5).
 - *System scope is parked.* It is deliberately not part of this layout yet. See ADR 0014.
+- An implicit spec has no `spec.lua`, so it cannot call `depends`. It is always a leaf.
+
+*Hosts and selection.* `specs/` is a library; a machine says what it wants in
+`hosts/<hostname>.lua` (ADR 0019):
+
+```lua
+-- hosts/nexos.lua
+return spec { depends("desktop", "utils", "bash") }
+
+-- specs/desktop/spec.lua   (a spec that only groups others)
+return spec { depends("hypr", "waybar", "dunst", "uwsm") }
+```
+
+- mdot loads `hosts/<hostname>.lua` and applies every spec reachable from it through `depends`.
+  A spec nobody reaches is not applied. If it was applied before, `plan` shows its links as
+  removals.
+- `depends(names...)` looks names up in *`<repo root>/specs/`*, whichever file calls it. It is never
+  relative to the caller, so `hosts/` and `specs/` resolve identically. There is no `import`.
+  (File paths in `link` are the opposite: relative to the spec's own directory.)
+- An unknown name is an error that lists the names it did find. A cycle is an error that names the
+  cycle. A spec reached more than once is applied once.
+- A host file has no directory, so it only holds selection (`depends`; later `config`). A `link` in a
+  host file is an error.
+- `--host <name>` makes `plan` and `status` load `hosts/<name>.lua` instead, as a dry run. `apply`
+  with a `--host` that differs from the real hostname is an error. A missing host file is an error
+  that lists the files in `hosts/`.
 
 *Loading:*
 
 + mdot finds the repo root: `--repo <dir>`, else `$PWD` if it contains `specs/`, else error.
 + If `config.lua` exists it runs in its own environment and returns `{ vars = {...} }`.
-+ mdot lists `specs/*/` in sorted order, so error messages are deterministic. A directory with a
-  `spec.lua` runs it in a *fresh `sol::environment`*, so globals can't leak between specs. A
-  directory without one becomes an implicit spec.
-+ Specs are collected into a `SpecSet` keyed by name. Names are directory names, so duplicates cannot
-  happen.
++ mdot loads `hosts/<hostname>.lua` (or `--host`) and then follows `depends` to load only the specs
+  it reaches. Each spec with a `spec.lua` runs in a *fresh `sol::environment`*, so globals can't leak
+  between specs. A directory without one becomes an implicit spec.
++ `specs/*/` is listed in sorted order, so error messages (such as the list of known names) are
+  deterministic. Names are directory names, so duplicates cannot happen.
++ The reachable specs are collected into a `SpecSet` keyed by name, in dependency order.
 
 *Links in `spec.lua`.* The one deployment clause for now is `link(src, dst)`:
 
@@ -149,8 +179,8 @@ return spec {
 *Clauses are declarations.* Calling `link(...)` builds a description of a link and returns it. mdot
 collects the returned table after the file has run, then decides what to do with it and when:
 validation, planning, ordering and execution are all mdot's job (ADR 0018). `spec.lua` never touches
-the system, so loading stays pure. Arguments are still ordinary Lua values, so
-`enabled(host.name == "nexos")` is evaluated when the file loads.
+the system, so loading stays pure. Arguments are still ordinary Lua values, evaluated when the
+file loads.
 
 *Helpers and nesting.* An entry in `spec { ... }` may also be a list of clauses, so a helper
 function can return several `link()`s. mdot flattens such lists in order before it reads them. Any
@@ -186,11 +216,10 @@ Lua at all.
   [`link(src, dst)`],
   [Symlink deployment: `dst` becomes a symlink to `src`, relative to the spec directory
     (@config-links).],
-  [`enabled(bool)`],
-  [Per-machine variation. A plain boolean, evaluated when `spec.lua` loads. Default `true`.
-    Example: `enabled(host.name == "nexos")`. A disabled spec is treated exactly like a deleted one:
-    its links show up as removals in `plan`. Implicit specs have no `spec.lua` and so cannot be
-    conditional; give them a `spec.lua` and a `config/` folder (ADR 0017).],
+  [`depends(names...)`],
+  [Names other specs from `<repo root>/specs/` that this one needs. A host or group spec uses it to
+    select specs; any spec can use it to pull in what it needs (ADR 0019). Unknown names and cycles
+    are errors. Packages will use it for ownership and install reasons (Phase 5).],
 )
 
 *Planned, not designed yet.* These are not part of Phase 1, and their syntax may change:
@@ -198,7 +227,8 @@ Lua at all.
 #table(
   columns: (auto, 1fr, auto),
   [Clause], [Purpose], [Phase],
-  [`depends(names...)`], [Order specs; reference other specs' packages.], [later],
+  [`config { name = {...} }`], [Per-spec settings (git user and email) given by a host. Needs
+    `render` or a generated-file clause to have any effect; see ADR 0019.], [4],
   [`on_remove {...}`], [Removal policy for the spec (@removal).], [2],
   [`sysfile(...)`], [Root-owned copies (@system-scope). On hold, see ADR 0014.], [3],
   [`render(...)`, `patch(...)`], [Tree-sitter editing (@tree-sitter).], [4],
@@ -213,7 +243,8 @@ Lua at all.
   [`host`], [`{ name = <hostname> }`, read-only],
 )
 
-`os`, `vars` and `env()` are not designed yet; add them when a real spec needs them.
+No Phase 1 clause reads `host`; the host file is selected by name. `os`, `vars` and `env()` are not
+designed yet; add them when a real spec needs them.
 
 = Deployment kinds
 
@@ -441,7 +472,7 @@ State writes are atomic: write to a temp file, then `rename`.
   [`mdot generations`], [list generations],
   [`mdot rollback [N]`], [plan and apply an older generation],
   [`mdot query <file> <q> ...`], [standalone tree-sitter query/edit (@tree-sitter)],
-  [`mdot specs`], [list loaded specs, their enabled state and dependency order (debugging)],
+  [`mdot specs`], [list the specs the current host reaches, in dependency order (debugging)],
 )
 
 Global flags: `--repo <dir>`, `-v`/`-q`, `--color`.
