@@ -375,7 +375,7 @@ i.e. what mdot deployed last time) × *live*:
   [yes], [no], [present, differs], [*conflict* (first-run table, @config-links)],
   [yes], [yes], [matches recorded], [*update* if desired ≠ recorded, else *noop*],
   [yes], [yes], [differs from recorded],
-  [*conflict: drift*. Someone hand-edited a managed file. Show the diff; `--force` overwrites],
+  [*conflict: drift*. Someone hand-edited a managed file. Show the diff. An error for now; there is no `--force` (ADR 0016)],
   [no], [yes], [matches recorded], [*delete* (per `on_remove`)],
   [no], [yes], [differs from recorded],
   [*conflict*: it was modified since mdot deployed it, so mdot won't delete it silently],
@@ -403,8 +403,7 @@ hyprshot
 Plan: 1 to create, 1 to update, 1 to delete, 1 conflict.
 ```
 
-`apply` refuses to run while conflicts exist, unless they're resolved interactively or with
-`--force`.
+`apply` refuses to run while any conflict exists. There is no `--force` for now (ADR 0016).
 
 == Removal policy <removal>
 
@@ -435,7 +434,7 @@ and *what was deployed*, but they don't snapshot content.
 $XDG_STATE_HOME/mdot/<repo-id>/      repo-id = hash of the repo's absolute path
   state.json                        current deployed resources + policies + hashes
   generations/0001.json ...         one per successful apply
-  backups/<gen>/...                 originals moved aside by --force / adopt
+  backups/<gen>/...                 originals moved aside by adopt
 ```
 
 A generation record looks like this:
@@ -466,7 +465,7 @@ State writes are atomic: write to a temp file, then `rename`.
   columns: (auto, 1fr),
   [Command], [Purpose],
   [`mdot plan [--diff]`], [show what apply would do],
-  [`mdot apply [--yes] [--force]`], [execute the plan, write state and a generation],
+  [`mdot apply [--yes]`], [execute the plan, write state and a generation],
   [`mdot status`], [resource drift + `git status` of the repo, read-only],
   [`mdot adopt <path> [--name N]`],
   [move an existing target into its mirror slot, symlink it back, and write `specs/<N>.lua` if no
