@@ -138,7 +138,7 @@ return spec { depends("hypr", "waybar", "dunst", "uwsm") }
 + Two reachable specs (or two clauses) with the same `dst` are an error naming both. `plan` reports
   every error it finds, and `apply` stops before the first write if the plan has any (ADR 0021).
 
-*Links in `spec.lua`.* The one deployment clause for now is `link(src, dst)`:
+*Links in `spec.lua`.* The one deployment clause for now is `link`, with two forms:
 
 ```lua
 -- specs/bash/spec.lua
@@ -150,10 +150,24 @@ return spec {
 return spec {
   link("config", "~/.config/hypr"),
 }
+
+-- specs/x11/spec.lua   (several files, same name as the target, with a leading dot)
+return spec {
+  link { "Xresources", "xinitrc", "xsession", "gtkrc-2.0", into = "~", dot = true },
+}
+
+-- specs/systemd-user/spec.lua   (several files into one directory)
+return spec {
+  link { "i3-session.service", "i3-session.target", "kanata.service",
+         into = "~/.config/systemd/user" },
+}
 ```
 
-- `src` is a path relative to the spec's directory. `dst` is a plain string; a leading `~` expands
-  to `$HOME`.
+- `link(src, dst)` takes two strings and is the form for renames. `link { names..., into = dir }`
+  links each name to `dir/<name>`; `dot = true` makes that `dir/.<name>`. Any other call is an error
+  (ADR 0022).
+- `src` is a path relative to the spec's directory. `dst` and `into` are plain strings; a leading `~`
+  expands to `$HOME`.
 - A link is always "this path in the spec directory" to "that path on disk", whether it is a file or
   a directory. There are no special modes.
 - *`spec.lua` is absolute.* mdot does not exclude or protect anything. `link(".", "~/.config/hypr")`
@@ -215,6 +229,9 @@ Lua at all.
   [`link(src, dst)`],
   [Symlink deployment: `dst` becomes a symlink to `src`, relative to the spec directory
     (@config-links).],
+  [`link { names..., into = dir, dot? }`],
+  [Batch form of `link`: each name is linked to `dir/<name>`, or `dir/.<name>` with `dot = true`
+    (ADR 0022).],
   [`depends(names...)`],
   [Names other specs from `<repo root>/specs/` that this one needs. A host or group spec uses it to
     select specs; any spec can use it to pull in what it needs (ADR 0019). Unknown names and cycles
@@ -252,7 +269,9 @@ designed yet; add them when a real spec needs them.
 
 == `link()` — symlinks <config-links>
 
-`link(src, dst)` makes `dst` a symlink to `src` (see the layout section). The planner looks at what
+`link(src, dst)` makes `dst` a symlink to `src` (see the layout section). The batch form
+`link { ..., into = dir }` expands to one such link per name, and everything below applies to each
+of them. The planner looks at what
 is at `dst` and never overwrites anything:
 
 #table(
