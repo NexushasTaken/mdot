@@ -2,6 +2,9 @@
 
 Layout experiment only; nothing here is runnable yet.
 
+- `hosts/nexos.lua` is the root: only specs it reaches through `depends` are applied.
+  `specs/desktop`, `utils` and `dev-utils` are groups (a `spec.lua` with only `depends`).
+  `legacy` (old i3/X11 stuff), `alacritty` and `rofi` are not reached, so they are not applied.
 - No `spec.lua` = implicit spec: the directory is linked to `~/.config/<name>`.
 - `spec.lua` present = explicit spec: only the listed `link()` calls apply.
   Used when the target is not `~/.config/<name>`, is a single file, or the
