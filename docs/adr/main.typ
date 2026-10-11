@@ -42,6 +42,7 @@ directory and is collected here.
   link(<adr-0021>)[0021], [Drop `name()`, reject same-`dst` conflicts, add a `package` clause], [Accepted],
   link(<adr-0022>)[0022], [`link` has a batch form: `link { names..., into = dir, dot? }`], [Accepted],
   link(<adr-0023>)[0023], [Resource clauses are grouped: `link` becomes `file.link`], [Accepted],
+  link(<adr-0024>)[0024], [`net.download` fetches one pinned file], [Proposed],
 )
 
 #include "0001-fresh-design-not-comtrya-port.typ"
