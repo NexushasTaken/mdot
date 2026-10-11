@@ -232,6 +232,10 @@ Lua at all.
   [`file.link { names..., into = dir, dot? }`],
   [Batch form of `file.link`: each name is linked to `dir/<name>`, or `dir/.<name>` with `dot = true`
     (ADR 0022).],
+  [`net.download { url, dst, sha256 }`],
+  [Fetch one file at `apply` time and check its hash (@net-download, ADR 0024). Also accepts
+    `hash = "algo:hex"` or `verify = false` in place of `sha256`, and an optional `mode`. Not part of
+    Phase 1.],
   [`depends(names...)`],
   [Names other specs from `<repo root>/specs/` that this one needs. A host or group spec uses it to
     select specs; any spec can use it to pull in what it needs (ADR 0019). Unknown names and cycles
@@ -241,7 +245,7 @@ Lua at all.
 A spec's identity is its directory name (ADR 0021); there is no `name()` clause.
 
 *Groups.* Clauses that put a managed resource on the system live in a group named after what they
-act on, written `group.clause(...)`: `file.link`, later `file.copy` and `net.download`. Clauses that
+act on, written `group.clause(...)`: `file.link` and `net.download`, later `file.copy`. Clauses that
 describe the spec itself (`depends`, `enabled`, `package`, `config`, `on_remove`) stay flat. The rule
 is not strict: a clause is grouped only where the group name reads naturally (`file.depends` would
 not). Whatever the group, every resource clause produces the same kind of resource, so the `dst`
@@ -256,7 +260,6 @@ conflict rules apply across groups.
     `render` or a generated-file clause to have any effect; see ADR 0019.], [4],
   [`on_remove {...}`], [Removal policy for the spec (@removal).], [2],
   [`file.copy(src, dst)`], [Copy a file from the spec directory instead of linking it.], [—],
-  [`net.download(url, dst)`], [Fetch one pinned file at apply time, with a required `sha256` (ADR 0024).], [—],
   [`sysfile(...)`], [Root-owned copies (@system-scope). On hold, see ADR 0014.], [3],
   [`render(...)`, `patch(...)`], [Tree-sitter editing (@tree-sitter).], [4],
   [`package(name?, opts?)`], [The spec needs a package. No arguments means the spec's directory
@@ -310,6 +313,90 @@ mdot reports it and you fix it. `status` uses the same wording.
 Directories that already existed are never recorded. When the link is removed, mdot tries to remove
 the recorded directories, deepest first, with `rmdir` semantics. A directory that is not empty is
 left alone and dropped from state, so mdot never deletes a file it doesn't know about.
+
+== `net.download()` — pinned downloads <net-download>
+
+Fetches one file over the network and writes it as a regular file at `dst` (ADR 0024). It is a fallback
+for things no package provides, and it is not part of Phase 1. The network is used only during
+`apply`; spec loading and `plan` stay offline.
+
+```lua
+net.download { url = "https://example.org/kanata", dst = "~/.local/bin/kanata",
+               sha256 = "<hex>", mode = "755" }
+net.download { url = "...", dst = "...", hash = "sha512:<hex>" }
+net.download { url = "...", dst = "...", verify = false }
+```
+
+#table(
+  columns: (auto, 1fr),
+  [Field], [Meaning],
+  [`url`, `dst`], [Required. `dst` expands like `file.link`'s (ADR 0020).],
+  [`sha256`], [Expected hash. The default way to verify.],
+  [`hash`], [`"<algo>:<hex>"`, the algorithm is whatever precedes the first `:`. An unknown algorithm is
+    an error at spec load.],
+  [`verify`], [Defaults to `true`. With `true`, exactly one of `sha256` and `hash` is required (both or
+    neither is an error). With `false`, neither may be present. Skipping verification has to be
+    written down.],
+  [`mode`], [Optional, for example `"755"`. Applied before the final rename. Not part of the identity.],
+)
+
+*Identity.* The desired identity `D` is the hash when verified, and the `url` when `verify = false`.
+Both are known without the network, which is why `plan` can stay offline. Updating a verified download
+means changing both `url` and the hash.
+
+*Where hashing happens.* Only in `apply` and in `mdot verify`. `plan` and `status` never read file
+contents, because the file can be gigabytes and the machine slow.
+
+- `apply` writes the download to a temporary file next to `dst` and hashes the bytes as they arrive
+  (no second pass). A mismatch deletes the temporary file, leaves `dst` alone and fails that
+  resource. A match renames it over `dst`. With `verify = false` the digest is only recorded.
+- State records the identity `R`, the sha256 of the written bytes `W`, and the file's `size`,
+  `mtime_ns` and `inode` right after the rename.
+
+*Plan.* "Stat matches" means the live size, mtime and inode equal the recorded ones. That says the
+file is unchanged since mdot wrote it, so the record still describes it. The check can say
+"unchanged" but never "equal", so when unsure it reports a conflict:
+
+#table(
+  columns: (auto, 1fr),
+  [Situation], [Action],
+  [`dst` missing], [create],
+  [recorded, stat matches, `R == D`], [no-op],
+  [recorded, stat matches, `R != D`], [update (the file is ours and out of date)],
+  [stat differs, or no record], [*conflict*: "changed or unknown, run `mdot verify`"],
+)
+
+This replaces the "live matches recorded" column of the 3-way diff (@three-way) for downloads: the
+stat stands in for the live content. Conflicts are hard errors as for links (ADR 0016), and `apply`
+never overwrites one.
+
+*`mdot verify`* hashes the downloads that `plan` reported as conflicts (or all of them with a flag
+that ignores the stat cache). With the live hash `L`, the recorded hash `W` and the verified hash `D`:
+
+- `L == D` or `L == W`: the file is fine and only its metadata moved. mdot refreshes the recorded
+  stat and the conflict disappears. With no record, this adopts the file if `L == D`.
+- Otherwise the file is reported as modified. Nothing on disk changes.
+
+So `verify` writes state but never touches `dst`. A `verify = false` file with no record cannot be
+adopted, since there is nothing to compare it with.
+
+*Removal.* `dst` is removed only if there is a record and the stat matches it. Otherwise the file is
+left and reported, as for links (@removal). Run `mdot verify` first if you want it removed.
+
+*Known costs.*
+
+- After `rsync`, a backup restore or `cp` without `-p`, mtimes change and every download shows as a
+  conflict until `mdot verify` runs once. A content change that keeps size, mtime and inode is only
+  found by a full `verify`. Git's index makes the same trade.
+- A `verify = false` download from a moving URL such as `latest` is fetched once and never updated,
+  since its identity never changes.
+- Archives cannot be extracted yet, so a tarball (such as a cursor theme) needs a package until
+  extraction is designed.
+
+*Not designed.* A checksum file URL (such as `SHA256SUMS`), signatures, extraction, mirrors, a download
+cache, authentication, proxies and retries. Open: which algorithms beyond sha256, and which library
+provides them; whether the stat record and `verify` are shared with `file.copy`; whether `mode` is
+shared with `file.copy`; and whether a `mode`-only change counts as an update.
 
 == `render()` — generated copy
 
@@ -384,6 +471,8 @@ Specs compile into a flat list of *resources*:
   [`Render`], [target path], [output hash + bytes], [file hash],
   [`Patch`], [target path + query], [the edits],
   [does the query on the live file already yield the desired values?],
+  [`Download`], [target path], [identity: hash, or `url` when `verify = false`],
+  [`stat` compared with the recorded `size`/`mtime_ns`/`inode` (no hashing)],
   [`SysFile`], [target path], [bytes hash, owner, mode], [hash, owner, mode],
   [`Package` _(phase 5)_], [package name], [installed, reason explicit/dep], [provider query],
 )
@@ -495,6 +584,9 @@ State writes are atomic: write to a temp file, then `rename`.
   [`mdot plan [--diff]`], [show what apply would do],
   [`mdot apply [--yes]`], [execute the plan, write state and a generation],
   [`mdot status`], [resource drift + `git status` of the repo, read-only],
+  [`mdot verify [--all]`],
+  [hash downloads that `plan` reported as conflicts (all with `--all`) and refresh their recorded
+    stat; never changes `dst` (@net-download)],
   [`mdot adopt <path> [--name N]`],
   [move an existing target into its mirror slot, symlink it back, and write `specs/<N>.lua` if no
     spec owns that path],

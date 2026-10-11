@@ -1,6 +1,6 @@
 #import "../template.typ": adr
 
-#adr(number: 24, title: [`net.download` fetches one pinned file], status: [Proposed], date: [2026-10-11])[
+#adr(number: 24, title: [`net.download` fetches one pinned file], status: [Accepted], date: [2026-10-11])[
 = Context
 ADR 0023 left `net.download` open: the diff needs something stable to compare, and specs stay pure
 (ADR 0013). The author's Yolk setup has two downloads (`research.typ`, the Yolk section): a kanata
