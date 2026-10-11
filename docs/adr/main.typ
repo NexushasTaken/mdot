@@ -41,6 +41,7 @@ directory and is collected here.
   link(<adr-0020>)[0020], [`dst` expands only a leading `~`], [Accepted],
   link(<adr-0021>)[0021], [Drop `name()`, reject same-`dst` conflicts, add a `package` clause], [Accepted],
   link(<adr-0022>)[0022], [`link` has a batch form: `link { names..., into = dir, dot? }`], [Accepted],
+  link(<adr-0023>)[0023], [Resource clauses are grouped: `link` becomes `file.link`], [Accepted],
 )
 
 #include "0001-fresh-design-not-comtrya-port.typ"
@@ -65,3 +66,4 @@ directory and is collected here.
 #include "0020-dst-expansion.typ"
 #include "0021-name-dst-conflicts-package.typ"
 #include "0022-link-batch-form.typ"
+#include "0023-clause-groups.typ"

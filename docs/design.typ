@@ -116,10 +116,10 @@ return spec { depends("hypr", "waybar", "dunst", "uwsm") }
   removals.
 - `depends(names...)` looks names up in *`<repo root>/specs/`*, whichever file calls it. It is never
   relative to the caller, so `hosts/` and `specs/` resolve identically. There is no `import`.
-  (File paths in `link` are the opposite: relative to the spec's own directory.)
+  (File paths in `file.link` are the opposite: relative to the spec's own directory.)
 - An unknown name is an error that lists the names it did find. A cycle is an error that names the
   cycle. A spec reached more than once is applied once.
-- A host file has no directory, so it only holds selection (`depends`; later `config`). A `link` in a
+- A host file has no directory, so it only holds selection (`depends`; later `config`). A `file.link` in a
   host file is an error.
 - `--host <name>` makes `plan` and `status` load `hosts/<name>.lua` instead, as a dry run. `apply`
   with a `--host` that differs from the real hostname is an error. A missing host file is an error
@@ -138,32 +138,32 @@ return spec { depends("hypr", "waybar", "dunst", "uwsm") }
 + Two reachable specs (or two clauses) with the same `dst` are an error naming both. `plan` reports
   every error it finds, and `apply` stops before the first write if the plan has any (ADR 0021).
 
-*Links in `spec.lua`.* The one deployment clause for now is `link`, with two forms:
+*Links in `spec.lua`.* The one deployment clause for now is `file.link`, with two forms:
 
 ```lua
 -- specs/bash/spec.lua
 return spec {
-  link("bashrc", "~/.bashrc"),
+  file.link("bashrc", "~/.bashrc"),
 }
 
 -- specs/hypr/spec.lua   (files live in specs/hypr/config/)
 return spec {
-  link("config", "~/.config/hypr"),
+  file.link("config", "~/.config/hypr"),
 }
 
 -- specs/x11/spec.lua   (several files, same name as the target, with a leading dot)
 return spec {
-  link { "Xresources", "xinitrc", "xsession", "gtkrc-2.0", into = "~", dot = true },
+  file.link { "Xresources", "xinitrc", "xsession", "gtkrc-2.0", into = "~", dot = true },
 }
 
 -- specs/systemd-user/spec.lua   (several files into one directory)
 return spec {
-  link { "i3-session.service", "i3-session.target", "kanata.service",
+  file.link { "i3-session.service", "i3-session.target", "kanata.service",
          into = "~/.config/systemd/user" },
 }
 ```
 
-- `link(src, dst)` takes two strings and is the form for renames. `link { names..., into = dir }`
+- `file.link(src, dst)` takes two strings and is the form for renames. `file.link { names..., into = dir }`
   links each name to `dir/<name>`; `dot = true` makes that `dir/.<name>`. Any other call is an error
   (ADR 0022).
 - `src` is a path relative to the spec's directory. `dst` and `into` are plain strings; a leading `~`
@@ -188,25 +188,25 @@ returns a tagged value; it does not do anything by itself:
 ```lua
 -- specs/hypr/spec.lua
 return spec {
-  link("config", "~/.config/hypr"),
+  file.link("config", "~/.config/hypr"),
 }
 ```
 
-*Clauses are declarations.* Calling `link(...)` builds a description of a link and returns it. mdot
+*Clauses are declarations.* Calling `file.link(...)` builds a description of a link and returns it. mdot
 collects the returned table after the file has run, then decides what to do with it and when:
 validation, planning, ordering and execution are all mdot's job (ADR 0018). `spec.lua` never touches
 the system, so loading stays pure. Arguments are still ordinary Lua values, evaluated when the
 file loads.
 
 *Helpers and nesting.* An entry in `spec { ... }` may also be a list of clauses, so a helper
-function can return several `link()`s. mdot flattens such lists in order before it reads them. Any
+function can return several `file.link()`s. mdot flattens such lists in order before it reads them. Any
 other entry is an error that names its position (ADR 0018):
 
 ```lua
 local function user_units(...)
   local out = {}
   for _, f in ipairs({...}) do
-    out[#out + 1] = link(f, "~/.config/systemd/user/" .. f)
+    out[#out + 1] = file.link(f, "~/.config/systemd/user/" .. f)
   end
   return out
 end
@@ -226,11 +226,11 @@ Lua at all.
 #table(
   columns: (auto, 1fr),
   [Clause], [Meaning],
-  [`link(src, dst)`],
+  [`file.link(src, dst)`],
   [Symlink deployment: `dst` becomes a symlink to `src`, relative to the spec directory
     (@config-links).],
-  [`link { names..., into = dir, dot? }`],
-  [Batch form of `link`: each name is linked to `dir/<name>`, or `dir/.<name>` with `dot = true`
+  [`file.link { names..., into = dir, dot? }`],
+  [Batch form of `file.link`: each name is linked to `dir/<name>`, or `dir/.<name>` with `dot = true`
     (ADR 0022).],
   [`depends(names...)`],
   [Names other specs from `<repo root>/specs/` that this one needs. A host or group spec uses it to
@@ -240,6 +240,13 @@ Lua at all.
 
 A spec's identity is its directory name (ADR 0021); there is no `name()` clause.
 
+*Groups.* Clauses that put a managed resource on the system live in a group named after what they
+act on, written `group.clause(...)`: `file.link`, later `file.copy` and `net.download`. Clauses that
+describe the spec itself (`depends`, `enabled`, `package`, `config`, `on_remove`) stay flat. The rule
+is not strict: a clause is grouped only where the group name reads naturally (`file.depends` would
+not). Whatever the group, every resource clause produces the same kind of resource, so the `dst`
+conflict rules apply across groups.
+
 *Planned, not designed yet.* These are not part of Phase 1, and their syntax may change:
 
 #table(
@@ -248,6 +255,9 @@ A spec's identity is its directory name (ADR 0021); there is no `name()` clause.
   [`config { name = {...} }`], [Per-spec settings (git user and email) given by a host. Needs
     `render` or a generated-file clause to have any effect; see ADR 0019.], [4],
   [`on_remove {...}`], [Removal policy for the spec (@removal).], [2],
+  [`file.copy(src, dst)`], [Copy a file from the spec directory instead of linking it.], [—],
+  [`net.download(url, dst)`], [Fetch a file at apply time. Would need a required hash so the diff has
+    something stable to compare, and specs stay pure (ADR 0013).], [—],
   [`sysfile(...)`], [Root-owned copies (@system-scope). On hold, see ADR 0014.], [3],
   [`render(...)`, `patch(...)`], [Tree-sitter editing (@tree-sitter).], [4],
   [`package(name?, opts?)`], [The spec needs a package. No arguments means the spec's directory
@@ -267,10 +277,10 @@ designed yet; add them when a real spec needs them.
 
 = Deployment kinds
 
-== `link()` — symlinks <config-links>
+== `file.link()` — symlinks <config-links>
 
-`link(src, dst)` makes `dst` a symlink to `src` (see the layout section). The batch form
-`link { ..., into = dir }` expands to one such link per name, and everything below applies to each
+`file.link(src, dst)` makes `dst` a symlink to `src` (see the layout section). The batch form
+`file.link { ..., into = dir }` expands to one such link per name, and everything below applies to each
 of them. The planner looks at what
 is at `dst` and never overwrites anything:
 
@@ -548,7 +558,7 @@ The core config manager comes first. Package handling and the other extras come 
     before Phase 1 is locked],
   [1],
   [Skeleton (CMake + vcpkg + CI build). Lua loader + sandbox, `spec {}` clause tables, `hosts/` +
-    `depends` selection, `link()`, `dst` conflict checks, state file, `plan` / `apply` / `status` /
+    `depends` selection, `file.link()`, `dst` conflict checks, state file, `plan` / `apply` / `status` /
     `specs`. User scope only],
   [2], [`adopt`, `on_remove` policies, generations + `rollback` via git worktree, backups],
   [3], [System scope: `sysfile`, sudo batch executor (on hold, ADR 0014)],
