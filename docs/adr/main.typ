@@ -47,6 +47,7 @@ directory and is collected here.
   link(<adr-0025>)[0025], [Dependencies come from Conan, with libcurl and OpenSSL for downloads], [Accepted],
   link(<adr-0026>)[0026], [`file.copy` and `net.download` share one regular-file mechanism], [Accepted],
   link(<adr-0027>)[0027], [`requires` declares raw packages; `depends` names specs only], [Accepted (parts Proposed)],
+  link(<adr-0028>)[0028], [Only packages mdot installed are removable; the record is mdot's own], [Proposed],
 )
 
 #include "0001-fresh-design-not-comtrya-port.typ"
@@ -76,3 +77,4 @@ directory and is collected here.
 #include "0025-conan-dependencies.typ"
 #include "0026-shared-regular-file-mechanism.typ"
 #include "0027-requires-clause.typ"
+#include "0028-package-ownership-record.typ"

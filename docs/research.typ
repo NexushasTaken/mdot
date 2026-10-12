@@ -378,12 +378,17 @@ Each question is a claim the design depends on that hasn't been demonstrated yet
 ]
 
 #rq("RQ2", "Can one-spec-one-package ownership coexist with pacman on a rolling-release system?")[
-  The design maps owned packages to _explicit_ installs and depends-only packages to _dependency_
-  installs (`--asdeps`), and relies on pacman's own orphan tracking. Unknowns:
+  The design (ADR 0027, ADR 0028) installs every package as _explicit_ and never edits pacman's
+  install reason. mdot records which packages _it_ installed, and only those can be proposed for
+  removal, once no reachable spec names them. Unknowns:
 
-  - packages that were already installed explicitly before mdot existed
-  - a package that one spec owns while another spec depends on it
-  - interaction with packages the author installs by hand
+  - packages that were already installed before mdot existed (ADR 0028 says they are `present`
+    and never removed; S3 checks it)
+  - a package that one spec owns while another spec requires it (an extra edge; removal needs zero
+    referrers)
+  - interaction with packages the author installs by hand, including ones that depend on a package
+    mdot wants to remove (`pacman -R` refuses; mdot must report it, not force it)
+  - whether mdot-installed packages appearing in `pacman -Qe` is acceptable
   - AUR packages built from custom repos (e.g. `kanata-bin`)
 ]
 
@@ -439,10 +444,13 @@ question and is judged by an explicit pass/fail criterion.
     [Each query fits in about one line and the author finds it writable; if not, consider a
       higher-level helper per language],
     [S3], [RQ2],
-    [Shell-script prototype on a VM or container: install owned packages explicitly, depends with
-      `--asdeps`, remove a spec, run the orphan query],
-    [Removal uninstalls exactly what is no longer referenced, and packages installed by hand are
-      untouched],
+    [Shell-script prototype on a VM or container that mimics the ADR 0028 record. Install package A
+      by hand. "Apply" a spec set naming A and B (install only what is missing, write a state file
+      of what was installed). Then drop the specs, install C by hand, make an outside package
+      depend on B, and delete the state file in a copy of the setup],
+    [After dropping the specs, the only removal candidate is B. A and C are untouched. Removing B
+      with `pacman -R` fails cleanly while the outside dependent exists. With the state file lost,
+      nothing is proposed],
     [S4], [RQ3, RQ6],
     [Prototype loader + planner (links only) on a copy of `~/dotfiles-v2` translated per
       @translation, printing a plan],
