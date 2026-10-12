@@ -1,0 +1,25 @@
+cmake_minimum_required(VERSION 3.15)
+project(mdot CXX)
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
+
+find_package(spdlog REQUIRED)
+
+# === library
+add_library(mdot_core src/link.cpp)
+target_include_directories(mdot_core PUBLIC src)
+target_link_libraries(mdot_core PUBLIC spdlog::spdlog)
+
+# === cli
+add_executable(mdot src/main.cpp)
+target_link_libraries(mdot PRIVATE mdot_core)
+
+# === unit test
+enable_testing()
+find_package(Catch2 REQUIRED)
+
+add_executable(mdot_tests test/test_link.cpp)
+target_link_libraries(mdot_tests PRIVATE mdot_core Catch2::Catch2WithMain)
+
+include(Catch)
+catch_discover_tests(mdot_tests)
