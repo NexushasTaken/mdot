@@ -380,15 +380,25 @@ Each question is a claim the design depends on that hasn't been demonstrated yet
 #rq("RQ2", "Can one-spec-one-package ownership coexist with pacman on a rolling-release system?")[
   The design (ADR 0027, ADR 0028) installs every package as _explicit_ and never edits pacman's
   install reason. mdot records which packages _it_ installed, and only those can be proposed for
-  removal, once no reachable spec names them. Unknowns:
+  removal, once no reachable spec names them. Only the first group below needs an experiment.
 
-  - packages that were already installed before mdot existed (ADR 0028 says they are `present`
-    and never removed; S3 checks it)
+  *Settled on paper, S3 confirms:*
+
+  - packages that were already installed before mdot existed (ADR 0028: `present`, never removed)
+  - packages the author installs by hand, including ones that depend on a package mdot wants to
+    remove (`pacman -R` refuses; mdot must report it, not force it)
+
+  *Settled on paper, nothing to test:*
+
   - a package that one spec owns while another spec requires it (an extra edge; removal needs zero
     referrers)
-  - interaction with packages the author installs by hand, including ones that depend on a package
-    mdot wants to remove (`pacman -R` refuses; mdot must report it, not force it)
-  - whether mdot-installed packages appearing in `pacman -Qe` is acceptable
+
+  *Decided:*
+
+  - mdot-installed packages appear in `pacman -Qe`. This is accepted (ADR 0028).
+
+  *Deferred to Phase 6+:*
+
   - AUR packages built from custom repos (e.g. `kanata-bin`)
 ]
 
