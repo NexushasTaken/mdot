@@ -40,4 +40,5 @@ class mdotRecipe(ConanFile):
 
     def requirements(self):
         self.requires("spdlog/1.17.0")
+        self.requires("tl-expected/20190710")
         self.test_requires("catch2/3.16.0")

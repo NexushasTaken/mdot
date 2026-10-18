@@ -4,11 +4,12 @@ project(mdot CXX)
 set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 
 find_package(spdlog REQUIRED)
+find_package(tl-expected REQUIRED)
 
 # === library
 add_library(mdot_core src/link.cpp)
 target_include_directories(mdot_core PUBLIC src)
-target_link_libraries(mdot_core PUBLIC spdlog::spdlog)
+target_link_libraries(mdot_core PUBLIC spdlog::spdlog tl::expected)
 
 # === cli
 add_executable(mdot src/main.cpp)
