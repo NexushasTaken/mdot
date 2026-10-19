@@ -8,7 +8,7 @@
 namespace fs = std::filesystem;
 using bw::tempdir::TempDir;
 
-TEST_CASE("src doesn't exist means Error") {
+TEST_CASE("src doesn't exist means Error", "[plan_link]") {
   TempDir tmp;
 
   auto config_path = tmp.path() / "config";
@@ -20,7 +20,7 @@ TEST_CASE("src doesn't exist means Error") {
   REQUIRE(!p.has_value());
 }
 
-TEST_CASE("nothing at dst means Create") {
+TEST_CASE("nothing at dst means Create", "[plan_link]") {
   TempDir tmp;
 
   auto config_path = tmp.path() / "config";
@@ -30,10 +30,10 @@ TEST_CASE("nothing at dst means Create") {
 
   auto p = plan_link(config_path, destination_path);
   INFO((p ? "" : p.error().string()));
-  REQUIRE(p.value() == PlanOperation::Create);
+  REQUIRE(p.value().is_create());
 }
 
-TEST_CASE("dst symlink to src means Noop") {
+TEST_CASE("dst symlink to src means Noop", "[plan_link]") {
   TempDir tmp;
 
   auto config_path = tmp.path() / "config";
@@ -45,10 +45,10 @@ TEST_CASE("dst symlink to src means Noop") {
 
   auto p = plan_link(config_path, destination_path);
   INFO((p ? "" : p.error().string()));
-  REQUIRE(p.value() == PlanOperation::Noop);
+  REQUIRE(p.value().is_noop());
 }
 
-TEST_CASE("dst relatively symlink to src means Noop") {
+TEST_CASE("dst relatively symlink to src means Noop", "[plan_link]") {
   TempDir tmp;
 
   auto parent_path = tmp.path() / "foo" / "bar";
@@ -63,10 +63,10 @@ TEST_CASE("dst relatively symlink to src means Noop") {
 
   auto p = plan_link(config_path, destination_path);
   INFO((p ? "" : p.error().string()));
-  REQUIRE(p.value() == PlanOperation::Noop);
+  REQUIRE(p.value().is_noop());
 }
 
-TEST_CASE("dst is a dangling symlink means Conflict") {
+TEST_CASE("dst is a dangling symlink means Conflict", "[plan_link]") {
   TempDir tmp;
 
   auto nothing_path = tmp.path() / "nothing";
@@ -78,10 +78,10 @@ TEST_CASE("dst is a dangling symlink means Conflict") {
 
   auto p = plan_link(config_path, destination_path);
   INFO((p ? "" : p.error().string()));
-  REQUIRE(p.value() == PlanOperation::Conflict);
+  REQUIRE(p.value().is_conflict());
 }
 
-TEST_CASE("dst is not a symlink to src means Conflict") {
+TEST_CASE("dst is not a symlink to src means Conflict", "[plan_link]") {
   TempDir tmp;
 
   auto different_path = tmp.path() / "nothing";
@@ -95,10 +95,10 @@ TEST_CASE("dst is not a symlink to src means Conflict") {
 
   auto p = plan_link(config_path, destination_path);
   INFO((p ? "" : p.error().string()));
-  REQUIRE(p.value() == PlanOperation::Conflict);
+  REQUIRE(p.value().is_conflict());
 }
 
-TEST_CASE("dst parent doesn't exist means Create") {
+TEST_CASE("dst parent doesn't exist means Create", "[plan_link]") {
   TempDir tmp;
 
   auto parent_path = tmp.path() / "parent";
@@ -110,10 +110,11 @@ TEST_CASE("dst parent doesn't exist means Create") {
 
   auto p = plan_link(config_path, destination_path);
   INFO((p ? "" : p.error().string()));
-  REQUIRE(p.value() == PlanOperation::Create);
+  REQUIRE(p.value().is_create());
 }
 
-TEST_CASE("dst parent 2-level deep doesn't exist means Create", "[2-level]") {
+TEST_CASE("dst parent 2-level deep doesn't exist means Create",
+          "[plan_link],[2-level]") {
   TempDir tmp;
 
   auto parent_path = tmp.path() / "one" / "two";
@@ -125,10 +126,11 @@ TEST_CASE("dst parent 2-level deep doesn't exist means Create", "[2-level]") {
 
   auto p = plan_link(config_path, destination_path);
   INFO((p ? "" : p.error().string()));
-  REQUIRE(p.value() == PlanOperation::Create);
+  REQUIRE(p.value().is_create());
 }
 
-TEST_CASE("dst parent is a regular file means Conflict", "[regular_file]") {
+TEST_CASE("dst parent is a regular file means Conflict",
+          "[plan_link],[regular_file]") {
   TempDir tmp;
 
   auto parent_path = tmp.path() / "parent";
@@ -143,10 +145,11 @@ TEST_CASE("dst parent is a regular file means Conflict", "[regular_file]") {
   auto p = plan_link(config_path, destination_path);
   INFO((p ? "" : p.error().string()));
 
-  REQUIRE(p.value() == PlanOperation::Conflict);
+  REQUIRE(p.value().is_conflict());
 }
 
-TEST_CASE("src has '/.' suffix means Noop", "[current-dir-suffix]") {
+TEST_CASE("src has '/.' suffix means Noop",
+          "[plan_link],[current-dir-suffix]") {
   TempDir tmp;
 
   auto config_path = tmp.path() / "config";
@@ -157,10 +160,11 @@ TEST_CASE("src has '/.' suffix means Noop", "[current-dir-suffix]") {
 
   auto p = plan_link(config_path / ".", destination_path);
   INFO((p ? "" : p.error().string()));
-  REQUIRE(p.value() == PlanOperation::Noop);
+  REQUIRE(p.value().is_noop());
 }
 
-TEST_CASE("dst is a regular file means Conflict", "[regular-file]") {
+TEST_CASE("dst is a regular file means Conflict",
+          "[plan_link],[regular-file]") {
   TempDir tmp;
 
   auto config_path = tmp.path() / "config";
@@ -172,10 +176,10 @@ TEST_CASE("dst is a regular file means Conflict", "[regular-file]") {
 
   auto p = plan_link(config_path, destination_path);
   INFO((p ? "" : p.error().string()));
-  REQUIRE(p.value() == PlanOperation::Conflict);
+  REQUIRE(p.value().is_conflict());
 }
 
-TEST_CASE("dst is a directory means Conflict", "[regular-file]") {
+TEST_CASE("dst is a directory means Conflict", "[plan_link],[regular-file]") {
   TempDir tmp;
 
   auto config_path = tmp.path() / "config";
@@ -186,5 +190,5 @@ TEST_CASE("dst is a directory means Conflict", "[regular-file]") {
 
   auto p = plan_link(config_path, destination_path);
   INFO((p ? "" : p.error().string()));
-  REQUIRE(p.value() == PlanOperation::Conflict);
+  REQUIRE(p.value().is_conflict());
 }

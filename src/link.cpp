@@ -1,76 +1,74 @@
 #include "link.hpp"
+#include "common.hpp"
+#include "error.hpp"
 #include <cassert>
 #include <filesystem>
+#include <spdlog/spdlog.h>
 #include <system_error>
 #include <tl/expected.hpp>
 
 namespace fs = std::filesystem;
 
-static tl::unexpected<Error> make_error(const fs::path &path,
-                                        std::error_code ec) {
-  return tl::make_unexpected(Error{path, ec.message()});
-}
-static tl::unexpected<Error> make_error(const fs::path &path,
-                                        std::string message) {
-  return tl::make_unexpected(Error{path, message});
-}
-
-static fs::path clean_path(const fs::path &path) {
-  if (!path.has_filename()) {
-    return path.parent_path();
-  }
-  return path;
+PlanOperation PlanOperation::make_create(std::filesystem::path src,
+                                         std::filesystem::path dst) {
+  return {
+      .m_src = src,
+      .m_dst = dst,
+      .m_operation = Operation::Create,
+  };
 }
 
-static tl::expected<fs::path, std::error_code>
-normalize_path(const fs::path &path) {
-  std::error_code ec;
-  fs::path new_path = path.lexically_normal();
-  if (path.is_relative()) {
-    auto current_path = fs::current_path(ec);
-    if (ec) {
-      return tl::make_unexpected(ec);
-    }
-
-    auto real = (current_path / path).lexically_normal();
-    return clean_path(real);
-  }
-  return clean_path(path.lexically_normal());
+PlanOperation PlanOperation::make_conflict(std::filesystem::path src,
+                                           std::string message) {
+  return {
+      .m_src = src,
+      .m_message = message,
+      .m_operation = Operation::Conflict,
+  };
+}
+PlanOperation PlanOperation::make_noop() {
+  return {
+      .m_operation = Operation::Noop,
+  };
 }
 
 // FIX: can't handle permissions yet.
-tl::expected<PlanOperation, Error> plan_link(fs::path src, fs::path dst) {
+tl::expected<PlanOperation, Error> plan_link(const fs::path &src,
+                                             const fs::path &dst) {
   std::error_code ec;
+
+  fs::path normalized_dst;
+  fs::path normalized_src;
 
   {
     auto src_real = normalize_path(src);
     if (!src_real) {
-      return make_error(src, src_real.error());
+      return make_error(normalized_src, src_real.error());
     }
-    src = src_real.value();
+    normalized_src = src_real.value();
 
     auto dst_real = normalize_path(dst);
     if (!dst_real) {
-      return make_error(dst, dst_real.error());
+      return make_error(normalized_dst, dst_real.error());
     }
-    dst = dst_real.value();
+    normalized_dst = dst_real.value();
   }
 
-  if (!fs::exists(src, ec)) {
-    return make_error(src, "No such file or directory");
-  }
-
-  if (ec) {
-    return make_error(src, ec);
+  if (!fs::exists(normalized_src, ec)) {
+    if (ec) {
+      return make_error(normalized_src, ec);
+    } else {
+      return make_error(normalized_src, "No such file or directory");
+    }
   }
 
   {
-    fs::path root_path = dst.root_path();
+    fs::path root_path = normalized_dst.root_path();
     fs::path path;
 
-    for (auto segment : dst) {
+    for (auto segment : normalized_dst) {
       path /= segment;
-      if (dst == path) {
+      if (normalized_dst == path) {
         break;
       }
 
@@ -86,36 +84,37 @@ tl::expected<PlanOperation, Error> plan_link(fs::path src, fs::path dst) {
       }
 
       if (path_st.type() != fs::file_type::directory) {
-        return PlanOperation::Conflict;
+        return PlanOperation::make_conflict(path, "Is not a directory");
       }
     }
   }
 
-  auto dst_st = fs::symlink_status(dst, ec);
+  auto dst_st = fs::symlink_status(normalized_dst, ec);
 
   if (dst_st.type() == fs::file_type::not_found) {
-    return PlanOperation::Create;
+    return PlanOperation::make_create(normalized_src, dst);
+  }
+
+  if (ec) {
+    return make_error(normalized_dst, ec);
   }
 
   if (dst_st.type() != fs::file_type::not_found &&
       dst_st.type() != fs::file_type::symlink) {
-    return PlanOperation::Conflict;
+    return PlanOperation::make_conflict(dst, "Is not a symlink");
   }
+
+  fs::path dst_target = clean_path(
+      (normalized_dst.parent_path() / fs::read_symlink(normalized_dst, ec))
+          .lexically_normal());
 
   if (ec) {
-    return make_error(dst, ec);
+    return make_error(normalized_dst, ec);
   }
 
-  auto link_target = clean_path(
-      (dst.parent_path() / fs::read_symlink(dst, ec)).lexically_normal());
-
-  if (ec) {
-    return make_error(dst, ec);
-  }
-
-  if (link_target == src) {
-    return PlanOperation::Noop;
+  if (dst_target == normalized_src) {
+    return PlanOperation::make_noop();
   } else {
-    return PlanOperation::Conflict;
+    return PlanOperation::make_conflict(dst, "Symlinked to different file");
   }
 }
