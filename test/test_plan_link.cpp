@@ -114,7 +114,7 @@ TEST_CASE("dst parent doesn't exist means Create", "[plan_link]") {
 }
 
 TEST_CASE("dst parent 2-level deep doesn't exist means Create",
-          "[plan_link],[2-level]") {
+          "[plan_link][2-level]") {
   TempDir tmp;
 
   auto parent_path = tmp.path() / "one" / "two";
@@ -130,7 +130,7 @@ TEST_CASE("dst parent 2-level deep doesn't exist means Create",
 }
 
 TEST_CASE("dst parent is a regular file means Conflict",
-          "[plan_link],[regular_file]") {
+          "[plan_link][regular_file]") {
   TempDir tmp;
 
   auto parent_path = tmp.path() / "parent";
@@ -148,8 +148,7 @@ TEST_CASE("dst parent is a regular file means Conflict",
   REQUIRE(p.value().is_conflict());
 }
 
-TEST_CASE("src has '/.' suffix means Noop",
-          "[plan_link],[current-dir-suffix]") {
+TEST_CASE("src has '/.' suffix means Noop", "[plan_link][current-dir-suffix]") {
   TempDir tmp;
 
   auto config_path = tmp.path() / "config";
@@ -163,8 +162,7 @@ TEST_CASE("src has '/.' suffix means Noop",
   REQUIRE(p.value().is_noop());
 }
 
-TEST_CASE("dst is a regular file means Conflict",
-          "[plan_link],[regular-file]") {
+TEST_CASE("dst is a regular file means Conflict", "[plan_link][regular-file]") {
   TempDir tmp;
 
   auto config_path = tmp.path() / "config";
@@ -179,7 +177,7 @@ TEST_CASE("dst is a regular file means Conflict",
   REQUIRE(p.value().is_conflict());
 }
 
-TEST_CASE("dst is a directory means Conflict", "[plan_link],[regular-file]") {
+TEST_CASE("dst is a directory means Conflict", "[plan_link][regular-file]") {
   TempDir tmp;
 
   auto config_path = tmp.path() / "config";

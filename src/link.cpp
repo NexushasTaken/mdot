@@ -72,8 +72,8 @@ tl::expected<PlanOperation, Error> plan_link(const fs::path &src,
         break;
       }
 
-      // TODO: while path < dst - if the ancestor is a dangling link, allow the
-      // user to specify, if that should be an error or warning.
+      // TODO: while path < normalized_dst - if the ancestor is a dangling link,
+      // allow the user to specify, if that should be an error or warning.
       auto path_st = fs::status(path, ec);
       if (path_st.type() == fs::file_type::not_found) {
         break;
@@ -92,7 +92,7 @@ tl::expected<PlanOperation, Error> plan_link(const fs::path &src,
   auto dst_st = fs::symlink_status(normalized_dst, ec);
 
   if (dst_st.type() == fs::file_type::not_found) {
-    return PlanOperation::make_create(normalized_src, dst);
+    return PlanOperation::make_create(normalized_src, normalized_dst);
   }
 
   if (ec) {
@@ -101,7 +101,7 @@ tl::expected<PlanOperation, Error> plan_link(const fs::path &src,
 
   if (dst_st.type() != fs::file_type::not_found &&
       dst_st.type() != fs::file_type::symlink) {
-    return PlanOperation::make_conflict(dst, "Is not a symlink");
+    return PlanOperation::make_conflict(normalized_dst, "Is not a symlink");
   }
 
   fs::path dst_target = clean_path(
@@ -115,6 +115,7 @@ tl::expected<PlanOperation, Error> plan_link(const fs::path &src,
   if (dst_target == normalized_src) {
     return PlanOperation::make_noop();
   } else {
-    return PlanOperation::make_conflict(dst, "Symlinked to different file");
+    return PlanOperation::make_conflict(normalized_dst,
+                                        "Symlinked to different file");
   }
 }
