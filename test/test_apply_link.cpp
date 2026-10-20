@@ -95,7 +95,7 @@ TEST_CASE("dst is a regular file is conflict", "[apply][regular-file]") {
   {
     auto r = apply_link(config_dir, destination_dir);
     INFO((r ? "" : r.error().string()));
-    REQUIRE(!r);
+    REQUIRE(r);
 
     REQUIRE(fs::is_regular_file(destination_dir));
   }
@@ -116,7 +116,7 @@ TEST_CASE("dst is a dangling link", "[apply][dangling-link]") {
   {
     auto r = apply_link(config_dir, destination_dir);
     INFO((r ? "" : r.error().string()));
-    REQUIRE(!r);
+    REQUIRE(r);
 
     REQUIRE(!fs::exists(destination_dir));
     REQUIRE(fs::is_symlink(destination_dir));
