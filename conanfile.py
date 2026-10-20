@@ -20,6 +20,8 @@ class mdotRecipe(ConanFile):
     # Sources are located in the same place as this recipe, copy them to the recipe
     exports_sources = "CMakeLists.txt", "src/*"
 
+    default_options = {"cli11/*:header_only": False}
+
     def layout(self):
         cmake_layout(self)
 
@@ -41,4 +43,5 @@ class mdotRecipe(ConanFile):
     def requirements(self):
         self.requires("spdlog/1.17.0")
         self.requires("tl-expected/20190710")
+        self.requires("cli11/2.7.2")
         self.test_requires("catch2/3.16.0")

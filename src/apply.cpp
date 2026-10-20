@@ -29,7 +29,7 @@ tl::expected<PlanOperation, Error> apply_link(fs::path src, fs::path dst) {
       }
       return plan_result;
     case PlanOperation::Conflict:
-      return make_error(plan_result->m_src, plan_result->m_message);
+      return plan_result;
     case PlanOperation::Noop:
       return plan_result;
     }

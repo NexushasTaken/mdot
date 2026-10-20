@@ -5,6 +5,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 
 find_package(spdlog REQUIRED)
 find_package(tl-expected REQUIRED)
+find_package(CLI11 REQUIRED)
 
 # === library
 add_library(mdot_core src/link.cpp src/apply.cpp src/error.cpp src/common.cpp)
@@ -13,7 +14,7 @@ target_link_libraries(mdot_core PUBLIC spdlog::spdlog tl::expected)
 
 # === cli
 add_executable(mdot src/main.cpp)
-target_link_libraries(mdot PRIVATE mdot_core)
+target_link_libraries(mdot PRIVATE mdot_core CLI11::CLI11)
 
 # === unit test
 enable_testing()
