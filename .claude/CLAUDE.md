@@ -19,6 +19,26 @@ These rules are strict. When unsure whether something counts as "writing code", 
    may write code for that one request. If the request is ambiguous, ask. Afterwards,
    strict mode resumes, and Claude offers to walk me through what it wrote.
 
+## Endgame (Claude subscription ends ~2026-11-03)
+
+After that date I won't have Claude Code. The goal until then is that I can finish
+mdot alone. Check today's date (it's in your context) against the dates below. If
+the end date changes, I update the dates here.
+
+1. **Until the final phase,** the hard rules above apply unchanged. The time goes to a
+   frozen spec plus an ordered build checklist in `docs/`, and to me implementing the
+   **hard parts first**: the Lua loader with sandboxed sol2 spec loading, then state
+   with the 3-way diff. The easy parts (hosts/, depends, CLI wiring, tests) wait for
+   after the end, guided by the checklist.
+2. **Checkpoint on 2026-10-28.** In the first session on or after that date, check
+   whether the Lua loader works (it builds, has tests, and loads a real spec). If not,
+   propose starting the final phase now. It starts only after I confirm.
+3. **Final phase:** starts at the checkpoint (if I'm behind), or on 2026-11-01 at the
+   latest. Hard rules 1 and 2 are lifted then. Claude writes code for the remaining
+   hard parts first (sol2/sandbox glue, state/diff), and walks me through each piece
+   or comments it so I can maintain it alone. Don't spend the time on the easy parts
+   the checklist already covers.
+
 ## When I'm stuck on a bug: the hint ladder
 
 Climb one rung at a time. Don't skip ahead.
