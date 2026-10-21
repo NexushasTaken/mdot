@@ -9,32 +9,32 @@
 
 namespace fs = std::filesystem;
 
-PlanOperation PlanOperation::make_create(std::filesystem::path src,
-                                         std::filesystem::path dst) {
+LinkPlan LinkPlan::make_create(std::filesystem::path src,
+                               std::filesystem::path dst) {
   return {
       .m_src = src,
       .m_dst = dst,
-      .m_operation = Operation::Create,
+      .m_operation = PlanOperation::Create,
   };
 }
 
-PlanOperation PlanOperation::make_conflict(std::filesystem::path src,
-                                           std::string message) {
+LinkPlan LinkPlan::make_conflict(std::filesystem::path src,
+                                 std::string message) {
   return {
       .m_src = src,
       .m_message = message,
-      .m_operation = Operation::Conflict,
+      .m_operation = PlanOperation::Conflict,
   };
 }
-PlanOperation PlanOperation::make_noop() {
+LinkPlan LinkPlan::make_noop() {
   return {
-      .m_operation = Operation::Noop,
+      .m_operation = PlanOperation::Noop,
   };
 }
 
 // FIX: can't handle permissions yet.
-tl::expected<PlanOperation, Error> plan_link(const fs::path &src,
-                                             const fs::path &dst) {
+tl::expected<LinkPlan, Error> plan_link(const fs::path &src,
+                                        const fs::path &dst) {
   std::error_code ec;
 
   fs::path normalized_dst;
@@ -84,7 +84,7 @@ tl::expected<PlanOperation, Error> plan_link(const fs::path &src,
       }
 
       if (path_st.type() != fs::file_type::directory) {
-        return PlanOperation::make_conflict(path, "Is not a directory");
+        return LinkPlan::make_conflict(path, "Is not a directory");
       }
     }
   }
@@ -92,7 +92,7 @@ tl::expected<PlanOperation, Error> plan_link(const fs::path &src,
   auto dst_st = fs::symlink_status(normalized_dst, ec);
 
   if (dst_st.type() == fs::file_type::not_found) {
-    return PlanOperation::make_create(normalized_src, normalized_dst);
+    return LinkPlan::make_create(normalized_src, normalized_dst);
   }
 
   if (ec) {
@@ -101,7 +101,7 @@ tl::expected<PlanOperation, Error> plan_link(const fs::path &src,
 
   if (dst_st.type() != fs::file_type::not_found &&
       dst_st.type() != fs::file_type::symlink) {
-    return PlanOperation::make_conflict(normalized_dst, "Is not a symlink");
+    return LinkPlan::make_conflict(normalized_dst, "Is not a symlink");
   }
 
   fs::path dst_target = clean_path(
@@ -113,9 +113,9 @@ tl::expected<PlanOperation, Error> plan_link(const fs::path &src,
   }
 
   if (dst_target == normalized_src) {
-    return PlanOperation::make_noop();
+    return LinkPlan::make_noop();
   } else {
-    return PlanOperation::make_conflict(normalized_dst,
-                                        "Symlinked to different file");
+    return LinkPlan::make_conflict(normalized_dst,
+                                   "Symlinked to different file");
   }
 }

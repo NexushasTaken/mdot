@@ -7,12 +7,12 @@
 
 namespace fs = std::filesystem;
 
-tl::expected<PlanOperation, Error> apply_link(fs::path src, fs::path dst) {
+tl::expected<LinkPlan, Error> apply_link(fs::path src, fs::path dst) {
   std::error_code ec;
   auto plan_result = plan_link(src, dst);
 
   if (plan_result) {
-    PlanOperation operation = plan_result.value();
+    LinkPlan operation = plan_result.value();
 
     switch (operation.m_operation) {
     case PlanOperation::Create:

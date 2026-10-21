@@ -3,5 +3,5 @@
 #include "link.hpp"
 #include "tl/expected.hpp"
 
-tl::expected<PlanOperation, Error> apply_link(std::filesystem::path src,
-                                     std::filesystem::path dst);
+tl::expected<LinkPlan, Error> apply_link(std::filesystem::path src,
+                                         std::filesystem::path dst);

@@ -19,13 +19,13 @@ struct Core {
 };
 
 int plan_describe(const Core &core,
-                  const tl::expected<PlanOperation, Error> &result) {
+                  const tl::expected<LinkPlan, Error> &result) {
   if (!result) {
     core.errlog->error("{}", result.error().string());
     return 3;
   }
 
-  const PlanOperation &plan = *result;
+  const LinkPlan &plan = *result;
 
   switch (plan.m_operation) {
   case PlanOperation::Create:
