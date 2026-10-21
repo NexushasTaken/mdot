@@ -18,7 +18,7 @@ struct Core {
   bool dry_run = false;
 };
 
-int plan_describe(const Core &core,
+int link_plan_describe(const Core &core,
                   const tl::expected<LinkPlan, Error> &result) {
   if (!result) {
     core.errlog->error("{}", result.error().string());
@@ -66,10 +66,10 @@ int main(int argc, char *argv[]) {
 
   if (options.dry_run) {
     const auto &plan_result = plan_link(src, dst);
-    return plan_describe(options, plan_result);
+    return link_plan_describe(options, plan_result);
   } else {
     const auto &apply_result = apply_link(src, dst);
-    return plan_describe(options, apply_result);
+    return link_plan_describe(options, apply_result);
   }
 
   return 0;
