@@ -427,6 +427,9 @@ Each question is a claim the design depends on that hasn't been demonstrated yet
 
   - whether real per-host logic needs more than `host`, `os`, `vars`, `env()` and `exists()`
   - whether `enabled` needs to be lazy, e.g. depend on another spec's enabled state
+
+  *Answered (ADR 0013):* no live-state helpers. `env()` and `exists()` are dropped; per-host logic
+  goes through `hosts/` (ADR 0019) and what mdot hands the spec.
 ]
 
 #rq("RQ6", "Does the model cover the author's real dotfiles without escape hatches?")[

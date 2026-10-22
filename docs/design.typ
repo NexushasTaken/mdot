@@ -175,10 +175,13 @@ return spec {
   which is why the recommended layout for directory targets is a `config/` subfolder.
 - A missing `src` is a hard error at load time, before anything touches the system.
 
-*Sandbox.* Spec and config environments get `string`, `table`, `math`, `utf8`,
-`ipairs`/`pairs`/`select`/`type`/`tostring`/`tonumber`/`error`/`assert`/`pcall`, and `require`
-restricted to the repo. They do *not* get `os.execute`, `io`, `load` of arbitrary files, or `debug`.
-Read-only helpers come from mdot itself: `env("NAME")` and `exists(path)`.
+*Sandbox.* The sandbox is for purity, not security (ADR 0013). It is an allowlist: spec and config
+environments get `string`, `table`, `math`, `utf8`, and `pairs`/`ipairs`/`next`/`select`/`type`/
+`tostring`/`tonumber`/`error`/`assert`/`pcall`/`setmetatable`/`getmetatable`/`print`. Nothing else is
+reachable, including `io`, `os`, `debug`, `coroutine`, `package`/`require`, `load`, `dofile`,
+`loadfile` and `string.dump`. There are no live-state helpers (no `env()`, no `exists()`), so
+`plan` and `apply` load the same clauses. Open: isolation between files, `require`, and mdot's
+replacement for `print`.
 
 = Lua API <lua-api>
 
@@ -274,8 +277,8 @@ conflict rules apply across groups.
   [`host`], [`{ name = <hostname> }`, read-only],
 )
 
-No Phase 1 clause reads `host`; the host file is selected by name. `os`, `vars` and `env()` are not
-designed yet; add them when a real spec needs them.
+No Phase 1 clause reads `host`; the host file is selected by name. `os` and `vars` are not
+designed yet; add them when a real spec needs them. `env()` is dropped (ADR 0013).
 
 = Deployment kinds
 

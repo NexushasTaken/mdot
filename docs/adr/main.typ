@@ -32,7 +32,7 @@ directory and is collected here.
   link(<adr-0011>)[0011], [Configurable removal policy, recorded at apply time],
   [Accepted (recording Proposed)],
   link(<adr-0012>)[0012], [Core config manager first; packages and extras later], [Accepted],
-  link(<adr-0013>)[0013], [Spec loading is pure and sandboxed], [Proposed],
+  link(<adr-0013>)[0013], [Spec loading is pure and sandboxed], [Accepted],
   link(<adr-0014>)[0014], [One directory per spec, implicit or explicit], [Accepted (applies-everything rule superseded by 0019)],
   link(<adr-0015>)[0015], [`link(src, dst)` with plain paths, `spec.lua` is absolute], [Accepted],
   link(<adr-0016>)[0016], [Link conflicts are hard errors; parent directories are tracked], [Accepted],
