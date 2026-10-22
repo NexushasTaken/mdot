@@ -1,7 +1,6 @@
 #pragma once
 #include "error.hpp"
 #include <filesystem>
-#include <sol/table.hpp>
 #include <tl/expected.hpp>
 
 enum struct PlanOperation {
