@@ -529,6 +529,14 @@ Plan: 1 to create, 1 to update, 1 to delete, 1 conflict.
 
 `apply` refuses to run while any conflict exists. There is no `--force` for now (ADR 0016).
 
+*Executing a clean plan* (ADR 0029). `apply` creates each link first, then records it in state
+right away. It stops at the first failed write and exits with 3, naming the failed link, what was
+done and what was not attempted. Running `apply` again continues: links already made are no-ops,
+and a link whose state write was lost is adopted. Directories mdot creates follow the same order;
+if mdot dies between `mkdir` and recording it, the empty directory is left behind on removal.
+There is no special Ctrl-C handling. Open: the write order for deletes and updates, and whether a
+partial apply gets a generation.
+
 == Removal policy <removal>
 
 When a spec disappears or becomes disabled, its file is often already deleted, so *mdot records each
