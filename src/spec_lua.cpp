@@ -1,12 +1,12 @@
+#include "spec_lua.hpp"
 #include "error.hpp"
 #include "spec.hpp"
-#include "spec_lua.hpp"
 #include <format>
 #include <sol/state.hpp>
 #include <string>
 #include <tl/expected.hpp>
 
-tl::expected<void, std::string> state_setup(sol::state &state) {
+static tl::expected<void, std::string> state_setup(sol::state &state) {
   state.open_libraries(sol::lib::base, sol::lib::string, sol::lib::table,
                        sol::lib::math, sol::lib::package);
 
@@ -28,7 +28,7 @@ tl::expected<void, std::string> state_setup(sol::state &state) {
 }
 
 tl::expected<LinkClause, ClauseError>
-link_clause_from_table(std::size_t id, sol::table raw_clause) {
+static link_clause_from_table(std::size_t id, sol::table raw_clause) {
   auto src = raw_clause.get_or<std::optional<std::string>>("src", std::nullopt);
   auto dst = raw_clause.get_or<std::optional<std::string>>("dst", std::nullopt);
   if (!src) {
@@ -51,7 +51,10 @@ tl::expected<Spec, std::string> parse_spec(const std::string &name,
   Spec spec;
 
   sol::state state;
-  state_setup(state);
+  auto setup_result = state_setup(state);
+  if (!setup_result) {
+    return tl::make_unexpected(std::format("{}", setup_result.error()));
+  }
 
   auto spec_result = state.safe_script(spec_code, sol::script_pass_on_error);
   if (!spec_result.valid()) {
