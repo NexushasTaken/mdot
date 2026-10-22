@@ -505,6 +505,28 @@ i.e. what mdot deployed last time) × *live*:
   [*conflict*: it was modified since mdot deployed it, so mdot won't delete it silently],
 )
 
+*Links* (ADR 0030). A link "matches" when its `readlink` string equals the absolute, normalized
+`src`:
+
+#table(
+  columns: (auto, auto, auto, 1fr),
+  [desired], [recorded], [live], [result],
+  [yes], [no], [absent], [*create*],
+  [yes], [no], [link → desired `src`], [*adopt* into state (nothing changes on disk)],
+  [yes], [no], [anything else], [*conflict*],
+  [yes], [yes], [link → recorded `src` = desired `src`], [*noop*],
+  [yes], [yes], [link → recorded `src` ≠ desired `src`], [*update*: replace mdot's own link],
+  [yes], [yes], [absent], [*re-create*; the plan shows it was removed by hand],
+  [yes], [yes], [link → desired `src` ≠ recorded `src`], [*adopt*: update the record, nothing changes on disk],
+  [yes], [yes], [anything else], [*conflict: drift* (ADR 0016)],
+  [no], [yes], [link → recorded `src`], [*delete* (per `on_remove`)],
+  [no], [yes], [absent], [*forget*: drop the record; the plan shows it],
+  [no], [yes], [anything else], [*conflict*],
+)
+
+Re-creating a missing link is a narrow exception to ADR 0016: nothing at that path can be lost. A
+link that points elsewhere is still a conflict.
+
 *How diff works for symlinks.* For a `Link`, mdot owns only _the link itself_: whether it exists
 and where it points. The content lives in the repo and is versioned by git, so content changes are
 git's job. `mdot status` therefore shows two things:
