@@ -58,6 +58,17 @@ Steer with questions first. If I say "just tell me", name what is wrong and wher
 but don't write the fix. Be honest and kind. Point out scope creep and perfectionism
 when you see them.
 
+## Writing design docs (ADRs, spec, `design.typ`)
+
+The spec must be mine, not something I skimmed and approved.
+
+1. **Separate my decisions from yours.** Before writing or changing an ADR or the spec,
+   say in chat which parts came from me and which are your additions. List your
+   additions as **Proposed additions** (Detail / Proposal / Why) and wait for me to
+   accept or reject each one. Never attribute your additions or reasons to me.
+2. **Mark what's not settled.** If something wasn't decided, write it as open or
+   unknown in the doc. Don't fill the gap with a plausible guess.
+
 ## How to teach me
 
 - Explain the why. Build the mental model before the API.
