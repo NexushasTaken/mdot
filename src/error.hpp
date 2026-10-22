@@ -12,3 +12,12 @@ struct LinkError {
 
   std::string string() const { return path.string() + ": " + message; }
 };
+
+struct ClauseError {
+  std::size_t m_id;
+  std::string m_message;
+  static tl::unexpected<ClauseError> make_error(std::size_t id,
+                                                std::string message);
+
+  std::string string() const;
+};

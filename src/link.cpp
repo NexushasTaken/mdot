@@ -3,39 +3,11 @@
 #include "error.hpp"
 #include <cassert>
 #include <filesystem>
-#include <format>
 #include <spdlog/spdlog.h>
 #include <system_error>
 #include <tl/expected.hpp>
 
 namespace fs = std::filesystem;
-
-tl::unexpected<ClauseError> ClauseError::make_error(std::size_t id,
-                                                    std::string message) {
-  return tl::make_unexpected(ClauseError{
-      .m_id = id,
-      .m_message = message,
-  });
-}
-
-tl::expected<LinkClause, ClauseError>
-LinkClause::from_table(std::size_t id, sol::table raw_clause) {
-  auto src = raw_clause.get_or<std::optional<std::string>>("src", std::nullopt);
-  auto dst = raw_clause.get_or<std::optional<std::string>>("dst", std::nullopt);
-  if (!src) {
-    return ClauseError::make_error(id, "`src` is required");
-  }
-  if (!dst) {
-    return ClauseError::make_error(id, "`dst` is required");
-  }
-
-  LinkClause link = {
-      .m_src = *src,
-      .m_dst = *dst,
-  };
-
-  return link;
-}
 
 LinkPlan LinkPlan::make_create(std::filesystem::path src,
                                std::filesystem::path dst) {

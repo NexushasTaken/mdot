@@ -10,7 +10,7 @@ find_package(sol2 REQUIRED)
 find_package(platform_folders REQUIRED)
 
 # === library
-add_library(mdot_core src/link.cpp src/apply.cpp src/error.cpp src/common.cpp)
+add_library(mdot_core src/link.cpp src/apply.cpp src/error.cpp src/common.cpp src/spec_lua.cpp)
 target_include_directories(mdot_core PUBLIC src)
 target_link_libraries(
     mdot_core
