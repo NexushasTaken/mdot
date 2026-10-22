@@ -4,4 +4,5 @@
 #include <filesystem>
 #include <tl/expected.hpp>
 
-tl::expected<Spec, std::string> parse_spec(std::filesystem::path spec_path);
+tl::expected<Spec, std::string>
+parse_spec(const std::string &name, const std::string &spec_code);

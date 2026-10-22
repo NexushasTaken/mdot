@@ -5,8 +5,6 @@
 #include <string>
 #include <tl/expected.hpp>
 
-namespace fs = std::filesystem;
-
 tl::expected<void, std::string> state_setup(sol::state &state) {
   state.open_libraries(sol::lib::base, sol::lib::string, sol::lib::table,
                        sol::lib::math, sol::lib::package);
@@ -47,14 +45,14 @@ link_clause_from_table(std::size_t id, sol::table raw_clause) {
   return link;
 }
 
-tl::expected<Spec, std::string> parse_spec(fs::path spec_path) {
+tl::expected<Spec, std::string> parse_spec(const std::string &name,
+                                           const std::string &spec_code) {
   Spec spec;
 
   sol::state state;
   state_setup(state);
 
-  auto spec_result =
-      state.safe_script_file(spec_path, sol::script_pass_on_error);
+  auto spec_result = state.safe_script(spec_code, sol::script_pass_on_error);
   if (!spec_result.valid()) {
     sol::error error = spec_result;
     return tl::make_unexpected(std::format("{}", error.what()));
@@ -64,7 +62,7 @@ tl::expected<Spec, std::string> parse_spec(fs::path spec_path) {
 
   if (!spec_optional) {
     return tl::make_unexpected(
-        std::format("{} must return a table, got {}", spec_path.string(),
+        std::format("{}: spec must return a table, got {}", name,
                     sol::type_name(state, spec_result.get_type())));
   }
 

@@ -1,9 +1,11 @@
 #include "common.hpp"
 #include "sago/platform_folders.h"
 #include "tl/expected.hpp"
-#include <cstdlib>
 #include <exception>
 #include <filesystem>
+#include <format>
+#include <fstream>
+#include <sstream>
 
 namespace fs = std::filesystem;
 
@@ -49,4 +51,34 @@ tl::expected<fs::path, std::string> expand_home(const fs::path &path) {
 
 tl::expected<fs::path, std::string> resolve_path(const fs::path &path) {
   return expand_home(path).and_then(normalize_path);
+}
+
+tl::expected<std::string, std::string> read_file(const fs::path &path) {
+  {
+    std::error_code ec;
+    auto path_st = fs::symlink_status(path, ec);
+    if (ec) {
+      return tl::make_unexpected(
+          std::format("{}: {}", path.string(), ec.message()));
+    }
+
+    if (path_st.type() != fs::file_type::regular) {
+      return tl::make_unexpected(
+          std::format("{}: {}", path.string(), "is not a regular file"));
+    }
+    if (path_st.type() == fs::file_type::not_found) {
+      return tl::make_unexpected(
+          std::format("{}: {}", path.string(), "regular file not found"));
+    }
+  }
+
+  std::ifstream path_handle(path);
+  if (!path_handle) {
+    return tl::make_unexpected(
+        std::format("{}: {}", path.string(), "can't open the file"));
+  }
+
+  std::ostringstream ss;
+  ss << path_handle.rdbuf();
+  return ss.str();
 }

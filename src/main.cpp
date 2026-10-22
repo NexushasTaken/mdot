@@ -8,6 +8,7 @@
 #include "tl/expected.hpp"
 #include <cstdlib>
 #include <filesystem>
+#include <fstream>
 #include <lua.h>
 #include <memory>
 #include <sol/error.hpp>
@@ -58,6 +59,7 @@ tl::expected<bool, std::string> process_spec(const Core &core,
         std::format("{}: must be absolute path", spec_path.string()));
   }
 
+  const fs::path spec_name = spec_path.filename();
   const fs::path spec_file = spec_path / "spec.lua";
 
   {
@@ -98,7 +100,14 @@ tl::expected<bool, std::string> process_spec(const Core &core,
         std::format("{}: {}", spec_path.string(), ec.message()));
   }
 
-  auto spec_result = parse_spec(spec_file);
+  auto spec_code_result = read_file(spec_file);
+  if (!spec_code_result) {
+    return tl::make_unexpected(
+        std::format("{}: {}", spec_file.string(), spec_code_result.error()));
+  }
+  std::string spec_code = *spec_code_result;
+
+  auto spec_result = parse_spec(spec_name, spec_code);
 
   if (!spec_result) {
     return tl::make_unexpected(spec_result.error());
