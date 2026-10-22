@@ -1,5 +1,6 @@
 #include "error.hpp"
 #include "spec.hpp"
+#include "spec_lua.hpp"
 #include <format>
 #include <sol/state.hpp>
 #include <string>
