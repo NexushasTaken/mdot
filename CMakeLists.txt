@@ -6,11 +6,16 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 find_package(spdlog REQUIRED)
 find_package(tl-expected REQUIRED)
 find_package(CLI11 REQUIRED)
+find_package(sol2 REQUIRED)
+find_package(platform_folders REQUIRED)
 
 # === library
 add_library(mdot_core src/link.cpp src/apply.cpp src/error.cpp src/common.cpp)
 target_include_directories(mdot_core PUBLIC src)
-target_link_libraries(mdot_core PUBLIC spdlog::spdlog tl::expected)
+target_link_libraries(
+    mdot_core
+    PUBLIC spdlog::spdlog tl::expected sol2::sol2 platform_folders
+)
 
 # === cli
 add_executable(mdot src/main.cpp)

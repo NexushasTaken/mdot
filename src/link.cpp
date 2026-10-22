@@ -3,11 +3,39 @@
 #include "error.hpp"
 #include <cassert>
 #include <filesystem>
+#include <format>
 #include <spdlog/spdlog.h>
 #include <system_error>
 #include <tl/expected.hpp>
 
 namespace fs = std::filesystem;
+
+tl::unexpected<ClauseError> ClauseError::make_error(std::size_t id,
+                                                    std::string message) {
+  return tl::make_unexpected(ClauseError{
+      .m_id = id,
+      .m_message = message,
+  });
+}
+
+tl::expected<LinkClause, ClauseError>
+LinkClause::from_table(std::size_t id, sol::table raw_clause) {
+  auto src = raw_clause.get_or<std::optional<std::string>>("src", std::nullopt);
+  auto dst = raw_clause.get_or<std::optional<std::string>>("dst", std::nullopt);
+  if (!src) {
+    return ClauseError::make_error(id, "`src` is required");
+  }
+  if (!dst) {
+    return ClauseError::make_error(id, "`dst` is required");
+  }
+
+  LinkClause link = {
+      .m_src = *src,
+      .m_dst = *dst,
+  };
+
+  return link;
+}
 
 LinkPlan LinkPlan::make_create(std::filesystem::path src,
                                std::filesystem::path dst) {
@@ -33,54 +61,45 @@ LinkPlan LinkPlan::make_noop() {
 }
 
 // FIX: can't handle permissions yet.
-tl::expected<LinkPlan, Error> plan_link(const fs::path &src,
-                                        const fs::path &dst) {
+tl::expected<LinkPlan, LinkError> plan_link(const fs::path &src,
+                                            const fs::path &dst) {
   std::error_code ec;
 
-  fs::path normalized_dst;
-  fs::path normalized_src;
-
-  {
-    auto src_real = normalize_path(src);
-    if (!src_real) {
-      return make_error(normalized_src, src_real.error());
-    }
-    normalized_src = src_real.value();
-
-    auto dst_real = normalize_path(dst);
-    if (!dst_real) {
-      return make_error(normalized_dst, dst_real.error());
-    }
-    normalized_dst = dst_real.value();
+  if (src.is_relative()) {
+    return LinkError::make_error(src, "must be absolute path");
+  }
+  if (dst.is_relative()) {
+    return LinkError::make_error(dst, "must be absolute path");
   }
 
-  if (!fs::exists(normalized_src, ec)) {
+  if (!fs::exists(src, ec)) {
     if (ec) {
-      return make_error(normalized_src, ec);
+      return LinkError::make_error(src, ec);
     } else {
-      return make_error(normalized_src, "No such file or directory");
+      return LinkError::make_error(src, "No such file or directory");
     }
   }
 
   {
-    fs::path root_path = normalized_dst.root_path();
+    fs::path root_path = dst.root_path();
     fs::path path;
 
-    for (auto segment : normalized_dst) {
+    for (auto segment : dst) {
       path /= segment;
-      if (normalized_dst == path) {
+      if (dst == path) {
         break;
       }
 
-      // TODO: while path < normalized_dst - if the ancestor is a dangling link,
-      // allow the user to specify, if that should be an error or warning.
+      // TODO: while path < normalized_dst - if the ancestor is a dangling
+      // link, allow the user to specify, if that should be an error or
+      // warning.
       auto path_st = fs::status(path, ec);
       if (path_st.type() == fs::file_type::not_found) {
         break;
       }
 
       if (ec) {
-        return make_error(path, ec);
+        return LinkError::make_error(path, ec);
       }
 
       if (path_st.type() != fs::file_type::directory) {
@@ -89,33 +108,31 @@ tl::expected<LinkPlan, Error> plan_link(const fs::path &src,
     }
   }
 
-  auto dst_st = fs::symlink_status(normalized_dst, ec);
+  auto dst_st = fs::symlink_status(dst, ec);
 
   if (dst_st.type() == fs::file_type::not_found) {
-    return LinkPlan::make_create(normalized_src, normalized_dst);
+    return LinkPlan::make_create(src, dst);
   }
 
   if (ec) {
-    return make_error(normalized_dst, ec);
+    return LinkError::make_error(dst, ec);
   }
 
   if (dst_st.type() != fs::file_type::not_found &&
       dst_st.type() != fs::file_type::symlink) {
-    return LinkPlan::make_conflict(normalized_dst, "Is not a symlink");
+    return LinkPlan::make_conflict(dst, "Is not a symlink");
   }
 
   fs::path dst_target = clean_path(
-      (normalized_dst.parent_path() / fs::read_symlink(normalized_dst, ec))
-          .lexically_normal());
+      (dst.parent_path() / fs::read_symlink(dst, ec)).lexically_normal());
 
   if (ec) {
-    return make_error(normalized_dst, ec);
+    return LinkError::make_error(dst, ec);
   }
 
-  if (dst_target == normalized_src) {
+  if (dst_target == src) {
     return LinkPlan::make_noop();
   } else {
-    return LinkPlan::make_conflict(normalized_dst,
-                                   "Symlinked to different file");
+    return LinkPlan::make_conflict(dst, "Symlinked to different file");
   }
 }

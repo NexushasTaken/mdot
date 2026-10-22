@@ -2,12 +2,32 @@
 #include "error.hpp"
 #include <filesystem>
 #include <format>
+#include <sol/table.hpp>
 #include <tl/expected.hpp>
 
 enum struct PlanOperation {
   Create,
   Noop, // No Operation
   Conflict,
+};
+
+struct ClauseError {
+  std::size_t m_id;
+  std::string m_message;
+  static tl::unexpected<ClauseError> make_error(std::size_t id,
+                                                std::string message);
+
+  std::string string() const {
+    return std::format("entry {}: {}", m_id, m_message);
+  }
+};
+
+struct LinkClause {
+  std::string m_src;
+  std::string m_dst;
+
+  static tl::expected<LinkClause, ClauseError>
+  from_table(std::size_t id, sol::table raw_clause);
 };
 
 struct LinkPlan {
@@ -31,5 +51,5 @@ struct LinkPlan {
   PlanOperation m_operation;
 };
 
-tl::expected<LinkPlan, Error> plan_link(const std::filesystem::path &src,
-                                        const std::filesystem::path &dst);
+tl::expected<LinkPlan, LinkError> plan_link(const std::filesystem::path &src,
+                                            const std::filesystem::path &dst);

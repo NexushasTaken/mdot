@@ -148,20 +148,6 @@ TEST_CASE("dst parent is a regular file means Conflict",
   REQUIRE(p.value().is_conflict());
 }
 
-TEST_CASE("src has '/.' suffix means Noop", "[plan_link][current-dir-suffix]") {
-  TempDir tmp;
-
-  auto config_path = tmp.path() / "config";
-  auto destination_path = tmp.path() / "destination";
-
-  fs::create_directories(config_path);
-  fs::create_symlink(config_path, destination_path);
-
-  auto p = plan_link(config_path / ".", destination_path);
-  INFO((p ? "" : p.error().string()));
-  REQUIRE(p.value().is_noop());
-}
-
 TEST_CASE("dst is a regular file means Conflict", "[plan_link][regular-file]") {
   TempDir tmp;
 

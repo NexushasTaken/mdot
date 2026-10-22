@@ -7,7 +7,14 @@
 
 namespace fs = std::filesystem;
 
-tl::expected<LinkPlan, Error> apply_link(fs::path src, fs::path dst) {
+tl::expected<LinkPlan, LinkError> apply_link(fs::path src, fs::path dst) {
+  if (src.is_relative()) {
+    return LinkError::make_error(src, "must be absolute path");
+  }
+  if (dst.is_relative()) {
+    return LinkError::make_error(dst, "must be absolute path");
+  }
+
   std::error_code ec;
   auto plan_result = plan_link(src, dst);
 
@@ -18,14 +25,15 @@ tl::expected<LinkPlan, Error> apply_link(fs::path src, fs::path dst) {
     case PlanOperation::Create:
       fs::create_directories(plan_result->m_dst.parent_path(), ec);
       if (ec) {
-        return make_error(plan_result->m_dst.parent_path(), ec);
+        return LinkError::make_error(plan_result->m_dst.parent_path(), ec);
       }
 
       fs::create_symlink(plan_result->m_src, plan_result->m_dst, ec);
       if (ec) {
-        return make_error(std::format("{} -> {}", plan_result->m_src.string(),
-                                      plan_result->m_dst.string()),
-                          ec);
+        return LinkError::make_error(std::format("{} -> {}",
+                                                 plan_result->m_src.string(),
+                                                 plan_result->m_dst.string()),
+                                     ec);
       }
       return plan_result;
     case PlanOperation::Conflict:
@@ -33,8 +41,6 @@ tl::expected<LinkPlan, Error> apply_link(fs::path src, fs::path dst) {
     case PlanOperation::Noop:
       return plan_result;
     }
-  } else {
-    return make_error(dst, plan_result.error().string());
   }
 
   return plan_result;
