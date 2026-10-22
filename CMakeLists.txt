@@ -10,7 +10,14 @@ find_package(sol2 REQUIRED)
 find_package(platform_folders REQUIRED)
 
 # === library
-add_library(mdot_core src/link.cpp src/apply.cpp src/error.cpp src/common.cpp src/spec_lua.cpp)
+add_library(
+    mdot_core
+    src/link.cpp
+    src/apply.cpp
+    src/error.cpp
+    src/common.cpp
+    src/spec_lua.cpp
+)
 target_include_directories(mdot_core PUBLIC src)
 target_link_libraries(
     mdot_core
@@ -25,7 +32,12 @@ target_link_libraries(mdot PRIVATE mdot_core CLI11::CLI11)
 enable_testing()
 find_package(Catch2 REQUIRED)
 
-add_executable(mdot_tests test/test_plan_link.cpp test/test_apply_link.cpp)
+add_executable(
+    mdot_tests
+    test/test_plan_link.cpp
+    test/test_apply_link.cpp
+    test/test_spec_lua.cpp
+)
 target_link_libraries(mdot_tests PRIVATE mdot_core Catch2::Catch2WithMain)
 
 include(Catch)
