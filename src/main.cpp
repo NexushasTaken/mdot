@@ -159,6 +159,7 @@ tl::expected<bool, std::string> process_spec(const Core &core,
 }
 
 int main(int argc, char *argv[]) {
+  spdlog::set_pattern("[%^%=5l%$]: %v");
   Core core = {.errlog = spdlog::stderr_color_mt("errlog")};
 
   std::string input_spec_path;
