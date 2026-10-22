@@ -1,4 +1,3 @@
-#include "bw/tempdir/tempdir.hpp"
 #include "catch2/catch_test_macros.hpp"
 #include "spec_lua.hpp"
 #include <catch2/catch_message.hpp>
@@ -20,7 +19,7 @@ TEST_CASE("valid spec with one clause", "[spec_lua][valid_spec_one_clause]") {
   )");
   INFO((r ? "" : r.error()));
   REQUIRE(r.has_value());
-  REQUIRE(!r.value().link_clauses.empty());
+  REQUIRE(r.value().link_clauses.size() == 1);
   REQUIRE(r.value().link_clauses[0].m_src == "src");
   REQUIRE(r.value().link_clauses[0].m_dst == "dst");
 }
