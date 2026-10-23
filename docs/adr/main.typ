@@ -52,6 +52,7 @@ directory and is collected here.
   link(<adr-0030>)[0030], [The 3-way diff for links], [Accepted],
   link(<adr-0031>)[0031], [mdot does not track linked content; `status` shows only mdot's resources], [Accepted],
   link(<adr-0032>)[0032], [The 3-way diff for downloads], [Accepted],
+  link(<adr-0033>)[0033], [Link updates and deletes change the disk first, then state], [Accepted],
 )
 
 #include "0001-fresh-design-not-comtrya-port.typ"
@@ -86,3 +87,4 @@ directory and is collected here.
 #include "0030-three-way-diff-for-links.typ"
 #include "0031-links-do-not-track-content.typ"
 #include "0032-three-way-diff-for-downloads.typ"
+#include "0033-link-update-delete-write-order.typ"

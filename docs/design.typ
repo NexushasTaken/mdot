@@ -533,7 +533,7 @@ table governs (links: ADR 0030, downloads: ADR 0032, @net-download):
   [yes], [yes], [link → desired `src` ≠ recorded `src`], [*adopt*: update the record, nothing changes on disk],
   [yes], [yes], [anything else], [*conflict: drift* (ADR 0016)],
   [no], [yes], [link → recorded `src`], [*delete* (per `on_remove`)],
-  [no], [yes], [absent], [*forget*: drop the record; the plan shows it],
+  [no], [yes], [absent], [*forget*: try the recorded `rmdir`s, drop the record; the plan shows it],
   [no], [yes], [anything else], [*conflict*],
 )
 
@@ -568,8 +568,17 @@ right away. It stops at the first failed write and exits with 3, naming the fail
 done and what was not attempted. Running `apply` again continues: links already made are no-ops,
 and a link whose state write was lost is adopted. Directories mdot creates follow the same order;
 if mdot dies between `mkdir` and recording it, the empty directory is left behind on removal.
-There is no special Ctrl-C handling. Open: the write order for deletes and updates, and whether a
-partial apply gets a generation.
+There is no special Ctrl-C handling.
+
+Updates and deletes also change the disk first and write state once, after their disk steps
+(ADR 0033), so state may lag the disk but never leads it. A delete unlinks, then tries the recorded
+`rmdir`s deepest first, then drops the record. An update unlinks the old link, makes the new one,
+then updates the record; `dst` is missing for a very short moment. A `rmdir` on a directory that is
+already gone counts as done; one that fails for any reason other than "not empty" is treated like
+"not empty" (left, dropped from state, warned). A crash lands on an existing row: after a delete's
+unlink on *forget*, after an update's unlink on *re-create* (whose "removed by hand" message is
+then wrong), after an update's new link on *adopt*. Open: whether a partial apply gets a
+generation.
 
 == Removal policy <removal>
 
