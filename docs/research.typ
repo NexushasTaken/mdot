@@ -419,8 +419,8 @@ raises RQ4.
 
 The author raised this question. If a deployed file is a symlink into the repo, a content diff
 between "repo" and "live" is always empty. The resolution: mdot diffs *resources*, and for links
-that means _existence and target_. Content history belongs to git, so `mdot status` shows both.
-Whether this split is understandable in practice is RQ3.
+that means _existence and target_. mdot does not track linked content, and `mdot status` shows
+only mdot's resources (ADR 0031). Whether this split is understandable in practice is RQ3.
 
 = Research questions <rqs>
 
@@ -469,7 +469,7 @@ Each question is a claim the design depends on that hasn't been demonstrated yet
   for links (ADR 0030), including drift and modified-since-deploy conflicts. Unknowns:
 
   - whether the plan output is clear enough to act on
-  - whether `status` combined with `git status` makes the "content belongs to git" split obvious
+  - whether users understand that edits made through a link are not reported (ADR 0031)
   - whether any real situations fall outside the table
 ]
 

@@ -527,12 +527,11 @@ i.e. what mdot deployed last time) × *live*:
 Re-creating a missing link is a narrow exception to ADR 0016: nothing at that path can be lost. A
 link that points elsewhere is still a conflict.
 
-*How diff works for symlinks.* For a `Link`, mdot owns only _the link itself_: whether it exists
-and where it points. The content lives in the repo and is versioned by git, so content changes are
-git's job. `mdot status` therefore shows two things:
-
-- mdot's resource diff
-- `git status --short` of the repo, which covers edits made through the symlink
+*How diff works for symlinks* (ADR 0031). For a `Link`, mdot owns only _the link itself_: whether
+it exists and where it points. An edit made through the link edits the repo file, so it is never
+reported by `plan` or `status`; it is a change to the repo, not drift. A user who wants content
+history keeps the repo in git. `mdot status` shows only mdot's resource diff. The repo does not have
+to be a git repository.
 
 == Output
 
@@ -620,7 +619,7 @@ State writes are atomic: write to a temp file, then `rename`.
   [Command], [Purpose],
   [`mdot plan [--diff]`], [show what apply would do],
   [`mdot apply [--yes]`], [execute the plan, write state and a generation],
-  [`mdot status`], [resource drift + `git status` of the repo, read-only],
+  [`mdot status`], [resource drift, read-only (ADR 0031)],
   [`mdot verify [--all]`],
   [hash downloads that `plan` reported as conflicts (all with `--all`) and refresh their recorded
     stat; never changes `dst` (@net-download)],
@@ -646,7 +645,7 @@ src/
   planner/   desired x recorded x live -> Plan; pretty printer
   executor/  apply Plan; privileged batch via sudo re-exec
   state/     state.json, generations, backups (atomic writes)
-  vcs/       git shell-out: rev-parse, status, worktree
+  vcs/       git shell-out: rev-parse, worktree
   platform/  XDG resolution, os-release, PackageProvider interface
   cli/       CLI11 command wiring
 tests/       Catch2 unit tests + fixture repos for end-to-end plan/apply
