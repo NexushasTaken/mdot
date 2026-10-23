@@ -27,8 +27,9 @@ This is the research companion to `design.typ`, which holds the current spec, an
 records individual decisions. It explains why mdot exists, what it claims, which claims are still
 unproven, and how they will be tested. Everything here comes from the design interview and from
 inspecting the author's existing setups (`~/dotfiles-v2`, the comtrya fork at `~/dev/repos/comtrya`,
-and the older Yolk setup at `~/dotfiles-yolk`) and an earlier design session log. No outside survey
-has been done yet. @limitations lists that as future work.
+and the older Yolk setup at `~/dotfiles-yolk`) and an earlier design session log. The only outside
+research is a narrow web search for prior art on the 3-way diff (@prior-art-3way). A broad survey has
+not been done yet; @limitations lists that as future work.
 
 = Introduction and motivation <intro>
 
@@ -254,6 +255,67 @@ This comparison is limited to tools the author has used or analysed in the earli
 
 mdot targets that combination.
 
+== Prior art for the 3-way diff <prior-art-3way>
+
+A web search on 2026-10-23 asked one question: is there a library mdot could use for the 3-way diff
+(@rqs, RQ3) instead of writing its own planner? Unlike the table above, this looks at tools the
+author has not used. It is a narrow search, not the broad survey in @limitations.
+
+*Result: no C or C++ library was found.* The libraries that exist, in other languages, cover only
+the generic loop: for each item, call create, update or delete. What "matches" means for a resource
+kind, and what to record so it can be recognised later, stays with the caller.
+
+#{
+  set text(size: 8.5pt)
+  table(
+    columns: (auto, auto, 2fr, 1.4fr),
+    [Tool], [Language], [What it does], [Relevance to mdot],
+    [optative (0.1.x)], [Rust],
+    [The caller gives a desired set and create/update/delete hooks. It diffs the desired set against
+      what it tracked on the previous run. Its docs show no ownership, conflict or drift handling, and
+      it does not read the live system; the hooks do.],
+    [Covers the loop only, not the part that protects files.],
+    [kreconciler], [Go], [A library for control loops outside Kubernetes.],
+    [The loop only, no diff logic.],
+    [Linx (`Linx.Netlink.Rtnl.Diff`)], [Elixir],
+    [Reconciles Linux network state. Inputs: desired, observed, and the set of keys it installed on
+      an earlier pass. It deletes an item only if it installed it and the item is no longer desired;
+      anything else is left alone. Its docs compare this to `kubectl apply`'s last-applied
+      configuration. For routes, where the kernel tags who created each one, it uses a two-way diff
+      instead. The owned set is kept in memory, not persisted.],
+    [The same structure as mdot's design, arrived at independently. Not usable from C++.],
+    [chezmoi], [Go],
+    [Dotfile manager. `chezmoi status` has two columns: the last state chezmoi wrote vs the actual
+      state, and the actual state vs the target state.],
+    [The same three inputs. How it stores and compares the entries was not checked.],
+    [Elektra `ThreeWayMerge`], [C++],
+    [Only an API page was found. It appears to merge configuration, not reconcile deployed state.],
+    [Not applicable, not checked further.],
+  )
+}
+
+*Findings:*
+
++ mdot writes its own planner. The generic part is small; the part specific to each resource kind
+  is the design itself (`design.typ`, "The 3-way diff").
++ mdot's three inputs and its deletion rule ("only what mdot recorded, and only if unchanged") match
+  Linx and `kubectl apply`, and appear to match chezmoi.
++ Linx's two-way case matches a property of links: a symlink's target already shows whether it
+  points into the repo. For links, the record mostly matters for removal and for the parent
+  directories mdot created.
++ For later reading, useful search terms are "three-way diff last-applied" and "reconciler
+  ownership". The Linx page is short and explains the pattern clearly.
+
+*Sources:*
+
+- optative: #link("https://docs.rs/crate/optative/0.1.4/source/README.md")
+- kreconciler: #link("https://beta.pkg.go.dev/github.com/koyeb/kreconciler")
+- Linx: #link("https://linx.hexdocs.pm/Linx.Netlink.Rtnl.Diff.html"),
+  #link("https://linx.hexdocs.pm/reconcile-overview.html")
+- chezmoi: #link("https://chezmoi.io/reference/commands/status"),
+  #link("https://chezmoi.io/reference/concepts/")
+- Elektra: #link("https://doc.libelektra.org/api/0.8.7/html/threewaymerge_8cpp.html")
+
 = Design overview <overview>
 
 `design.typ` is the authoritative spec; the decisions are in `adr/`. In summary:
@@ -403,8 +465,8 @@ Each question is a claim the design depends on that hasn't been demonstrated yet
 ]
 
 #rq("RQ3", "Is a 3-way diff (desired × recorded × live) understandable and sufficient?")[
-  The planner's decision table (`design.typ`, "The 3-way diff") has seven cases, including drift and
-  modified-since-deploy conflicts. Unknowns:
+  The planner's decision tables (`design.typ`, "The 3-way diff") have seven generic cases and eleven
+  for links (ADR 0030), including drift and modified-since-deploy conflicts. Unknowns:
 
   - whether the plan output is clear enough to act on
   - whether `status` combined with `git status` makes the "content belongs to git" split obvious
@@ -528,7 +590,8 @@ mdot v1, meaning the core config manager (phases 1–4), is successful if it mee
 - `pkg_alts` introspection in `mdot specs`
 
 *Research not yet done:* a broader survey of dotfile managers beyond @related, which only covers
-tools from the author's own experience and the earlier session's analysis.
+tools from the author's own experience and the earlier session's analysis, plus the narrow 3-way
+diff search (@prior-art-3way).
 
 #show: appendix
 
