@@ -356,22 +356,29 @@ contents, because the file can be gigabytes and the machine slow.
 - State records the identity `R`, the sha256 of the written bytes `W`, and the file's `size`,
   `mtime_ns` and `inode` right after the rename.
 
-*Plan.* "Stat matches" means the live size, mtime and inode equal the recorded ones. That says the
-file is unchanged since mdot wrote it, so the record still describes it. The check can say
-"unchanged" but never "equal", so when unsure it reports a conflict:
+*Plan* (ADR 0032). "Stat matches" means the live size, mtime, inode and permission bits equal the
+recorded ones. That says the file is unchanged since mdot wrote it, so the record still describes it.
+The check can say "unchanged" but never "equal", so when unsure it reports a conflict. `R` is the
+recorded identity and `D` the desired one:
 
 #table(
-  columns: (auto, 1fr),
-  [Situation], [Action],
-  [`dst` missing], [create],
-  [recorded, stat matches, `R == D`], [no-op],
-  [recorded, stat matches, `R != D`], [update (the file is ours and out of date)],
-  [stat differs, or no record], [*conflict*: "changed or unknown, run `mdot verify`"],
+  columns: (auto, auto, auto, 1fr),
+  [desired], [recorded], [live], [result],
+  [yes], [no], [absent], [*create*],
+  [yes], [no], [present], [*conflict*: "unknown, run `mdot verify`"],
+  [yes], [yes], [stat matches, `R == D`, same `mode`], [*noop*],
+  [yes], [yes], [stat matches, `R == D`, `mode` differs], [*update*: `chmod` only],
+  [yes], [yes], [stat matches, `R != D`], [*update*: download again],
+  [yes], [yes], [stat differs], [*conflict*: "changed, run `mdot verify`"],
+  [yes], [yes], [absent], [*re-create*; the plan shows it was removed by hand and will be downloaded again],
+  [no], [yes], [stat matches], [*delete* (per `on_remove`)],
+  [no], [yes], [stat differs], [*conflict*],
+  [no], [yes], [absent], [*forget*: drop the record; the plan shows it],
 )
 
-This replaces the "live matches recorded" column of the 3-way diff (@three-way) for downloads: the
-stat stands in for the live content. Conflicts are hard errors as for links (ADR 0016), and `apply`
-never overwrites one.
+`plan` never adopts a download with no record, since that needs a hash; `mdot verify` does.
+Conflicts are hard errors as for links (ADR 0016), and `apply` never overwrites one. Open: whether a
+stat mismatch still blocks `apply` when the recorded policy is `on_remove.files = "keep"`.
 
 *`mdot verify`* hashes the downloads that `plan` reported as conflicts (or all of them with a flag
 that ignores the stat cache). With the live hash `L`, the recorded hash `W` and the verified hash `D`:
@@ -383,8 +390,8 @@ that ignores the stat cache). With the live hash `L`, the recorded hash `W` and 
 So `verify` writes state but never touches `dst`. A `verify = false` file with no record cannot be
 adopted, since there is nothing to compare it with.
 
-*Removal.* `dst` is removed only if there is a record and the stat matches it. Otherwise the file is
-left and reported, as for links (@removal). Run `mdot verify` first if you want it removed.
+*Removal.* Covered by the "not desired" rows above. Run `mdot verify` first if a conflict there
+is only moved metadata.
 
 *Known costs.*
 
@@ -400,7 +407,7 @@ left and reported, as for links (@removal). Run `mdot verify` first if you want 
 cache, authentication, proxies and retries. Open: which algorithms beyond sha256. The libraries are
 libcurl and OpenSSL (ADR 0025).
 
-*Shared with `file.copy`* (ADR 0026). The stat record, the plan table, `verify` and `mode` are one
+*Shared with `file.copy`* (ADR 0026, ADR 0032). The stat record, the plan table, `verify` and `mode` are one
 mechanism for every clause that writes a regular file. The permission bits are part of the recorded
 stat, so a hand `chmod` is a conflict. A `mode` in the spec that differs from the recorded one, with
 the same identity, is an update that only runs `chmod`. `file.copy` itself is not designed.
@@ -486,10 +493,16 @@ Specs compile into a flat list of *resources*:
 
 Each resource implements `desired()`, `observe()` and `recorded()`.
 
+*Every kind has its own table* (ADR 0009) in desired × recorded × live form. Before a kind gets one,
+it defines its identity, what live observes (and how expensive that is), what "matches" means, and
+what is recorded. Kinds with no observable result, such as running a command, do not fit this model;
+that is open.
+
 == The 3-way diff <three-way>
 
 For each resource identity, the planner compares *desired* (from specs) × *recorded* (from state,
-i.e. what mdot deployed last time) × *live*:
+i.e. what mdot deployed last time) × *live*. The table below is the common pattern; each kind's own
+table governs (links: ADR 0030, downloads: ADR 0032, @net-download):
 
 #table(
   columns: (auto, auto, auto, 1fr),
