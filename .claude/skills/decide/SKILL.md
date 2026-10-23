@@ -12,6 +12,10 @@ design docs" apply throughout.
 
 One decision per run. If the topic splits into several decisions, say so and pick one.
 
+**No Artifacts or hosted docs.** Don't use the Artifact tool, Claude Docs, or any other
+published page, not even for a summary or diagram. Discussion stays in chat. Every
+change is a file edit inside `docs/`.
+
 ## 1. Context (in chat)
 
 - Read the related ADRs, `design.typ`, and code if it exists. If the topic is a
