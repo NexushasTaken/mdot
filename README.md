@@ -1,0 +1,1 @@
+# mdot - Dotfile Manager
