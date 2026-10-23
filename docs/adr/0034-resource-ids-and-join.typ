@@ -30,6 +30,13 @@ Not discussed yet. See Open.
   - recorded only: the spec or clause was removed.
 - Each group is then decided by the kind's own table (ADR 0009).
 
+Accepted additions (2026-10-24, with ADR 0035):
+- *Live is observed only for IDs that come out of the match.* The whole filesystem cannot be listed.
+- *Two desired resources with the same ID are an error:* one owner per ID. For paths this is ADR
+  0021's same-`dst` rule.
+- *"Identity" means only the resource ID.* The download's hash or `url` (`D`/`R`) is renamed to its
+  _content key_ in `design.typ`.
+
 = Consequences
 - Removing a spec or a clause is visible to the planner, through the recorded-only group.
 - State must keep enough per record to act on it without a spec.
@@ -41,6 +48,4 @@ Not discussed yet. See Open.
   is that a delete + create, or nothing?
 - *Which form of the path is the ID:* as written in the spec (`~/...`), or expanded to an absolute
   path? This matters if state moves between machines or users with different home directories.
-- *Naming:* `design.typ` also uses "identity" for a download's hash or `url` (`D`/`R`, ADR 0032).
-  One of the two needs another name.
 ]

@@ -54,6 +54,7 @@ directory and is collected here.
   link(<adr-0032>)[0032], [The 3-way diff for downloads], [Accepted],
   link(<adr-0033>)[0033], [Link updates and deletes change the disk first, then state], [Accepted],
   link(<adr-0034>)[0034], [The planner matches desired and recorded resources by ID], [Proposed],
+  link(<adr-0035>)[0035], [A generic planner: classify each ID, then the kind decides], [Accepted],
 )
 
 #include "0001-fresh-design-not-comtrya-port.typ"
@@ -90,3 +91,4 @@ directory and is collected here.
 #include "0032-three-way-diff-for-downloads.typ"
 #include "0033-link-update-delete-write-order.typ"
 #include "0034-resource-ids-and-join.typ"
+#include "0035-generic-planner.typ"

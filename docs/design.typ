@@ -340,10 +340,12 @@ net.download { url = "...", dst = "...", verify = false }
   [`verify`], [Defaults to `true`. With `true`, exactly one of `sha256` and `hash` is required (both or
     neither is an error). With `false`, neither may be present. Skipping verification has to be
     written down.],
-  [`mode`], [Optional, for example `"755"`. Applied before the final rename. Not part of the identity.],
+  [`mode`], [Optional, for example `"755"`. Applied before the final rename. Not part of the content key.],
 )
 
-*Identity.* The desired identity `D` is the hash when verified, and the `url` when `verify = false`.
+*Content key.* The desired content key `D` is the hash when verified, and the `url` when
+`verify = false`. (ADR 0024 and ADR 0032 call it the download's _identity_; it was renamed so that
+"identity" means only the resource ID, ADR 0034.)
 Both are known without the network, which is why `plan` can stay offline. Updating a verified download
 means changing both `url` and the hash.
 
@@ -353,13 +355,13 @@ contents, because the file can be gigabytes and the machine slow.
 - `apply` writes the download to a temporary file next to `dst` and hashes the bytes as they arrive
   (no second pass). A mismatch deletes the temporary file, leaves `dst` alone and fails that
   resource. A match renames it over `dst`. With `verify = false` the digest is only recorded.
-- State records the identity `R`, the sha256 of the written bytes `W`, and the file's `size`,
+- State records the content key `R`, the sha256 of the written bytes `W`, and the file's `size`,
   `mtime_ns` and `inode` right after the rename.
 
 *Plan* (ADR 0032). "Stat matches" means the live size, mtime, inode and permission bits equal the
 recorded ones. That says the file is unchanged since mdot wrote it, so the record still describes it.
 The check can say "unchanged" but never "equal", so when unsure it reports a conflict. `R` is the
-recorded identity and `D` the desired one:
+recorded content key and `D` the desired one:
 
 #table(
   columns: (auto, auto, auto, 1fr),
@@ -399,7 +401,7 @@ is only moved metadata.
   conflict until `mdot verify` runs once. A content change that keeps size, mtime and inode is only
   found by a full `verify`. Git's index makes the same trade.
 - A `verify = false` download from a moving URL such as `latest` is fetched once and never updated,
-  since its identity never changes.
+  since its content key never changes.
 - Archives cannot be extracted yet, so a tarball (such as a cursor theme) needs a package until
   extraction is designed.
 
@@ -410,7 +412,7 @@ libcurl and OpenSSL (ADR 0025).
 *Shared with `file.copy`* (ADR 0026, ADR 0032). The stat record, the plan table, `verify` and `mode` are one
 mechanism for every clause that writes a regular file. The permission bits are part of the recorded
 stat, so a hand `chmod` is a conflict. A `mode` in the spec that differs from the recorded one, with
-the same identity, is an update that only runs `chmod`. `file.copy` itself is not designed.
+the same content key, is an update that only runs `chmod`. `file.copy` itself is not designed.
 
 == `render()` — generated copy
 
@@ -485,7 +487,7 @@ Specs compile into a flat list of *resources*:
   [`Render`], [target path], [output hash + bytes], [file hash],
   [`Patch`], [target path + query], [the edits],
   [does the query on the live file already yield the desired values?],
-  [`Download`], [target path], [identity: hash, or `url` when `verify = false`],
+  [`Download`], [target path], [content key: hash, or `url` when `verify = false`],
   [`stat` compared with the recorded `size`/`mtime_ns`/`inode` (no hashing)],
   [`SysFile`], [target path], [bytes hash, owner, mode], [hash, owner, mode],
   [`Package` _(phase 5)_], [package name], [installed, reason explicit/dep], [provider query],
@@ -501,8 +503,12 @@ that is open.
 == The 3-way diff <three-way>
 
 For each resource identity, the planner compares *desired* (from specs) × *recorded* (from state,
-i.e. what mdot deployed last time) × *live*. The table below is the common pattern; each kind's own
-table governs (links: ADR 0030, downloads: ADR 0032, @net-download):
+i.e. what mdot deployed last time) × *live*. Desired and recorded are first matched by ID (ADR 0034).
+A generic step then classifies each ID into a case, and the kind decides the action from its own
+table; the plan is data that `apply` runs later (ADR 0035). The algorithm is in `planner.typ`.
+
+The table below is the common pattern; each kind's own table governs (links: ADR 0030, downloads:
+ADR 0032, @net-download):
 
 #table(
   columns: (auto, auto, auto, 1fr),
