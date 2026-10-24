@@ -17,6 +17,7 @@ add_library(
     src/error.cpp
     src/common.cpp
     src/spec_lua.cpp
+    src/planner.cpp
 )
 target_include_directories(mdot_core PUBLIC src)
 target_link_libraries(
@@ -37,6 +38,7 @@ add_executable(
     test/test_plan_link.cpp
     test/test_apply_link.cpp
     test/test_spec_lua.cpp
+    test/test_classify.cpp
 )
 target_link_libraries(mdot_tests PRIVATE mdot_core Catch2::Catch2WithMain)
 
