@@ -39,6 +39,7 @@ add_executable(
     test/test_apply_link.cpp
     test/test_spec_lua.cpp
     test/test_classify.cpp
+    test/test_generic_decide.cpp
 )
 target_link_libraries(mdot_tests PRIVATE mdot_core Catch2::Catch2WithMain)
 

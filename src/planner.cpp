@@ -1,6 +1,8 @@
 #include "planner.hpp"
 #include <cassert>
 #include <filesystem>
+#include <map>
+#include <vector>
 
 namespace mdot {
 
@@ -62,17 +64,14 @@ ClassifyResult classify(const LinkDesired *desire, const LinkRecord *record,
   ClassifyResult c;
 
   // having record and desire to be null is not a valid case.
-  assert(
-      !(desire == nullptr &&
-        record ==
-            nullptr));
+  assert(!(desire == nullptr && record == nullptr));
   if (desire && record) {
-    c.m_spec_changed =
-        desire->match(record) ? SpecChanged::Unchanged : SpecChanged::Changed;
+    c.m_desired = desire->match(record) ? DesiredStatus::Unchanged
+                                        : DesiredStatus::Changed;
   } else if (record == nullptr) {
-    c.m_spec_changed = SpecChanged::New;
+    c.m_desired = DesiredStatus::NoRecord;
   } else if (desire == nullptr) {
-    c.m_spec_changed = SpecChanged::Removed;
+    c.m_desired = DesiredStatus::Removed;
   }
 
   if (live == nullptr) {
@@ -94,6 +93,64 @@ ClassifyResult classify(const LinkDesired *desire, const LinkRecord *record,
 
   return c;
 }
+
+Action generic_decide(ClassifyResult c) {
+  switch (c.m_desired) {
+    using enum DesiredStatus;
+    using enum LiveStatus;
+
+  case NoRecord:
+    if (c.m_live == Absent) {
+      return Action::Create;
+    }
+    if (c.m_live == Desired) {
+      return Action::Adopt;
+    }
+    return Action::Conflict;
+  case Unchanged:
+  case Changed:
+    if (c.m_live == Both) {
+      return Action::Noop;
+    }
+    if (c.m_live == Recorded) {
+      return Action::Update;
+    }
+    return Action::ConflictDrift;
+  case Removed:
+    if (c.m_live == Recorded) {
+      return Action::Delete;
+    }
+    return Action::Conflict;
+  }
+
+  assert(false); // unreachable
+  return Action::Noop;
+}
+
+void plan(std::vector<LinkDesired> desired_items,
+          std::vector<LinkRecord> recorded_items) {
+  std::map<std::string, LinkDesired> D;
+  std::map<std::string, LinkRecord> R;
+}
+
+/*
+clang-format off
+function plan(kind, desired_items, recorded_items)
+  local D = index_by(kind.id, desired_items)   -- error on a duplicate ID: one owner per ID
+  local R = index_by(kind.id, recorded_items)
+
+  local steps = {}
+  for _, key in ipairs(sorted(union(keys(D), keys(R)))) do  -- sorted: stable output
+    local d, r = D[key], R[key]
+    local l    = kind.observe(key)                         -- only known IDs are observed
+    local c    = classify(d, r, l, kind.match)
+    steps[#steps+1] = { key = key, action = kind.decide(c),
+                        desired = d, recorded = r, live = l }
+  end
+  return steps          -- data only: nothing changed. apply() runs the steps later.
+end
+clang-format on
+*/
 
 } // namespace planner
 } // namespace mdot

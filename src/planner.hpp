@@ -1,14 +1,15 @@
 #pragma once
 #include <filesystem>
+#include <vector>
 
 namespace mdot {
 
 namespace planner {
 
-enum struct SpecChanged {
+enum struct DesiredStatus {
   Unchanged,
   Changed,
-  New,
+  NoRecord,
   Removed,
 };
 
@@ -20,9 +21,19 @@ enum struct LiveStatus {
   Other,
 };
 
+enum struct Action {
+  Conflict,
+  ConflictDrift,
+  Create,
+  Adopt,
+  Noop,
+  Update,
+  Delete,
+};
+
 struct ClassifyResult {
   LiveStatus m_live;
-  SpecChanged m_spec_changed;
+  DesiredStatus m_desired;
 };
 
 struct Link {
@@ -44,8 +55,19 @@ struct LinkLive {
   bool match(const LinkRecord *d) const;
 };
 
+struct Step {
+  std::string id;
+  Action action;
+  LinkDesired desired;
+  LinkRecord recorded;
+  LinkLive live;
+};
+
 ClassifyResult classify(const LinkDesired *desire, const LinkRecord *record,
                         const LinkLive *live);
+Action generic_decide(ClassifyResult c);
+void plan(std::vector<LinkDesired> desired_items,
+          std::vector<LinkRecord> recorded_items);
 
 } // namespace planner
 } // namespace mdot

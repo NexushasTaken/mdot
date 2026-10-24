@@ -1,4 +1,3 @@
-#include "bw/tempdir/tempdir.hpp"
 #include "catch2/catch_test_macros.hpp"
 #include "planner.hpp"
 #include <catch2/catch_message.hpp>
@@ -22,7 +21,7 @@ TEST_CASE("all state are the same", "[classify][same]") {
 
   auto res = plan::classify(&d, &r, &l);
   REQUIRE(res.m_live == plan::LiveStatus::Both);
-  REQUIRE(res.m_spec_changed == plan::SpecChanged::Unchanged);
+  REQUIRE(res.m_desired == plan::DesiredStatus::Unchanged);
 }
 
 TEST_CASE("new spec, no record/live", "[classify][new-spec-no-record-live]") {
@@ -37,7 +36,7 @@ TEST_CASE("new spec, no record/live", "[classify][new-spec-no-record-live]") {
 
   auto res = plan::classify(&d, nullptr, nullptr);
   REQUIRE(res.m_live == plan::LiveStatus::Absent);
-  REQUIRE(res.m_spec_changed == plan::SpecChanged::New);
+  REQUIRE(res.m_desired == plan::DesiredStatus::NoRecord);
 }
 
 TEST_CASE("update live and record", "[classify][update]") {
@@ -54,7 +53,7 @@ TEST_CASE("update live and record", "[classify][update]") {
 
   auto res = plan::classify(&d, &r, &l);
   REQUIRE(res.m_live == plan::LiveStatus::Recorded);
-  REQUIRE(res.m_spec_changed == plan::SpecChanged::Changed);
+  REQUIRE(res.m_desired == plan::DesiredStatus::Changed);
 }
 
 TEST_CASE("possible conflict", "[classify][conflict]") {
@@ -72,7 +71,7 @@ TEST_CASE("possible conflict", "[classify][conflict]") {
 
   auto res = plan::classify(&d, &r, &l);
   REQUIRE(res.m_live == plan::LiveStatus::Other);
-  REQUIRE(res.m_spec_changed == plan::SpecChanged::Unchanged);
+  REQUIRE(res.m_desired == plan::DesiredStatus::Unchanged);
 }
 
 TEST_CASE("record needs to be updated", "[classify][record-update]") {
@@ -90,7 +89,7 @@ TEST_CASE("record needs to be updated", "[classify][record-update]") {
 
   auto res = plan::classify(&d, &r, &l);
   REQUIRE(res.m_live == plan::LiveStatus::Desired);
-  REQUIRE(res.m_spec_changed == plan::SpecChanged::Changed);
+  REQUIRE(res.m_desired == plan::DesiredStatus::Changed);
 }
 
 TEST_CASE("record needs to be set", "[classify][record-set]") {
@@ -105,7 +104,7 @@ TEST_CASE("record needs to be set", "[classify][record-set]") {
 
   auto res = plan::classify(&d, nullptr, &l);
   REQUIRE(res.m_live == plan::LiveStatus::Desired);
-  REQUIRE(res.m_spec_changed == plan::SpecChanged::New);
+  REQUIRE(res.m_desired == plan::DesiredStatus::NoRecord);
 }
 
 TEST_CASE("no record but live differs from desired",
@@ -122,7 +121,7 @@ TEST_CASE("no record but live differs from desired",
 
   auto res = plan::classify(&d, nullptr, &l);
   REQUIRE(res.m_live == plan::LiveStatus::Other);
-  REQUIRE(res.m_spec_changed == plan::SpecChanged::New);
+  REQUIRE(res.m_desired == plan::DesiredStatus::NoRecord);
 }
 
 TEST_CASE("removed spec", "[classify][removed-spec]") {
@@ -137,7 +136,7 @@ TEST_CASE("removed spec", "[classify][removed-spec]") {
 
   auto res = plan::classify(nullptr, &r, &l);
   REQUIRE(res.m_live == plan::LiveStatus::Recorded);
-  REQUIRE(res.m_spec_changed == plan::SpecChanged::Removed);
+  REQUIRE(res.m_desired == plan::DesiredStatus::Removed);
 }
 
 TEST_CASE("no desired and live", "[classify][no-record-live]") {
@@ -152,7 +151,7 @@ TEST_CASE("no desired and live", "[classify][no-record-live]") {
 
   auto res = plan::classify(nullptr, &r, nullptr);
   REQUIRE(res.m_live == plan::LiveStatus::Absent);
-  REQUIRE(res.m_spec_changed == plan::SpecChanged::Removed);
+  REQUIRE(res.m_desired == plan::DesiredStatus::Removed);
 }
 
 TEST_CASE("no desire, but live differs from record",
@@ -169,7 +168,7 @@ TEST_CASE("no desire, but live differs from record",
 
   auto res = plan::classify(nullptr, &r, &l);
   REQUIRE(res.m_live == plan::LiveStatus::Other);
-  REQUIRE(res.m_spec_changed == plan::SpecChanged::Removed);
+  REQUIRE(res.m_desired == plan::DesiredStatus::Removed);
 }
 
 TEST_CASE("unchanged desire, but live is absent",
@@ -184,7 +183,7 @@ TEST_CASE("unchanged desire, but live is absent",
 
   auto res = plan::classify(&d, &r, nullptr);
   REQUIRE(res.m_live == plan::LiveStatus::Absent);
-  REQUIRE(res.m_spec_changed == plan::SpecChanged::Unchanged);
+  REQUIRE(res.m_desired == plan::DesiredStatus::Unchanged);
 }
 
 TEST_CASE("desire differs from record, but live is absent",
@@ -201,7 +200,7 @@ TEST_CASE("desire differs from record, but live is absent",
 
   auto res = plan::classify(&d, &r, nullptr);
   REQUIRE(res.m_live == plan::LiveStatus::Absent);
-  REQUIRE(res.m_spec_changed == plan::SpecChanged::Changed);
+  REQUIRE(res.m_desired == plan::DesiredStatus::Changed);
 }
 
 TEST_CASE("desire, record and live differs",
@@ -221,5 +220,5 @@ TEST_CASE("desire, record and live differs",
 
   auto res = plan::classify(&d, &r, &l);
   REQUIRE(res.m_live == plan::LiveStatus::Other);
-  REQUIRE(res.m_spec_changed == plan::SpecChanged::Changed);
+  REQUIRE(res.m_desired == plan::DesiredStatus::Changed);
 }
