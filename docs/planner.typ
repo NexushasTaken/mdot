@@ -25,13 +25,10 @@ the `dst`, `~/.config/nvim`. For that ID:
 
 #table(
   columns: (auto, 1fr, 1fr),
-  [side], [a value means], [absent means],
-  [desired], [a spec asks for a link at this `dst`; the value is its `src`],
-  [no spec mentions this `dst` (any more)],
-  [recorded], [mdot made a link here last time; the value is the `src` it recorded],
-  [mdot has no record of this `dst`],
-  [live], [something is at this path; for a link the value is its `readlink` string],
-  [nothing at all is at this path],
+  [side],     [a value means],                                                            [absent means],
+  [desired],  [a spec asks for a link at this `dst`; the value is its `src`],             [no spec mentions this `dst` (any more)],
+  [recorded], [mdot made a link here last time; the value is the `src` it recorded],      [mdot has no record of this `dst`],
+  [live],     [something is at this path; for a link the value is its `readlink` string], [nothing at all is at this path],
 )
 
 "Absent" is not the same as "empty" or "wrong". An absent side has no value to compare. A side
@@ -42,11 +39,11 @@ splits into a part that is the same for every kind and a part each kind supplies
 
 #table(
   columns: (1fr, 1fr),
-  [Generic], [Per kind],
-  [match desired and recorded by ID], [`id(item)`],
+  [Generic],                                                [Per kind],
+  [match desired and recorded by ID],                       [`id(item)`],
   [observe live for each ID, then classify it into a case], [`observe(id)`, `match(a, b)`],
-  [return the plan: a list of (ID, action)], [`decide(case)`, its table],
-  [], [running an action, which `apply` does later],
+  [return the plan: a list of (ID, action)],                [`decide(case)`, its table],
+  [],                                                       [running an action, which `apply` does later],
 )
 
 = The 13 cases
@@ -57,11 +54,11 @@ mentions):
 
 #table(
   columns: (auto, auto, auto, auto),
-  [desired], [recorded], [values in play], [live states],
-  [X], [—], [1], [absent, desired, other],
-  [—], [X], [1], [absent, recorded, other],
-  [X], [X (match)], [1], [absent, both, other],
-  [X], [Y (differ)], [2], [absent, desired, recorded, other],
+  [desired], [recorded],   [values in play], [live states],
+  [X],       [—],          [1],              [absent, desired, other],
+  [—],       [X],          [1],              [absent, recorded, other],
+  [X],       [X (match)],  [1],              [absent, both, other],
+  [X],       [Y (differ)], [2],              [absent, desired, recorded, other],
 )
 
 3 + 3 + 3 + 4 = 13. A kind's table may write fewer rows when several cases share an outcome (ADR
@@ -99,19 +96,18 @@ Names used in the code:
 
 #table(
   columns: (auto, 1fr),
-  [name], [meaning],
-  [`d`], [the desired value for this ID, or `nil` if no spec asks for it],
-  [`r`], [the recorded value for this ID, or `nil` if mdot has no record of it],
-  [`l`], [the live value, from `observe`, or `nil` if nothing is there],
-  [`c`], [the case: the result of `classify`],
-  [`c.has_d`], [`d ~= nil`: "a spec asks for this ID"],
-  [`c.has_r`], [`r ~= nil`: "mdot recorded this ID last time"],
-  [`c.dr`], [only set when both exist. `"same"`: the spec still asks for what mdot recorded.
-    `"differ"`: the spec changed since the last apply.],
-  [`ld`], [live matches desired: "disk already is what the spec wants"],
-  [`lr`], [live matches recorded: "disk is still what mdot left there"],
-  [`c.live`], [which of them disk agrees with: `absent`, `desired`, `recorded`, `both` or `other`
-    (neither: someone else put it there or changed it)],
+  [name],      [meaning],
+  [`d`],       [the desired value for this ID, or `nil` if no spec asks for it],
+  [`r`],       [the recorded value for this ID, or `nil` if mdot has no record of it],
+  [`l`],       [the live value, from `observe`, or `nil` if nothing is there],
+  [`c`],       [the case: the result of `classify`],
+  [`c.desired`], [how desired relates to recorded; always set. `"new"`: desired has this ID and
+  recorded does not. `"removed"`: recorded has this ID and desired does not. `"match"`: desired still
+  asks for what was recorded. `"differ"`: desired asks for something else now.],
+  [`ld`],      [live matches desired: "disk already is what the spec wants"],
+  [`lr`],      [live matches recorded: "disk is still what mdot left there"],
+  [`c.live`],  [which of them disk agrees with: `absent`, `desired`, `recorded`, `both` or `other`
+  (neither: someone else put it there or changed it)],
 )
 
 `nil` here is not "false". It means that side has no value for this ID. The `nil`s come from `plan`
@@ -122,10 +118,14 @@ never called, because live cannot match a desired value that does not exist.
 
 ```lua
 function classify(d, r, l, match)
-  local c = { has_d = d ~= nil, has_r = r ~= nil }
+  local c = {}
 
   if d and r then
-    c.dr = match(d, r) and "same" or "differ"
+    c.desired = match(d, r) and "match" or "differ"
+  elseif r == nil then
+    c.desired = "new"
+  elseif d == nil then
+    c.desired = "removed"
   end
 
   if l == nil then
@@ -133,7 +133,7 @@ function classify(d, r, l, match)
   else
     local ld = d and match(l, d)
     local lr = r and match(l, r)
-    if     ld and lr then c.live = "both"       -- only possible when dr == "same"
+    if     ld and lr then c.live = "both"       -- only possible when desired == "match"
     elseif ld        then c.live = "desired"
     elseif lr        then c.live = "recorded"
     else                  c.live = "other"
@@ -181,9 +181,9 @@ Matching by ID gives three groups (ADR 0034):
 #table(
   columns: (auto, auto, 1fr),
   [in `D`], [in `R`], [meaning],
-  [yes], [no], [new: a spec asks for it, and mdot has not made it yet],
-  [yes], [yes], [kept: compare what changed],
-  [no], [yes], [removed: the spec or clause is gone, but mdot made it before],
+  [yes],    [no],     [new: a spec asks for it, and mdot has not made it yet],
+  [yes],    [yes],    [kept: compare what changed],
+  [no],     [yes],    [removed: the spec or clause is gone, but mdot made it before],
 )
 
 Live is not part of the match. mdot cannot list the whole filesystem, so live is observed only for
@@ -196,27 +196,27 @@ IDs that come out of the join. A file that no spec and no record mentions is nev
 This is the generic table from `design.typ`. It reads the case, top to bottom, in the three groups
 above:
 
-- *New* (`has_d`, not `has_r`): create it if nothing is there. Adopt it if someone already made
+- *New* (`desired == "new"`): create it if nothing is there. Adopt it if someone already made
   exactly what the spec wants. Otherwise something else is in the way: conflict, since mdot never
   overwrites.
-- *Kept* (`has_d` and `has_r`): nothing to do if all three agree. If disk is still what mdot left
+- *Kept* (`"match"` or `"differ"`): nothing to do if all three agree. If disk is still what mdot left
   and only the spec changed, update it. Otherwise disk was changed outside mdot: conflict (drift).
-- *Removed* (`has_r`, not `has_d`): delete it if disk is still what mdot left. Otherwise conflict,
+- *Removed* (`desired == "removed"`): delete it if disk is still what mdot left. Otherwise conflict,
   because deleting would destroy something mdot did not make.
 
 ```lua
 function generic_decide(c)
-  if c.has_d and not c.has_r then
+  if c.desired == "new" then
     if c.live == "absent"  then return "create" end
     if c.live == "desired" then return "adopt"  end
     return "conflict"
   end
-  if c.has_d and c.has_r then
+  if c.desired == "match" or c.desired == "differ" then
     if c.live == "both"     then return "noop"   end   -- desired = recorded = live
     if c.live == "recorded" then return "update" end   -- desired changed, live is still ours
     return "conflict_drift"                            -- absent, desired, other
   end
-  if not c.has_d and c.has_r then
+  if c.desired == "removed" then
     if c.live == "recorded" then return "delete" end
     return "conflict"
   end
@@ -230,10 +230,10 @@ that follows the link rules (ADR 0030):
 
 ```lua
 function links_like_decide(c)
-  if c.has_r and c.live == "absent" then
-    return c.has_d and "recreate" or "forget"
+  if c.desired ~= "new" and c.live == "absent" then
+    return c.desired == "removed" and "forget" or "recreate"
   end
-  if c.has_d and c.has_r and c.dr == "differ" and c.live == "desired" then
+  if c.desired == "differ" and c.live == "desired" then
     return "adopt"
   end
   return generic_decide(c)
@@ -265,6 +265,6 @@ From ADR 0035:
 - A separate library, or a module inside mdot with no mdot includes.
 - C++ shape: a `virtual` interface or `std::variant`.
 - Whether cases a kind's table does not list default to conflict.
-- Whether "same / differ" is enough: downloads tell "only `mode` differs" apart from "`R ≠ D`".
+- Whether `"match"` / `"differ"` is enough: downloads tell "only `mode` differs" apart from "`R ≠ D`".
 - `match` compares different shapes (an observation, a state record, a clause). For downloads, live
   can only be compared with the record.
