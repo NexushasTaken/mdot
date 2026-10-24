@@ -7,6 +7,8 @@
 #include <system_error>
 #include <tl/expected.hpp>
 
+namespace mdot {
+
 namespace fs = std::filesystem;
 
 LinkPlan LinkPlan::make_create(std::filesystem::path src,
@@ -95,7 +97,7 @@ tl::expected<LinkPlan, LinkError> plan_link(const fs::path &src,
     return LinkPlan::make_conflict(dst, "Is not a symlink");
   }
 
-  fs::path dst_target = clean_path(
+  fs::path dst_target = mdot::clean_path(
       (dst.parent_path() / fs::read_symlink(dst, ec)).lexically_normal());
 
   if (ec) {
@@ -107,4 +109,6 @@ tl::expected<LinkPlan, LinkError> plan_link(const fs::path &src,
   } else {
     return LinkPlan::make_conflict(dst, "Symlinked to different file");
   }
+}
+
 }

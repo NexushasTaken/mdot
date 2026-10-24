@@ -3,6 +3,8 @@
 #include <filesystem>
 #include <tl/expected.hpp>
 
+namespace mdot {
+
 enum struct PlanOperation {
   Create,
   Noop, // No Operation
@@ -30,5 +32,7 @@ struct LinkPlan {
   PlanOperation m_operation;
 };
 
-tl::expected<LinkPlan, LinkError> plan_link(const std::filesystem::path &src,
-                                            const std::filesystem::path &dst);
+tl::expected<LinkPlan, mdot::LinkError>
+plan_link(const std::filesystem::path &src, const std::filesystem::path &dst);
+
+} // namespace mdot

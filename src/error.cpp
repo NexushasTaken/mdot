@@ -1,6 +1,8 @@
 #include "error.hpp"
 #include <format>
 
+namespace mdot {
+
 namespace fs = std::filesystem;
 
 tl::unexpected<LinkError> LinkError::make_error(const fs::path &path,
@@ -24,3 +26,5 @@ tl::unexpected<ClauseError> ClauseError::make_error(std::size_t id,
 std::string ClauseError::string() const {
   return std::format("entry {}: {}", m_id, m_message);
 }
+
+} // namespace mdot

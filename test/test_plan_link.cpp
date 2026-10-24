@@ -14,7 +14,7 @@ TEST_CASE("src doesn't exist means Error", "[plan_link]") {
   auto config_path = tmp.path() / "config";
   auto destination_path = tmp.path() / "destination";
 
-  auto p = plan_link(config_path, destination_path);
+  auto p = mdot::plan_link(config_path, destination_path);
 
   INFO((p ? "" : p.error().string()));
   REQUIRE(!p.has_value());
@@ -28,7 +28,7 @@ TEST_CASE("nothing at dst means Create", "[plan_link]") {
 
   fs::create_directory(config_path);
 
-  auto p = plan_link(config_path, destination_path);
+  auto p = mdot::plan_link(config_path, destination_path);
   INFO((p ? "" : p.error().string()));
   REQUIRE(p.value().is_create());
 }
@@ -43,7 +43,7 @@ TEST_CASE("dst symlink to src means Noop", "[plan_link]") {
 
   fs::create_symlink(config_path, destination_path);
 
-  auto p = plan_link(config_path, destination_path);
+  auto p = mdot::plan_link(config_path, destination_path);
   INFO((p ? "" : p.error().string()));
   REQUIRE(p.value().is_noop());
 }
@@ -61,7 +61,7 @@ TEST_CASE("dst relatively symlink to src means Noop", "[plan_link]") {
 
   fs::create_symlink("../../config", destination_path);
 
-  auto p = plan_link(config_path, destination_path);
+  auto p = mdot::plan_link(config_path, destination_path);
   INFO((p ? "" : p.error().string()));
   REQUIRE(p.value().is_noop());
 }
@@ -76,7 +76,7 @@ TEST_CASE("dst is a dangling symlink means Conflict", "[plan_link]") {
   fs::create_directory(config_path);
   fs::create_symlink(nothing_path, destination_path);
 
-  auto p = plan_link(config_path, destination_path);
+  auto p = mdot::plan_link(config_path, destination_path);
   INFO((p ? "" : p.error().string()));
   REQUIRE(p.value().is_conflict());
 }
@@ -93,7 +93,7 @@ TEST_CASE("dst is not a symlink to src means Conflict", "[plan_link]") {
 
   fs::create_symlink(different_path, destination_path);
 
-  auto p = plan_link(config_path, destination_path);
+  auto p = mdot::plan_link(config_path, destination_path);
   INFO((p ? "" : p.error().string()));
   REQUIRE(p.value().is_conflict());
 }
@@ -108,7 +108,7 @@ TEST_CASE("dst parent doesn't exist means Create", "[plan_link]") {
 
   auto destination_path = parent_path / "destination";
 
-  auto p = plan_link(config_path, destination_path);
+  auto p = mdot::plan_link(config_path, destination_path);
   INFO((p ? "" : p.error().string()));
   REQUIRE(p.value().is_create());
 }
@@ -124,7 +124,7 @@ TEST_CASE("dst parent 2-level deep doesn't exist means Create",
 
   auto destination_path = parent_path / "destination";
 
-  auto p = plan_link(config_path, destination_path);
+  auto p = mdot::plan_link(config_path, destination_path);
   INFO((p ? "" : p.error().string()));
   REQUIRE(p.value().is_create());
 }
@@ -142,7 +142,7 @@ TEST_CASE("dst parent is a regular file means Conflict",
 
   auto destination_path = parent_path / "destination";
 
-  auto p = plan_link(config_path, destination_path);
+  auto p = mdot::plan_link(config_path, destination_path);
   INFO((p ? "" : p.error().string()));
 
   REQUIRE(p.value().is_conflict());
@@ -158,7 +158,7 @@ TEST_CASE("dst is a regular file means Conflict", "[plan_link][regular-file]") {
   std::ofstream _regular_file(destination_path);
   REQUIRE(_regular_file.is_open());
 
-  auto p = plan_link(config_path, destination_path);
+  auto p = mdot::plan_link(config_path, destination_path);
   INFO((p ? "" : p.error().string()));
   REQUIRE(p.value().is_conflict());
 }
@@ -172,7 +172,7 @@ TEST_CASE("dst is a directory means Conflict", "[plan_link][regular-file]") {
   fs::create_directories(config_path);
   fs::create_directories(destination_path);
 
-  auto p = plan_link(config_path, destination_path);
+  auto p = mdot::plan_link(config_path, destination_path);
   INFO((p ? "" : p.error().string()));
   REQUIRE(p.value().is_conflict());
 }

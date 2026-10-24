@@ -3,7 +3,7 @@
 #include <catch2/catch_message.hpp>
 
 TEST_CASE("valid empty spec", "[spec_lua][valid_spec]") {
-  auto r = parse_spec("test", R"(
+  auto r = mdot::parse_spec("test", R"(
     return spec {}
   )");
   INFO((r ? "" : r.error()));
@@ -12,7 +12,7 @@ TEST_CASE("valid empty spec", "[spec_lua][valid_spec]") {
 }
 
 TEST_CASE("valid spec with one clause", "[spec_lua][valid_spec_one_clause]") {
-  auto r = parse_spec("test", R"(
+  auto r = mdot::parse_spec("test", R"(
     return spec {
       file.link("src", "dst"),
     }
@@ -26,7 +26,7 @@ TEST_CASE("valid spec with one clause", "[spec_lua][valid_spec_one_clause]") {
 
 TEST_CASE("valid spec with one bad clause call",
           "[spec_lua][valid_spec_bad_clause_call]") {
-  auto r = parse_spec("test", R"(
+  auto r = mdot::parse_spec("test", R"(
     return spec {
       file.link("src"),
     }
@@ -35,7 +35,7 @@ TEST_CASE("valid spec with one bad clause call",
   REQUIRE(!r.has_value());
   REQUIRE(r.error() == "entry 1: `dst` is required");
 
-  r = parse_spec("test", R"(
+  r = mdot::parse_spec("test", R"(
     return spec {
       file.link(),
     }
@@ -46,7 +46,7 @@ TEST_CASE("valid spec with one bad clause call",
 }
 
 TEST_CASE("non-table return", "[spec_lua][non_table]") {
-  auto r = parse_spec("test", R"(
+  auto r = mdot::parse_spec("test", R"(
     return "non-table"
   )");
   INFO((r ? "" : r.error()));
@@ -55,7 +55,7 @@ TEST_CASE("non-table return", "[spec_lua][non_table]") {
 }
 
 TEST_CASE("not clause", "[spec_lua][not_clause]") {
-  auto r = parse_spec("test", R"(
+  auto r = mdot::parse_spec("test", R"(
     return spec {
       "not-clause"
     }

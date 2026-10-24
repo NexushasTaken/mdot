@@ -2,6 +2,8 @@
 #include <filesystem>
 #include <tl/expected.hpp>
 
+namespace mdot {
+
 struct LinkError {
   std::filesystem::path path;
   std::string message;
@@ -21,3 +23,5 @@ struct ClauseError {
 
   std::string string() const;
 };
+
+} // namespace mdot

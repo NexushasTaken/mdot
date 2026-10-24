@@ -3,5 +3,9 @@
 #include "spec.hpp"
 #include <tl/expected.hpp>
 
-tl::expected<Spec, std::string>
-parse_spec(const std::string &name, const std::string &spec_code);
+namespace mdot {
+
+tl::expected<Spec, std::string> parse_spec(const std::string &name,
+                                           const std::string &spec_code);
+
+}

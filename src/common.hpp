@@ -2,6 +2,8 @@
 #include "tl/expected.hpp"
 #include <filesystem>
 
+namespace mdot {
+
 std::filesystem::path clean_path(const std::filesystem::path &path);
 
 tl::expected<std::filesystem::path, std::string>
@@ -15,3 +17,5 @@ resolve_path(const std::filesystem::path &path);
 
 tl::expected<std::string, std::string>
 read_file(const std::filesystem::path &path);
+
+} // namespace mdot

@@ -6,6 +6,8 @@
 #include <string>
 #include <tl/expected.hpp>
 
+namespace mdot {
+
 static tl::expected<void, std::string> state_setup(sol::state &state) {
   state.open_libraries(sol::lib::base, sol::lib::string, sol::lib::table,
                        sol::lib::math, sol::lib::package);
@@ -27,8 +29,8 @@ static tl::expected<void, std::string> state_setup(sol::state &state) {
   return {};
 }
 
-tl::expected<LinkClause, ClauseError>
-static link_clause_from_table(std::size_t id, sol::table raw_clause) {
+tl::expected<LinkClause, ClauseError> static link_clause_from_table(
+    std::size_t id, sol::table raw_clause) {
   auto src = raw_clause.get_or<std::optional<std::string>>("src", std::nullopt);
   auto dst = raw_clause.get_or<std::optional<std::string>>("dst", std::nullopt);
   if (!src) {
@@ -91,3 +93,5 @@ tl::expected<Spec, std::string> parse_spec(const std::string &name,
 
   return spec;
 }
+
+} // namespace mdot

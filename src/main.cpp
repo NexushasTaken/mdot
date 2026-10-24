@@ -8,7 +8,6 @@
 #include "tl/expected.hpp"
 #include <cstdlib>
 #include <filesystem>
-#include <fstream>
 #include <lua.h>
 #include <memory>
 #include <sol/error.hpp>
@@ -20,6 +19,8 @@
 #include <sol/types.hpp>
 #include <spdlog/logger.h>
 #include <tl/expected.hpp>
+
+namespace mdot {
 
 namespace fs = std::filesystem;
 
@@ -100,7 +101,7 @@ tl::expected<bool, std::string> process_spec(const Core &core,
         std::format("{}: {}", spec_path.string(), ec.message()));
   }
 
-  auto spec_code_result = read_file(spec_file);
+  auto spec_code_result = mdot::read_file(spec_file);
   if (!spec_code_result) {
     return tl::make_unexpected(
         std::format("{}: {}", spec_file.string(), spec_code_result.error()));
@@ -117,12 +118,12 @@ tl::expected<bool, std::string> process_spec(const Core &core,
   spdlog::info("{}", fs::current_path().string());
 
   for (auto &clause : spec.link_clauses) {
-    auto src_result = resolve_path(clause.m_src);
+    auto src_result = mdot::resolve_path(clause.m_src);
     if (!src_result) {
       return tl::make_unexpected(
           std::format("{}: {}", clause.m_src, src_result.error()));
     }
-    auto dst_result = resolve_path(clause.m_dst);
+    auto dst_result = mdot::resolve_path(clause.m_dst);
     if (!dst_result) {
       return tl::make_unexpected(
           std::format("{}: {}", clause.m_dst, dst_result.error()));
@@ -135,7 +136,7 @@ tl::expected<bool, std::string> process_spec(const Core &core,
     if (core.planing) {
       link_result = plan_link(src, dst);
     } else {
-      link_result = apply_link(src, dst);
+      link_result = mdot::apply_link(src, dst);
     }
 
     if (link_result) {
@@ -158,9 +159,11 @@ tl::expected<bool, std::string> process_spec(const Core &core,
   return success;
 }
 
+} // namespace mdot
+
 int main(int argc, char *argv[]) {
   spdlog::set_pattern("[%^%=5l%$]: %v");
-  Core core = {.errlog = spdlog::stderr_color_mt("errlog")};
+  mdot::Core core = {.errlog = spdlog::stderr_color_mt("errlog")};
 
   std::string input_spec_path;
 
@@ -185,7 +188,7 @@ int main(int argc, char *argv[]) {
     core.planing = false;
   }
 
-  const auto spec_path_result = resolve_path(input_spec_path);
+  const auto spec_path_result = mdot::resolve_path(input_spec_path);
   if (!spec_path_result) {
     core.errlog->error("{}", spec_path_result.error());
     return EXIT_FAILURE;

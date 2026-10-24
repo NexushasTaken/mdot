@@ -5,6 +5,8 @@
 #include "tl/expected.hpp"
 #include <format>
 
+namespace mdot {
+
 namespace fs = std::filesystem;
 
 tl::expected<LinkPlan, LinkError> apply_link(fs::path src, fs::path dst) {
@@ -45,3 +47,5 @@ tl::expected<LinkPlan, LinkError> apply_link(fs::path src, fs::path dst) {
 
   return plan_result;
 }
+
+} // namespace mdot

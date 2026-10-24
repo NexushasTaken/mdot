@@ -7,6 +7,8 @@
 #include <fstream>
 #include <sstream>
 
+namespace mdot {
+
 namespace fs = std::filesystem;
 
 fs::path clean_path(const fs::path &path) {
@@ -82,3 +84,5 @@ tl::expected<std::string, std::string> read_file(const fs::path &path) {
   ss << path_handle.rdbuf();
   return ss.str();
 }
+
+} // namespace mdot

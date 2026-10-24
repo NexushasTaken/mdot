@@ -23,7 +23,7 @@ TEST_CASE("link dst to src", "[apply_link][create-link]") {
 
   fs::create_directories(config_dir);
 
-  auto r = apply_link(config_dir, destination_dir);
+  auto r = mdot::apply_link(config_dir, destination_dir);
   INFO((r ? "" : r.error().string()));
   REQUIRE(r);
 
@@ -43,7 +43,7 @@ TEST_CASE("link dst to src with missing dst parents directories",
 
   fs::create_directories(config_dir);
 
-  auto r = apply_link(config_dir, destination_dir);
+  auto r = mdot::apply_link(config_dir, destination_dir);
   INFO((r ? "" : r.error().string()));
   REQUIRE(r);
 
@@ -63,7 +63,7 @@ TEST_CASE("applying twice is Noop", "[apply_link][apply-twice]") {
   fs::create_directories(config_dir);
 
   {
-    auto r = apply_link(config_dir, destination_dir);
+    auto r = mdot::apply_link(config_dir, destination_dir);
     INFO((r ? "" : r.error().string()));
     REQUIRE(r);
     REQUIRE(r->is_create());
@@ -73,7 +73,7 @@ TEST_CASE("applying twice is Noop", "[apply_link][apply-twice]") {
     REQUIRE(fs::read_symlink(destination_dir) == config_dir);
   }
   {
-    auto r = apply_link(config_dir, destination_dir);
+    auto r = mdot::apply_link(config_dir, destination_dir);
     INFO((r ? "" : r.error().string()));
     REQUIRE(r);
     REQUIRE(r->is_noop());
@@ -95,7 +95,7 @@ TEST_CASE("dst is a regular file is conflict", "[apply_link][regular-file]") {
   std::ofstream _regular_file(destination_dir);
 
   {
-    auto r = apply_link(config_dir, destination_dir);
+    auto r = mdot::apply_link(config_dir, destination_dir);
     INFO((r ? "" : r.error().string()));
     REQUIRE(r);
     REQUIRE(r->is_conflict());
@@ -117,7 +117,7 @@ TEST_CASE("dst is a dangling link", "[apply_link][dangling-link]") {
   REQUIRE(fs::is_symlink(destination_dir));
 
   {
-    auto r = apply_link(config_dir, destination_dir);
+    auto r = mdot::apply_link(config_dir, destination_dir);
     INFO((r ? "" : r.error().string()));
     REQUIRE(r);
     REQUIRE(r->is_conflict());
