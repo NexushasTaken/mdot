@@ -92,6 +92,10 @@ That is what makes it generic.
 everything, then names the case. It never stops at the first difference, so the order of the
 checks cannot change the result.
 
+*Every side that exists has the same ID.* Any side can be `nil`, but a side with a value never has
+a different ID from the others. `classify` does not check this and does not use the ID: `plan`
+guarantees it, because it joins desired and recorded by ID and observes live at that same ID.
+
 Names used in the code:
 
 #table(
