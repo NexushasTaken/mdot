@@ -20,6 +20,23 @@ Each of the three sides is either *absent* or *a value*:
 - *recorded:* what mdot wrote last time (state);
 - *live:* what is on disk now.
 
+*Running example: one link.* A clause `link("nvim", "~/.config/nvim")` is one resource. Its ID is
+the `dst`, `~/.config/nvim`. For that ID:
+
+#table(
+  columns: (auto, 1fr, 1fr),
+  [side], [a value means], [absent means],
+  [desired], [a spec asks for a link at this `dst`; the value is its `src`],
+  [no spec mentions this `dst` (any more)],
+  [recorded], [mdot made a link here last time; the value is the `src` it recorded],
+  [mdot has no record of this `dst`],
+  [live], [something is at this path; for a link the value is its `readlink` string],
+  [nothing at all is at this path],
+)
+
+"Absent" is not the same as "empty" or "wrong". An absent side has no value to compare. A side
+with a value can still match or not match the others.
+
 What decides the outcome is not true/false but *which values match each other*. So the planner
 splits into a part that is the same for every kind and a part each kind supplies:
 
@@ -60,7 +77,48 @@ kind.match(a, b)     -> bool         -- a and b both present; does a "count as" 
 kind.decide(case)    -> action       -- this kind's table (default: generic_decide)
 ```
 
+For links:
+
+- `id`: the clause's `dst`. Two clauses with the same `dst` are the same resource. Which form of the
+  path is used (as written, expanded, normalized) is open (ADR 0034).
+- `observe`: looks at `dst` on disk. It returns `nil` if nothing is there, the `readlink` string if
+  it is a link, and something that matches nothing if it is a regular file or a directory.
+- `match`: the `src` strings are equal (`link-rules.typ`).
+- `decide`: ADR 0030's table.
+
+The planner never looks inside a value. It only passes values to `match` and asks "same or not?".
+That is what makes it generic.
+
 = Classify: three values in, one case out
+
+`classify` gets the three sides for *one* ID and works out how they relate. It first compares
+everything, then names the case. It never stops at the first difference, so the order of the
+checks cannot change the result.
+
+Names used in the code:
+
+#table(
+  columns: (auto, 1fr),
+  [name], [meaning],
+  [`d`], [the desired value for this ID, or `nil` if no spec asks for it],
+  [`r`], [the recorded value for this ID, or `nil` if mdot has no record of it],
+  [`l`], [the live value, from `observe`, or `nil` if nothing is there],
+  [`c`], [the case: the result of `classify`],
+  [`c.has_d`], [`d ~= nil`: "a spec asks for this ID"],
+  [`c.has_r`], [`r ~= nil`: "mdot recorded this ID last time"],
+  [`c.dr`], [only set when both exist. `"same"`: the spec still asks for what mdot recorded.
+    `"differ"`: the spec changed since the last apply.],
+  [`ld`], [live matches desired: "disk already is what the spec wants"],
+  [`lr`], [live matches recorded: "disk is still what mdot left there"],
+  [`c.live`], [which of them disk agrees with: `absent`, `desired`, `recorded`, `both` or `other`
+    (neither: someone else put it there or changed it)],
+)
+
+`nil` here is not "false". It means that side has no value for this ID. The `nil`s come from `plan`
+below: looking up an ID that is not in the desired or recorded table gives `nil`.
+
+In `d and match(l, d)`, the `and` short-circuits. If `d` is `nil` the result is `nil` and `match` is
+never called, because live cannot match a desired value that does not exist.
 
 ```lua
 function classify(d, r, l, match)
@@ -107,13 +165,44 @@ function plan(kind, desired_items, recorded_items)
 end
 ```
 
-Matching by ID gives three groups (ADR 0034): desired only (new), both (compare), recorded only (the
-spec or clause was removed). Live is not part of the match: the whole filesystem cannot be listed,
-so live is observed only for IDs that come out of it.
+Step by step:
+
++ `index_by` builds a table from ID to item: `D` for desired (all clauses from all specs), `R` for
+  recorded (all entries in state). Two desired items with the same ID are an error, because two
+  clauses cannot own the same resource.
++ `union(keys(D), keys(R))` is every ID that appears on either side, each once.
++ For each ID, `D[key]` and `R[key]` are the two items. One of them is `nil` when the ID is on only
+  one side. That is where `classify`'s `nil`s come from.
++ `observe` looks at the disk for that ID, and `classify` and `decide` turn the three into an action.
++ The step keeps the values too, so `apply` and the plan output know what to do and what to show.
+
+Matching by ID gives three groups (ADR 0034):
+
+#table(
+  columns: (auto, auto, 1fr),
+  [in `D`], [in `R`], [meaning],
+  [yes], [no], [new: a spec asks for it, and mdot has not made it yet],
+  [yes], [yes], [kept: compare what changed],
+  [no], [yes], [removed: the spec or clause is gone, but mdot made it before],
+)
+
+Live is not part of the match. mdot cannot list the whole filesystem, so live is observed only for
+IDs that come out of the join. A file that no spec and no record mentions is never looked at.
+
+`index_by`, `union`, `keys` and `sorted` are not shown. They are ordinary table helpers.
 
 = The default table
 
-This is the generic table from `design.typ`:
+This is the generic table from `design.typ`. It reads the case, top to bottom, in the three groups
+above:
+
+- *New* (`has_d`, not `has_r`): create it if nothing is there. Adopt it if someone already made
+  exactly what the spec wants. Otherwise something else is in the way: conflict, since mdot never
+  overwrites.
+- *Kept* (`has_d` and `has_r`): nothing to do if all three agree. If disk is still what mdot left
+  and only the spec changed, update it. Otherwise disk was changed outside mdot: conflict (drift).
+- *Removed* (`has_r`, not `has_d`): delete it if disk is still what mdot left. Otherwise conflict,
+  because deleting would destroy something mdot did not make.
 
 ```lua
 function generic_decide(c)
@@ -150,6 +239,15 @@ function links_like_decide(c)
   return generic_decide(c)
 end
 ```
+
+The three rows links change:
+
+- *Recorded, live absent, still desired: `recreate`.* The user deleted the link by hand. Nothing at
+  the path can be lost, so mdot makes it again.
+- *Recorded, live absent, not desired: `forget`.* The spec dropped it and it is already gone. Only
+  the record is removed.
+- *The spec changed and disk already matches the new `src`: `adopt`.* Someone already did the
+  update by hand. Only the record changes.
 
 Checked by running it: with plain equality as `match`, this gives ADR 0030's result for all 13
 cases.
