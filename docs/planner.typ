@@ -96,6 +96,9 @@ checks cannot change the result.
 a different ID from the others. `classify` does not check this and does not use the ID: `plan`
 guarantees it, because it joins desired and recorded by ID and observes live at that same ID.
 
+*At least one of `d` and `r` has a value.* `plan` only loops over IDs from `D` or `R`, so both
+absent never reaches `classify` (see "The 13 cases").
+
 Names used in the code:
 
 #table(
