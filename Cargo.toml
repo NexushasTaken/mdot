@@ -2,7 +2,7 @@
 name = "mdot"
 version = "0.1.0"
 edition = "2021"
-description = "dotfile manager (Rust port of the C++ prototype, for comparison)"
+description = "dotfile manager"
 
 [lib]
 path = "src/lib.rs"
