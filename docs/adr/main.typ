@@ -66,6 +66,7 @@ directory and is collected here.
   link(<adr-0047>)[0047], [Command-line flags have no matching `mdot.opt` options; a flag wins], [Accepted],
   link(<adr-0048>)[0048], [Every file gets a fresh environment; shared library tables are read-only], [Accepted],
   link(<adr-0049>)[0049], [No `require` for now; `mdot.vars` holds only data], [Accepted],
+  link(<adr-0050>)[0050], [Output streams and diagnostic markers], [Accepted],
 )
 
 #include "0001-fresh-design-not-comtrya-port.typ"
@@ -117,3 +118,4 @@ directory and is collected here.
 #include "0047-flags-are-cli-only.typ"
 #include "0048-file-isolation.typ"
 #include "0049-no-require-for-now.typ"
+#include "0050-output-streams-and-markers.typ"

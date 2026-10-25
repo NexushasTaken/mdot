@@ -709,6 +709,15 @@ hyprshot
 Plan: 1 to create, 1 to update, 1 to delete, 1 conflict.
 ```
 
+This layout is a sketch, not decided.
+
+*Streams and markers* (ADR 0050). The plan and `mdot.print` go to stdout; errors, conflicts and
+warnings go to stderr. A diagnostic is `<word>: <message>` with the word `error`, `conflict` or
+`warning`; normal output has no prefix. A message about a file starts with its path or `file:line`.
+`error:` and `conflict:` are red, `warning:` yellow, only when that stream is a terminal and
+`NO_COLOR` is unset or empty. Follow-up `hint:` / `note:` lines come later, near the end. Open: the
+plan and apply layout (one summary or one per spec, where conflict lines go).
+
 `apply` refuses to run while any conflict exists. There is no `--force` for now (ADR 0016).
 
 *Executing a clean plan* (ADR 0029). `apply` creates each link first, then records it in state
