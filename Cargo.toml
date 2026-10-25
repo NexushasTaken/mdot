@@ -1,0 +1,20 @@
+[package]
+name = "mdot"
+version = "0.1.0"
+edition = "2021"
+description = "dotfile manager (Rust port of the C++ prototype, for comparison)"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "mdot"
+path = "src/bin/mdot.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+dirs = "5"
+mlua = { version = "0.10", features = ["lua54", "vendored"] }
+
+[dev-dependencies]
+tempfile = "3"
