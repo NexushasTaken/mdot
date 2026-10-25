@@ -276,16 +276,23 @@ conflict rules apply across groups.
 
 == Context values
 
-#table(
-  columns: (auto, 1fr),
-  [Global], [Content],
-  [`host`], [`{ name = <hostname> }`, read-only],
-)
-
-No Phase 1 clause reads `host`; the host file is selected by name. `env()` is dropped (ADR 0013).
+`env()` is dropped (ADR 0013).
 
 *The `mdot` global* (ADR 0038). Values mdot hands to Lua live in one global table, in the style of
-Neovim's `vim`. Only `mdot.vars` is designed:
+Neovim's `vim`. The old `host` global is removed (ADR 0040). Designed so far: `mdot.os.hostname` and `mdot.vars`.
+
+*`mdot.os`* (ADR 0040). For now it holds only `hostname`:
+
+- `mdot.os.hostname` is exactly the `<name>` mdot used to select `hosts/<name>.lua`: the real
+  hostname, or the `--host` value (`plan --host laptop` gives `"laptop"`).
+- `config.lua`, host files and specs may all read it. Writing to `mdot.os` is an error naming the
+  file. Reading a field it does not have (`mdot.os.hostnme`) is an error naming the field.
+- A hostname branch in a spec puts a per-host difference outside the host file; that is allowed.
+- *Warning:* a hostname branch in `config.lua` makes base `vars` differ per machine, so the
+  markers' clean filter commits different values on different machines. That is the user's fault
+  (ADR 0039).
+
+*`mdot.vars`:*
 
 - `config.lua` is the only file that defines vars. Its `mdot.vars` is the *base `vars`*, which the
   markers' git clean filter evaluates with (ADR 0037).
@@ -310,10 +317,9 @@ mdot.vars.cursor.size = 24
 return spec { depends("desktop") }
 ```
 
-*Open* (ADR 0038): spec-declared defaults, a
-shorter alias for `mdot`, whether `host` moves into `mdot`, and the other members (`mdot.os`,
-`mdot.dirs`, `mdot.opt`/`mdot.o`, `mdot.g`; `mdot.env` would conflict with ADR 0013). Each is
-designed when a real spec needs it.
+*Open* (ADR 0038, 0040): spec-declared defaults, a shorter alias for `mdot`, the other fields of
+`mdot.os`, and the other members (`mdot.dirs`, `mdot.opt`/`mdot.o`, `mdot.g`; `mdot.env` would
+conflict with ADR 0013). Each is designed when a real spec needs it.
 
 = Deployment kinds
 

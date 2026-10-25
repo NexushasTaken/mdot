@@ -59,6 +59,7 @@ directory and is collected here.
   link(<adr-0037>)[0037], [Several templating engines; Yolk-style markers first, with a git clean filter], [Accepted],
   link(<adr-0038>)[0038], [A global `mdot` table; `config.lua` defines `mdot.vars`, hosts only override], [Accepted],
   link(<adr-0039>)[0039], [`mdot.vars` is typed by a schema built from base; the "User's fault" boundary is widened], [Accepted],
+  link(<adr-0040>)[0040], [The `host` global becomes `mdot.os.hostname`], [Accepted],
 )
 
 #include "0001-fresh-design-not-comtrya-port.typ"
@@ -100,3 +101,4 @@ directory and is collected here.
 #include "0037-marker-templating.typ"
 #include "0038-mdot-global-and-vars.typ"
 #include "0039-typed-vars.typ"
+#include "0040-mdot-os-hostname.typ"
