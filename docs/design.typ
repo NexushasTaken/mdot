@@ -40,15 +40,15 @@ These rules decide every later design question:
 #table(
   columns: 2,
   [Concern], [Choice],
-  [Language], [C++20],
-  [Build], [CMake + Conan (ADR 0025)],
-  [Config language], [Lua 5.4 via sol2 (plain Lua, no syntax extensions)],
-  [Errors], [`tl::expected<T, Error>`],
-  [Tests], [Catch2],
-  [CLI], [CLI11],
-  [Logging], [spdlog / fmt],
-  [State files], [nlohmann-json],
-  [Structural editing], [tree-sitter (+ vendored grammars)],
+  [Language], [Rust (ADR 0036)],
+  [Build], [Cargo],
+  [Config language], [Lua 5.4 via mlua, vendored (plain Lua, no syntax extensions)],
+  [Errors], [`Result<T, E>` with mdot's own error types],
+  [Tests], [`cargo test`],
+  [CLI], [clap (derive)],
+  [Logging], [open (ADR 0036)],
+  [State files], [JSON; library open (ADR 0036)],
+  [Structural editing], [tree-sitter (+ vendored grammars); Rust binding open (ADR 0036)],
   [Git], [shell out to system `git` (no libgit2)],
 )
 
@@ -130,7 +130,7 @@ return spec { depends("hypr", "waybar", "dunst", "uwsm") }
 + mdot finds the repo root: `--repo <dir>`, else `$PWD` if it contains `specs/`, else error.
 + If `config.lua` exists it runs in its own environment and returns `{ vars = {...} }`.
 + mdot loads `hosts/<hostname>.lua` (or `--host`) and then follows `depends` to load only the specs
-  it reaches. Each spec with a `spec.lua` runs in a *fresh `sol::environment`*, so globals can't leak
+  it reaches. Each spec with a `spec.lua` runs in a *fresh environment table*, so globals can't leak
   between specs. A directory without one becomes an implicit spec.
 + `specs/*/` is listed in sorted order, so error messages (such as the list of known names) are
   deterministic. Names are directory names, so duplicates cannot happen.
@@ -666,7 +666,7 @@ Global flags: `--repo <dir>`, `-v`/`-q`, `--color`.
 
 ```
 src/
-  lua/       loader: config.lua + specs/** -> SpecSet; sandboxed per-file sol::environment; clause constructors
+  lua/       loader: config.lua + specs/** -> SpecSet; sandboxed per-file environment table; clause constructors
   model/     Spec, Host/OS context, Resource variants
   graph/     depends DAG from hosts/<host>.lua, topo sort, cycle reporting
   ts/        tree-sitter query + edit engine, grammar registry
@@ -675,24 +675,24 @@ src/
   state/     state.json, generations, backups (atomic writes)
   vcs/       git shell-out: rev-parse, worktree
   platform/  XDG resolution, os-release, PackageProvider interface
-  cli/       CLI11 command wiring
-tests/       Catch2 unit tests + fixture repos for end-to-end plan/apply
+  bin/       clap command wiring (mdot.rs)
+tests/       cargo integration tests + fixture repos for end-to-end plan/apply
 ```
 
 The package provider interface is defined in phase 1 so the resource model accounts for it, and
 implemented in phase 5:
 
-```cpp
-struct PackageInfo { bool installed; std::string version; Reason reason; }; // Reason: explicit|dependency
-class PackageProvider {
-public:
-  virtual ~PackageProvider() = default;
-  virtual tl::expected<PackageInfo, Error> query(std::string_view name) = 0;
-  virtual tl::expected<void, Error> install(std::span<const std::string> names, Reason) = 0;
-  virtual tl::expected<void, Error> remove(std::span<const std::string> names) = 0;
-  virtual tl::expected<void, Error> set_reason(std::span<const std::string> names, Reason) = 0;
-  virtual tl::expected<std::vector<std::string>, Error> list_explicit() = 0;
-};
+```rust
+struct PackageInfo { installed: bool, version: String, reason: Reason }
+enum Reason { Explicit, Dependency }
+
+trait PackageProvider {
+    fn query(&self, name: &str) -> Result<PackageInfo, Error>;
+    fn install(&mut self, names: &[String], reason: Reason) -> Result<(), Error>;
+    fn remove(&mut self, names: &[String]) -> Result<(), Error>;
+    fn set_reason(&mut self, names: &[String], reason: Reason) -> Result<(), Error>;
+    fn list_explicit(&self) -> Result<Vec<String>, Error>;
+}
 ```
 
 Package semantics:

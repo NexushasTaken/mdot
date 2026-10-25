@@ -10,7 +10,7 @@ steps, for any resource kind. The decisions are ADR 0034 (match by ID) and ADR 0
 the kind decides). Each kind's own table is in `design.typ` (`<three-way>`) and its ADR.
 
 The code below is *pseudocode* in Lua syntax. It is generic: it knows nothing about links, paths or
-state files. Translating it to C++ is the implementation work.
+state files. Translating it to Rust is the implementation work.
 
 = The idea
 
@@ -270,7 +270,7 @@ and running an action touch the disk.
 From ADR 0035:
 
 - A separate library, or a module inside mdot with no mdot includes.
-- C++ shape: a `virtual` interface or `std::variant`.
+- Rust shape: a trait or an enum (ADR 0036 replaces ADR 0035's C++ wording).
 - Whether cases a kind's table does not list default to conflict.
 - Whether `"match"` / `"differ"` is enough: downloads tell "only `mode` differs" apart from "`R ≠ D`".
 - `match` compares different shapes (an observation, a state record, a clause). For downloads, live

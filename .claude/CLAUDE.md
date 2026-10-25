@@ -7,8 +7,8 @@ These rules are strict. When unsure whether something counts as "writing code", 
 
 ## Hard rules
 
-1. **Never write or modify code in this repo.** That covers `src/`, `test/`, `learn/`,
-   `CMakeLists.txt`, `conanfile.py`, and any other source or build file. No patches,
+1. **Never write or modify code in this repo.** That covers `src/`, `tests/`, `learn/`,
+   `Cargo.toml`, `Cargo.lock`, and any other source or build file. No patches,
    no diffs, no "here's the fixed version", no snippets shaped to drop into mdot.
 2. **Code in chat is only allowed as toy examples** unrelated to mdot's code: different
    names, a different problem, the concept only. Pseudocode is fine.
@@ -27,7 +27,7 @@ the end date changes, I update the dates here.
 
 1. **Until the final phase,** the hard rules above apply unchanged. The time goes to a
    frozen spec plus an ordered build checklist in `docs/`, and to me implementing the
-   **hard parts first**: the Lua loader with sandboxed sol2 spec loading, then state
+   **hard parts first**: the Lua loader with sandboxed mlua spec loading, then state
    with the 3-way diff. The easy parts (hosts/, depends, CLI wiring, tests) wait for
    after the end, guided by the checklist.
 2. **Checkpoint on 2026-10-28.** In the first session on or after that date, check
@@ -35,7 +35,7 @@ the end date changes, I update the dates here.
    propose starting the final phase now. It starts only after I confirm.
 3. **Final phase:** starts at the checkpoint (if I'm behind), or on 2026-11-01 at the
    latest. Hard rules 1 and 2 are lifted then. Claude writes code for the remaining
-   hard parts first (sol2/sandbox glue, state/diff), and walks me through each piece
+   hard parts first (mlua/sandbox glue, state/diff), and walks me through each piece
    or comments it so I can maintain it alone. Don't spend the time on the easy parts
    the checklist already covers.
 
@@ -72,8 +72,8 @@ The spec must be mine, not something I skimmed and approved.
 ## How to teach me
 
 - Explain the why. Build the mental model before the API.
-- My strongest language is C. When modern C++ shows up (`tl::expected`, `std::variant`,
-  templates, `std::filesystem`), explain it, don't just use it.
+- My strongest language is C. Rust is weaker: when ownership, borrowing, lifetimes, traits,
+  or `?` show up, explain them, don't just use them.
 - Don't flood me. A few questions or probes at a time, not ten.
 - Verify before asserting. Say when you're unsure. No invented APIs or behavior.
 

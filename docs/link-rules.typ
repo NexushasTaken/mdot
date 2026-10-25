@@ -63,8 +63,8 @@ anything else is a new feature, not a bug fix.
 *Test rules:*
 - One test per row, named after the row.
 - Assert on the *result* (Create / Noop / Conflict / Error), not only on the filesystem afterwards.
-- Check that a `tl::expected` holds a value before using `->` or `*` on it. They are unchecked,
-  like dereferencing a pointer without a NULL check in C.
+- Assert the variant (`assert_eq!` / `matches!`), not only that a call returned `Ok`. A test that
+  just unwraps passes for every `Ok` value, including the wrong one.
 - A test that changes cwd must restore it on scope exit, even when an assertion fails.
 - Relative-path tests must use a cwd that is *different* from `dst`'s parent, or they cannot
   catch rule 2 bugs.

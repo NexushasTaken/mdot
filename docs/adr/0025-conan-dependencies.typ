@@ -1,6 +1,6 @@
 #import "../template.typ": adr
 
-#adr(number: 25, title: [Dependencies come from Conan, with libcurl and OpenSSL for downloads], status: [Accepted], date: [2026-10-11])[
+#adr(number: 25, title: [Dependencies come from Conan, with libcurl and OpenSSL for downloads], status: [Superseded by 0036], date: [2026-10-11])[
 = Context
 ADR 0002 chose vcpkg (manifest mode) for C++ dependencies and listed Conan as superseded, without
 recording why. The author does not want vcpkg and prefers Conan. No `CMakeLists.txt` or build

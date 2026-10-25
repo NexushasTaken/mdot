@@ -1,6 +1,6 @@
 #import "../template.typ": adr
 
-#adr(number: 2, title: [Stack — C++20, CMake, vcpkg, sol2, tl::expected, Catch2], status: [Accepted], date: [2026-10-06])[
+#adr(number: 2, title: [Stack — C++20, CMake, vcpkg, sol2, tl::expected, Catch2], status: [Superseded by 0036], date: [2026-10-06])[
 = Context
 The port plan fixed C++20, CMake, sol2 (Lua), `tl::expected`, Catch2, and vcpkg. An earlier design
 session had chosen Conan instead of vcpkg.

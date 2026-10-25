@@ -19,7 +19,7 @@ directory and is collected here.
   [ADR], [Title], [Status],
   link(<adr-0001>)[0001], [Fresh design instead of a comtrya port], [Accepted],
   link(<adr-0002>)[0002], [Stack: C++20, CMake, vcpkg, sol2, tl::expected, Catch2],
-  [Accepted (vcpkg superseded by 0025)],
+  [Superseded by 0036 (vcpkg earlier by 0025)],
   link(<adr-0003>)[0003], [Plain-Lua, lazy.nvim-style spec DSL], [Accepted],
   link(<adr-0004>)[0004], [Auto-merged `specs/` folder with mirror roots], [Superseded by 0014],
   link(<adr-0005>)[0005], [One spec owns at most one package], [Accepted (`pkg` default amended by 0014)],
@@ -44,7 +44,7 @@ directory and is collected here.
   link(<adr-0022>)[0022], [`link` has a batch form: `link { names..., into = dir, dot? }`], [Accepted],
   link(<adr-0023>)[0023], [Resource clauses are grouped: `link` becomes `file.link`], [Accepted],
   link(<adr-0024>)[0024], [`net.download` fetches one pinned file], [Accepted],
-  link(<adr-0025>)[0025], [Dependencies come from Conan, with libcurl and OpenSSL for downloads], [Accepted],
+  link(<adr-0025>)[0025], [Dependencies come from Conan, with libcurl and OpenSSL for downloads], [Superseded by 0036],
   link(<adr-0026>)[0026], [`file.copy` and `net.download` share one regular-file mechanism], [Accepted],
   link(<adr-0027>)[0027], [`requires` declares raw packages; `depends` names specs only], [Accepted (parts Proposed)],
   link(<adr-0028>)[0028], [Only packages mdot installed are removable; the record is mdot's own], [Proposed],
@@ -55,6 +55,7 @@ directory and is collected here.
   link(<adr-0033>)[0033], [Link updates and deletes change the disk first, then state], [Accepted],
   link(<adr-0034>)[0034], [The planner matches desired and recorded resources by ID], [Proposed],
   link(<adr-0035>)[0035], [A generic planner: classify each ID, then the kind decides], [Accepted],
+  link(<adr-0036>)[0036], [The implementation language is Rust], [Accepted],
 )
 
 #include "0001-fresh-design-not-comtrya-port.typ"
@@ -92,3 +93,4 @@ directory and is collected here.
 #include "0033-link-update-delete-write-order.typ"
 #include "0034-resource-ids-and-join.typ"
 #include "0035-generic-planner.typ"
+#include "0036-rust.typ"
