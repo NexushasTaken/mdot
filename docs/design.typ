@@ -265,6 +265,8 @@ conflict rules apply across groups.
   [`file.copy(src, dst)`], [Copy a file from the spec directory instead of linking it.], [—],
   [`sysfile(...)`], [Root-owned copies (@system-scope). On hold, see ADR 0014.], [3],
   [`render(...)`, `patch(...)`], [Tree-sitter editing (@tree-sitter).], [4],
+  [marker clause (name open)], [Yolk-style markers evaluated in place in the repo file
+    (@markers, ADR 0037).], [—],
   [`package(name?, opts?)`], [The spec needs a package. No arguments means the spec's directory
     name; `opts` carries `pkg_alts` per-platform names (ADR 0021).], [5],
 )
@@ -423,6 +425,27 @@ of the output. Use it when the content depends on `vars` or the host (fonts, cur
 
 Some apps rewrite their own config (krita's `kritarc`, many GUI apps). Symlinking or rendering those
 files fights the app. `patch` only enforces the queried nodes and leaves everything else untouched.
+
+== Markers — Yolk-style templating <markers>
+
+Templating has several engines, one clause each (ADR 0037). `render` and `patch` are the
+tree-sitter engines. The first other engine is *Yolk-style markers*: a marker in a comment holds a
+Lua expression, and mdot rewrites the value it points at.
+
+```
+export XCURSOR_SIZE=16   # {< replace_number(vars.cursor.size) >}
+```
+
+- `{< ... >}` acts on its own line, `{# ... #}` on the next line.
+- *In place (Mode A):* mdot evaluates the markers with this host's values and rewrites the repo
+  file itself. The `link` clause still points at that file. Rendering to a copy (Mode B) is later.
+- A marker that finds nothing to replace is an error, and nothing is written.
+- *Git clean filter* (designed, built later): git stores each marker's *canonical value*, the
+  marker evaluated with the base `vars`, while the working tree keeps the host's value. The clean
+  step is pure and runs in the ADR 0013 sandbox. It can be turned off per file.
+
+*Open* (ADR 0037): the clause name, the replace functions, the filter option's default and scope,
+registering the filter on a fresh clone, the resource-model table, and per-host `vars`.
 
 = System scope <system-scope>
 

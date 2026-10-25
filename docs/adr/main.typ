@@ -26,7 +26,7 @@ directory and is collected here.
   link(<adr-0006>)[0006], [Per-host variation via `enabled(<lua expr>)`], [Superseded by 0019],
   link(<adr-0007>)[0007], [System-scope files are root-owned copies, not symlinks], [Proposed],
   link(<adr-0008>)[0008], [Tree-sitter structural editing instead of templating],
-  [Accepted (strictness rules Proposed)],
+  [Accepted (strictness rules Proposed; "instead of templating" amended by 0037)],
   link(<adr-0009>)[0009], [Resource model with a 3-way diff], [Accepted (link/git split in 0031)],
   link(<adr-0010>)[0010], [Git-based generations and rollback], [Accepted],
   link(<adr-0011>)[0011], [Configurable removal policy, recorded at apply time],
@@ -56,6 +56,7 @@ directory and is collected here.
   link(<adr-0034>)[0034], [The planner matches desired and recorded resources by ID], [Proposed],
   link(<adr-0035>)[0035], [A generic planner: classify each ID, then the kind decides], [Accepted],
   link(<adr-0036>)[0036], [The implementation language is Rust], [Accepted],
+  link(<adr-0037>)[0037], [Several templating engines; Yolk-style markers first, with a git clean filter], [Accepted],
 )
 
 #include "0001-fresh-design-not-comtrya-port.typ"
@@ -94,3 +95,4 @@ directory and is collected here.
 #include "0034-resource-ids-and-join.typ"
 #include "0035-generic-planner.typ"
 #include "0036-rust.typ"
+#include "0037-marker-templating.typ"
