@@ -63,6 +63,7 @@ directory and is collected here.
   link(<adr-0041>)[0041], [`mdot` has no built-in alias], [Accepted],
   link(<adr-0042>)[0042], [No spec-declared defaults; `config.lua` is the only place vars are defined], [Accepted],
   link(<adr-0043>)[0043], [`mdot.dirs` holds the common dirs; implicit specs keep `~/.config`], [Accepted],
+  link(<adr-0044>)[0044], [`mdot.os` describes the real machine: name, family, arch and comtrya's fields], [Accepted],
 )
 
 #include "0001-fresh-design-not-comtrya-port.typ"
@@ -108,3 +109,4 @@ directory and is collected here.
 #include "0041-no-mdot-alias.typ"
 #include "0042-no-spec-declared-defaults.typ"
 #include "0043-mdot-dirs.typ"
+#include "0044-mdot-os-fields.typ"

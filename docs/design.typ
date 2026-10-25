@@ -277,20 +277,36 @@ conflict rules apply across groups.
 `env()` is dropped (ADR 0013).
 
 *The `mdot` global* (ADR 0038). Values mdot hands to Lua live in one global table, in the style of
-Neovim's `vim`. The old `host` global is removed (ADR 0040). Designed so far: `mdot.os.hostname`, `mdot.dirs` and `mdot.vars`.
+Neovim's `vim`. The old `host` global is removed (ADR 0040). Designed so far: `mdot.os`, `mdot.dirs` and `mdot.vars`.
 
 *No alias* (ADR 0041). `mdot` is the only name. For a shorter one, use a local:
 `local v = mdot.vars`. A local refers to the same table, so it gets the same read-only and schema
 checks as `mdot`.
 
-*`mdot.os`* (ADR 0040). For now it holds only `hostname`:
+*`mdot.os`* (ADR 0040, 0044). Facts about the machine. A value that does not exist on this OS is
+`nil`. Ids are lowercase.
 
+#table(
+  columns: 3,
+  [*Field*], [*Value*], [*Example*],
+  [`name`], [Rust's `std::env::consts::OS`], [`linux`, `windows`, `macos`, `android`],
+  [`family`], [Rust's `FAMILY`], [`unix`, `windows`],
+  [`arch`], [Rust's `ARCH`], [`x86_64`, `aarch64`],
+  [`bitness`], [a number], [`64`],
+  [`distribution`], [Linux: `ID=` of `/etc/os-release`; `nil` elsewhere], [`arch`, `debian`],
+  [`version`], [a string as the OS reports it; `nil` if none], [`"14.5"`; `nil` on Arch],
+  [`codename`], [a string as the OS reports it; `nil` if none], [`nil` on Arch],
+  [`edition`], [a string as the OS reports it; `nil` if none], [`nil` on Arch],
+  [`hostname`], [see below], [`"laptop"`],
+)
+
+- Every field describes the real machine, even under `--host`, except `hostname`.
 - `mdot.os.hostname` is exactly the `<name>` mdot used to select `hosts/<name>.lua`: the real
   hostname, or the `--host` value (`plan --host laptop` gives `"laptop"`).
 - `config.lua`, host files and specs may all read it. Writing to `mdot.os` is an error naming the
   file. Reading a field it does not have (`mdot.os.hostnme`) is an error naming the field.
 - A hostname branch in a spec puts a per-host difference outside the host file; that is allowed.
-- *Warning:* a hostname branch in `config.lua` makes base `vars` differ per machine, so the
+- *Warning:* a hostname or OS branch in `config.lua` makes base `vars` differ per machine, so the
   markers' clean filter commits different values on different machines. That is the user's fault
   (ADR 0039).
 
@@ -340,8 +356,8 @@ mdot.vars.cursor.size = 24
 return spec { depends("desktop") }
 ```
 
-*Open* (ADR 0038, 0040, 0043): the other fields of
-`mdot.os` (`mdot.os.name` is next), and the other members (`mdot.opt`/`mdot.o`, `mdot.g`; `mdot.env` would
+*Open* (ADR 0038): the other members of `mdot`
+(`mdot.opt`/`mdot.o`, `mdot.g`; `mdot.env` would
 conflict with ADR 0013). Each is designed when a real spec needs it.
 
 = Deployment kinds
