@@ -60,6 +60,7 @@ directory and is collected here.
   link(<adr-0038>)[0038], [A global `mdot` table; `config.lua` defines `mdot.vars`, hosts only override], [Accepted],
   link(<adr-0039>)[0039], [`mdot.vars` is typed by a schema built from base; the "User's fault" boundary is widened], [Accepted],
   link(<adr-0040>)[0040], [The `host` global becomes `mdot.os.hostname`], [Accepted],
+  link(<adr-0041>)[0041], [`mdot` has no built-in alias], [Accepted],
 )
 
 #include "0001-fresh-design-not-comtrya-port.typ"
@@ -102,3 +103,4 @@ directory and is collected here.
 #include "0038-mdot-global-and-vars.typ"
 #include "0039-typed-vars.typ"
 #include "0040-mdot-os-hostname.typ"
+#include "0041-no-mdot-alias.typ"

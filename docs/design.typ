@@ -281,6 +281,10 @@ conflict rules apply across groups.
 *The `mdot` global* (ADR 0038). Values mdot hands to Lua live in one global table, in the style of
 Neovim's `vim`. The old `host` global is removed (ADR 0040). Designed so far: `mdot.os.hostname` and `mdot.vars`.
 
+*No alias* (ADR 0041). `mdot` is the only name. For a shorter one, use a local:
+`local v = mdot.vars`. A local refers to the same table, so it gets the same read-only and schema
+checks as `mdot`.
+
 *`mdot.os`* (ADR 0040). For now it holds only `hostname`:
 
 - `mdot.os.hostname` is exactly the `<name>` mdot used to select `hosts/<name>.lua`: the real
@@ -317,7 +321,7 @@ mdot.vars.cursor.size = 24
 return spec { depends("desktop") }
 ```
 
-*Open* (ADR 0038, 0040): spec-declared defaults, a shorter alias for `mdot`, the other fields of
+*Open* (ADR 0038, 0040): spec-declared defaults, the other fields of
 `mdot.os`, and the other members (`mdot.dirs`, `mdot.opt`/`mdot.o`, `mdot.g`; `mdot.env` would
 conflict with ADR 0013). Each is designed when a real spec needs it.
 
