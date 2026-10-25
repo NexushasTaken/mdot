@@ -67,6 +67,7 @@ directory and is collected here.
   link(<adr-0048>)[0048], [Every file gets a fresh environment; shared library tables are read-only], [Accepted],
   link(<adr-0049>)[0049], [No `require` for now; `mdot.vars` holds only data], [Accepted],
   link(<adr-0050>)[0050], [Output streams and diagnostic markers], [Accepted],
+  link(<adr-0051>)[0051], [Layout of `mdot plan` and the `--verbose` levels], [Accepted],
 )
 
 #include "0001-fresh-design-not-comtrya-port.typ"
@@ -119,3 +120,4 @@ directory and is collected here.
 #include "0048-file-isolation.typ"
 #include "0049-no-require-for-now.typ"
 #include "0050-output-streams-and-markers.typ"
+#include "0051-plan-layout.typ"

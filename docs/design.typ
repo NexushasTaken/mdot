@@ -696,27 +696,37 @@ to be a git repository.
 
 == Output
 
-`mdot plan` prints something like this, grouped by spec in dependency order:
+*Plan layout* (ADR 0051). `mdot plan` groups resources under each spec's name, in dependency order.
+Inside a spec, resources come in the order the spec declares them, then the spec's conflicts. A line
+is symbol, kind (padded so paths line up), `dst -> src`, and an optional detail in parentheses;
+`src` and `dst` are shown as written (`~` kept). Symbols: `+` create, `~` update, `-` delete, `=`
+no-op. Conflicts are ADR 0050 `conflict:` lines on stderr, not indented. One summary line ends the
+run, leaving out zero counts; with nothing to do it is `No changes.`
 
 ```
 waybar
-  + link    ~/.config/waybar -> configs/waybar
-  ~ render  ~/.config/waybar/style.css   (2 lines changed, --diff to show)
+  + link  ~/.config/waybar -> config
+foot
+  + link  ~/.config/foot/colors.ini -> colors.ini
+conflict: ~/.config/foot/foot.ini: exists and is not managed
 hyprshot
-  - link    ~/.config/hyprshot           (spec removed; on_remove.files=remove)
-! conflict ~/.config/foot/foot.ini: exists and is not managed (adopt? see `mdot adopt`)
+  - link  ~/.config/hyprshot  (spec removed; on_remove.files=remove)
 
-Plan: 1 to create, 1 to update, 1 to delete, 1 conflict.
+Plan: 2 to create, 1 to delete, 1 conflict.
 ```
 
-This layout is a sketch, not decided.
+`-v` / `--verbose` takes an optional level attached with `=` (`-v=2`); plain `-v` is 1. Level 0
+(default) shows changes and conflicts only; a spec's heading appears only when it has a line to
+show. Level 1 adds no-ops as `=` lines. Level 2 also shows what is desired, recorded and live for
+each resource. Higher levels act like 2. Errors and warnings show at every level. `-v 2` is level 1
+with a spec path `2`. Open: the form of the level-2 lines, colors for the symbols, the wording of
+details per kind, and `apply`'s output.
 
 *Streams and markers* (ADR 0050). The plan and `mdot.print` go to stdout; errors, conflicts and
 warnings go to stderr. A diagnostic is `<word>: <message>` with the word `error`, `conflict` or
 `warning`; normal output has no prefix. A message about a file starts with its path or `file:line`.
 `error:` and `conflict:` are red, `warning:` yellow, only when that stream is a terminal and
-`NO_COLOR` is unset or empty. Follow-up `hint:` / `note:` lines come later, near the end. Open: the
-plan and apply layout (one summary or one per spec, where conflict lines go).
+`NO_COLOR` is unset or empty. Follow-up `hint:` / `note:` lines come later, near the end.
 
 `apply` refuses to run while any conflict exists. There is no `--force` for now (ADR 0016).
 
