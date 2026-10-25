@@ -61,6 +61,7 @@ directory and is collected here.
   link(<adr-0039>)[0039], [`mdot.vars` is typed by a schema built from base; the "User's fault" boundary is widened], [Accepted],
   link(<adr-0040>)[0040], [The `host` global becomes `mdot.os.hostname`], [Accepted],
   link(<adr-0041>)[0041], [`mdot` has no built-in alias], [Accepted],
+  link(<adr-0042>)[0042], [No spec-declared defaults; `config.lua` is the only place vars are defined], [Accepted],
 )
 
 #include "0001-fresh-design-not-comtrya-port.typ"
@@ -104,3 +105,4 @@ directory and is collected here.
 #include "0039-typed-vars.typ"
 #include "0040-mdot-os-hostname.typ"
 #include "0041-no-mdot-alias.typ"
+#include "0042-no-spec-declared-defaults.typ"

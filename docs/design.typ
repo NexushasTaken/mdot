@@ -121,8 +121,8 @@ return spec { depends("hypr", "waybar", "dunst", "uwsm") }
   (File paths in `file.link` are the opposite: relative to the spec's own directory.)
 - An unknown name is an error that lists the names it did find. A cycle is an error that names the
   cycle. A spec reached more than once is applied once.
-- A host file has no directory, so it only holds selection (`depends`; later `config`) and overrides of
-  `mdot.vars` (ADR 0038). A `file.link` in a host file is an error.
+- A host file has no directory, so it only holds selection (`depends`) and overrides of
+  `mdot.vars` (ADR 0038, 0042). A `file.link` in a host file is an error.
 - `--host <name>` makes `plan` and `status` load `hosts/<name>.lua` instead, as a dry run. `apply`
   with a `--host` that differs from the real hostname is an error. A missing host file is an error
   that lists the files in `hosts/`.
@@ -262,8 +262,6 @@ conflict rules apply across groups.
 #table(
   columns: (auto, 1fr, auto),
   [Clause], [Purpose], [Phase],
-  [`config { name = {...} }`], [Per-spec settings (git user and email) given by a host. Needs
-    `render` or a generated-file clause to have any effect; see ADR 0019.], [4],
   [`on_remove {...}`], [Removal policy for the spec (@removal).], [2],
   [`file.copy(src, dst)`], [Copy a file from the spec directory instead of linking it.], [—],
   [`sysfile(...)`], [Root-owned copies (@system-scope). On hold, see ADR 0014.], [3],
@@ -299,7 +297,7 @@ checks as `mdot`.
 *`mdot.vars`:*
 
 - `config.lua` is the only file that defines vars. Its `mdot.vars` is the *base `vars`*, which the
-  markers' git clean filter evaluates with (ADR 0037).
+  markers' git clean filter evaluates with (ADR 0037). Specs cannot declare defaults (ADR 0042).
 - The host file may only override existing keys: `mdot.vars.cursor.size = 24`.
 - Specs only read `mdot.vars`. A spec that writes to it is an error naming the spec.
 - *Typed by a schema* (ADR 0039). mdot builds a schema from the base `mdot.vars` and checks the
@@ -321,7 +319,7 @@ mdot.vars.cursor.size = 24
 return spec { depends("desktop") }
 ```
 
-*Open* (ADR 0038, 0040): spec-declared defaults, the other fields of
+*Open* (ADR 0038, 0040): the other fields of
 `mdot.os`, and the other members (`mdot.dirs`, `mdot.opt`/`mdot.o`, `mdot.g`; `mdot.env` would
 conflict with ADR 0013). Each is designed when a real spec needs it.
 
