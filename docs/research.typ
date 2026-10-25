@@ -683,8 +683,108 @@ Not decided. These are questions for a later decision (ADR), not answers.
   what lets the injections in failure 3 through. Encoding needs a per-language encoder, which ties
   in with question 1.
 + *Which grammars cover the real files?* KDE's INI dialect (`[$e]`) and JSONC trailing commas are
-  not handled by the stock grammars. Options not explored: other grammars, patching the grammar, or
-  living with the gaps.
+  not handled by the stock grammars. Options: other grammars, patching the grammar, a user-supplied
+  grammar (tested in @results-grammars), or living with the gaps.
+
+== User-supplied grammars (2026-10-25) <results-grammars>
+
+*Question* (the author's idea): can users add their own tree-sitter grammars when mdot's built-in
+ones don't cover a format, the way Neovim does? `design.typ` currently says grammars are "vendored
+and compiled in", so this would be a change to the design, not a detail.
+
+*How Neovim does it,* from its own help (`:h treesitter`, Nvim 0.12.5). A parser is a compiled
+shared library. Nvim searches `parser/{lang}.*` on the runtimepath (the first match wins, so a user
+copy beats a bundled one) or takes an explicit path:
+`vim.treesitter.language.add('python', { path = "/path/to/python.so" })`. The library exports a C
+function `tree_sitter_<lang>()` that returns the grammar's tables, and `symbol_name` overrides that
+name. `.wasm` parsers work only when Nvim is built with `ENABLE_WASMTIME`. nvim-treesitter is the
+plugin that downloads grammar sources and compiles them into those `.so` files.
+
+*Setup.* A second throwaway Rust spike, outside the repo: `tree-sitter` 0.27.1 plus `libloading` 0.8
+for `dlopen`. Inputs: the author's own Neovim parsers in `~/.local/share/nvim/site/parser/`, and a
+15-line custom grammar `kdeini` that accepts KDE's `[$e]` markers. Claude wrote that grammar, built
+it with the `tree-sitter` CLI 0.26.9 (`generate`, then `build`) and, separately, with plain
+`cc -shared -fPIC src/parser.c`.
+
+*How loading works.* There are three steps: `dlopen` the file, look up the symbol
+`tree_sitter_<name>`, then wrap the returned pointer as a `Language`. From there the engine is the
+same as for a built-in grammar: same parser, same queries, same splice. The cost is about 10 lines
+and three `unsafe` blocks. The library must stay loaded for as long as mdot runs, because the
+`Language` points at static data inside it (in the generated `parser.c`, `tree_sitter_kdeini()`
+returns the address of a `static const TSLanguage`). Unloading it while a tree exists would leave
+a dangling pointer.
+
+*What worked:*
+
+#table(
+  columns: (1.3fr, 1fr),
+  [Check], [Result],
+  [Neovim's `json.so` vs the `tree-sitter-json` crate, on waybar's `config.jsonc`],
+  [Loads (ABI 14). Identical tree],
+  [Neovim's `typst.so`, a grammar mdot would never bundle, with an external scanner (extra C code),
+    on `research.typ` (44 KB)], [Loads, no parse errors],
+  [Custom `kdeini` on the real kritarc], [0 parse errors (stock INI grammar: 2, lines 654 and 683)],
+  [`set` on `File1[$e]` in `[RecentFiles]`, which the stock grammar hid inside an ERROR node],
+  [Only that line changes. Setting the old value back gives a byte-identical file],
+  [The same grammar built with plain `cc` instead of the CLI], [Same result],
+  [A query using a node or field the custom grammar doesn't have],
+  [Rejected when compiled, with row and column, as with built-in grammars],
+  [Grammar built for ABI 14], [Accepted (this library takes ABI 13 to 15)],
+  [Grammar claiming ABI 16 (a future CLI)],
+  [Rejected by the parser with "Incompatible language version 16", no crash],
+  [Missing file, a file that isn't a library, wrong symbol name],
+  [Clear errors ("cannot open shared object file", "invalid ELF header", "undefined symbol:
+    tree_sitter_ini")],
+)
+
+*What it showed beyond "it works":*
+
++ *Writing a grammar is real work, even for INI.* The first `kdeini` version left 34 parse errors
+  in kritarc, because KDE also nests groups (`[MainWindow][DockWidget ...]`). One more rule fixed
+  that. The error check is what found the bug, so a user's grammar is only as trustworthy as its
+  results on their real files.
++ *A grammar is native code running inside mdot.* Loading a `.so` runs whatever C it contains, with
+  mdot's permissions. The Lua sandbox (ADR 0013) is for purity, not security, so this doesn't break
+  a promise the design makes. A crash in a grammar's external scanner, though, takes mdot down with
+  it (not tested, it follows from running in-process). It matters more for system scope:
+  `design.typ` rejects root-read configs that point into a user-writable repo as a
+  privilege-escalation path, and the same reasoning applies if the root side of
+  `sudo mdot --exec-plan` would ever load a user-writable grammar.
++ *Compiled grammars are per OS and CPU.* A `.so` built on Linux x86-64 doesn't load on macOS or
+  Windows, and cross-platform is a stated goal. A dotfiles repo shared across machines would have to
+  carry one build per platform, compile from source on each machine (which needs a C compiler
+  there, as nvim-treesitter does), or use WASM.
++ *A grammar version is part of the result.* Queries name node types, so a grammar update that
+  renames a node breaks a spec's queries. mdot would report that cleanly (the query is rejected at
+  load), but it's another thing that can change under a spec. nvim-treesitter pins grammar
+  revisions for the same reason.
+
+*Not tested:*
+
+- *WASM grammars.* From reading the `tree-sitter` 0.27.1 source: a `wasm` cargo feature pulls in
+  `wasmtime-c-api` and adds `WasmStore::load_language(name, bytes)` and
+  `Parser::set_wasm_store`. A `.wasm` file is portable across platforms and runs sandboxed, which
+  answers points 2 and 3 above, at the cost of a WebAssembly runtime inside mdot. Building a
+  `.wasm` with `tree-sitter build --wasm` downloads wasi-sdk (114 MB), and that download stalled
+  here, so neither building nor loading one was tried.
+- Windows and macOS (`libloading` covers `.dll` and `.dylib`, but nothing ran there).
+- Grammars from sources other than Neovim's parser directory and the one Claude wrote.
+
+*Verdict.* Feasible. Loading a user's compiled grammar works with little code, needs no change to
+the engine, and fixed the KDE gap from S1 on the real file. The open parts are about policy, not
+about whether it works.
+
+*Open questions (not decided):*
+
++ *In what form does the user supply a grammar?* Options seen: a compiled library at a path (Nvim's
+  `language.add`); grammar sources that mdot compiles and caches (nvim-treesitter); a `.wasm` file;
+  more than one of these.
++ *Where do grammars live, and are they part of the dotfiles repo?* In the repo they travel with the
+  specs but need per-platform builds (point 3). Outside it, a fresh machine can't apply until the
+  grammar is installed.
++ *Can a user grammar override a built-in one with the same name* (Nvim: first on the runtimepath
+  wins), or must it use a new name?
++ *Can grammars be loaded on the privileged side at all* (point 2)?
 
 = Evaluation criteria <evaluation>
 
@@ -712,7 +812,8 @@ mdot v1, meaning the core config manager (phases 1–4), is successful if it mee
 - *Content rollback for symlinked files* is unresolved (RQ4).
 - *Grammar coverage:* formats without a maintained tree-sitter grammar (kanata `.kbd`) can't use
   `render`/`patch`. Dialects the stock grammars don't handle (KDE INI `[$e]`, JSONC trailing commas)
-  leave parts of a file unreachable (@results-s1).
+  leave parts of a file unreachable (@results-s1). User-supplied grammars could close these gaps
+  (@results-grammars). Not decided.
 - *Single user:* `dirs.home` always means the invoking user. Multi-user and system-wide user
   configuration are deferred.
 - *Arch only* in practice: other distros and OSes are interface-ready but unresearched. Each needs
