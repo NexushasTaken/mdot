@@ -277,7 +277,7 @@ conflict rules apply across groups.
 `env()` is dropped (ADR 0013).
 
 *The `mdot` global* (ADR 0038). Values mdot hands to Lua live in one global table, in the style of
-Neovim's `vim`. The old `host` global is removed (ADR 0040). Designed so far: `mdot.os.hostname` and `mdot.vars`.
+Neovim's `vim`. The old `host` global is removed (ADR 0040). Designed so far: `mdot.os.hostname`, `mdot.dirs` and `mdot.vars`.
 
 *No alias* (ADR 0041). `mdot` is the only name. For a shorter one, use a local:
 `local v = mdot.vars`. A local refers to the same table, so it gets the same read-only and schema
@@ -293,6 +293,27 @@ checks as `mdot`.
 - *Warning:* a hostname branch in `config.lua` makes base `vars` differ per machine, so the
   markers' clean filter commits different values on different machines. That is the user's fault
   (ADR 0039).
+
+*`mdot.dirs`* (ADR 0043). The common dirs of the real machine, resolved by mdot before loading:
+
+- 19 names: `home`, `cache`, `config`, `config_local`, `data`, `data_local`, `executable`,
+  `preference`, `runtime`, `state`, `audio`, `desktop`, `document`, `download`, `font`, `picture`,
+  `public`, `template`, `video`. Each value is what the `dirs` crate's function of that name plus
+  `_dir` returns on this OS (`config` is `$XDG_CONFIG_HOME` or `~/.config` on Linux), as an
+  absolute path string without a trailing separator.
+- A dir that does not exist on this OS is `nil` (`state` and `executable` exist only on Linux), so
+  `mdot.dirs.state or mdot.dirs.data_local` works. Reading a name not in the list is an error
+  naming the field. Writing to `mdot.dirs` is an error naming the file.
+- `config.lua`, host files and specs may all read it. `--host` does not change it.
+- mdot knows the common dirs, not where each program keeps its config: a spec for a program with a
+  different location per OS chooses it itself. Implicit specs still link to `~/.config/<name>`
+  (ADR 0020).
+- *Warning:* a dir used in `config.lua`'s vars makes base `vars` differ per machine, as with a
+  hostname branch.
+
+```lua
+file.link("config", mdot.dirs.config .. "/nvim")
+```
 
 *`mdot.vars`:*
 
@@ -319,8 +340,8 @@ mdot.vars.cursor.size = 24
 return spec { depends("desktop") }
 ```
 
-*Open* (ADR 0038, 0040): the other fields of
-`mdot.os`, and the other members (`mdot.dirs`, `mdot.opt`/`mdot.o`, `mdot.g`; `mdot.env` would
+*Open* (ADR 0038, 0040, 0043): the other fields of
+`mdot.os` (`mdot.os.name` is next), and the other members (`mdot.opt`/`mdot.o`, `mdot.g`; `mdot.env` would
 conflict with ADR 0013). Each is designed when a real spec needs it.
 
 = Deployment kinds
