@@ -57,6 +57,7 @@ directory and is collected here.
   link(<adr-0035>)[0035], [A generic planner: classify each ID, then the kind decides], [Accepted],
   link(<adr-0036>)[0036], [The implementation language is Rust], [Accepted],
   link(<adr-0037>)[0037], [Several templating engines; Yolk-style markers first, with a git clean filter], [Accepted],
+  link(<adr-0038>)[0038], [A global `mdot` table; `config.lua` defines `mdot.vars`, hosts only override], [Accepted],
 )
 
 #include "0001-fresh-design-not-comtrya-port.typ"
@@ -96,3 +97,4 @@ directory and is collected here.
 #include "0035-generic-planner.typ"
 #include "0036-rust.typ"
 #include "0037-marker-templating.typ"
+#include "0038-mdot-global-and-vars.typ"

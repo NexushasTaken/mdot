@@ -56,7 +56,7 @@ These rules decide every later design question:
 
 ```
 dotfiles/
-  config.lua              -- optional: runs first, vars
+  config.lua              -- optional: runs first, defines mdot.vars
   hosts/
     <hostname>.lua        -- the root of a machine: says which specs it uses
   specs/
@@ -119,8 +119,8 @@ return spec { depends("hypr", "waybar", "dunst", "uwsm") }
   (File paths in `file.link` are the opposite: relative to the spec's own directory.)
 - An unknown name is an error that lists the names it did find. A cycle is an error that names the
   cycle. A spec reached more than once is applied once.
-- A host file has no directory, so it only holds selection (`depends`; later `config`). A `file.link` in a
-  host file is an error.
+- A host file has no directory, so it only holds selection (`depends`; later `config`) and overrides of
+  `mdot.vars` (ADR 0038). A `file.link` in a host file is an error.
 - `--host <name>` makes `plan` and `status` load `hosts/<name>.lua` instead, as a dry run. `apply`
   with a `--host` that differs from the real hostname is an error. A missing host file is an error
   that lists the files in `hosts/`.
@@ -128,7 +128,8 @@ return spec { depends("hypr", "waybar", "dunst", "uwsm") }
 *Loading:*
 
 + mdot finds the repo root: `--repo <dir>`, else `$PWD` if it contains `specs/`, else error.
-+ If `config.lua` exists it runs in its own environment and returns `{ vars = {...} }`.
++ If `config.lua` exists it runs in its own environment and assigns the base values into `mdot.vars`
+  (ADR 0038). Without it, base `vars` is empty.
 + mdot loads `hosts/<hostname>.lua` (or `--host`) and then follows `depends` to load only the specs
   it reaches. Each spec with a `spec.lua` runs in a *fresh environment table*, so globals can't leak
   between specs. A directory without one becomes an implicit spec.
@@ -279,8 +280,31 @@ conflict rules apply across groups.
   [`host`], [`{ name = <hostname> }`, read-only],
 )
 
-No Phase 1 clause reads `host`; the host file is selected by name. `os` and `vars` are not
-designed yet; add them when a real spec needs them. `env()` is dropped (ADR 0013).
+No Phase 1 clause reads `host`; the host file is selected by name. `env()` is dropped (ADR 0013).
+
+*The `mdot` global* (ADR 0038). Values mdot hands to Lua live in one global table, in the style of
+Neovim's `vim`. Only `mdot.vars` is designed:
+
+- `config.lua` is the only file that defines vars. Its `mdot.vars` is the *base `vars`*, which the
+  markers' git clean filter evaluates with (ADR 0037).
+- The host file may only override existing keys: `mdot.vars.cursor.size = 24`. After it runs,
+  `mdot.vars` must have exactly the base's keys; a new key or a missing key is an error naming it.
+- Specs only read `mdot.vars`. A spec that writes to it is an error naming the spec.
+
+```lua
+-- config.lua
+mdot.vars.font = "Hack Nerd Font"
+mdot.vars.cursor = { name = "phinger-cursor-dark", size = 16 }
+
+-- hosts/tablet.lua
+mdot.vars.cursor.size = 24
+return spec { depends("desktop") }
+```
+
+*Open* (ADR 0038): whether an override may change a value's type, spec-declared defaults, a
+shorter alias for `mdot`, whether `host` moves into `mdot`, and the other members (`mdot.os`,
+`mdot.dirs`, `mdot.opt`/`mdot.o`, `mdot.g`; `mdot.env` would conflict with ADR 0013). Each is
+designed when a real spec needs it.
 
 = Deployment kinds
 
@@ -445,7 +469,8 @@ export XCURSOR_SIZE=16   # {< replace_number(vars.cursor.size) >}
   step is pure and runs in the ADR 0013 sandbox. It can be turned off per file.
 
 *Open* (ADR 0037): the clause name, the replace functions, the filter option's default and scope,
-registering the filter on a fresh clone, the resource-model table, and per-host `vars`.
+registering the filter on a fresh clone, and the resource-model table. Base and per-host `vars` are
+settled by ADR 0038.
 
 = System scope <system-scope>
 
