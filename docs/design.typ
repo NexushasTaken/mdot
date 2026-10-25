@@ -32,8 +32,10 @@ These rules decide every later design question:
 + *Nothing destructive without consent.* Deleting, overwriting or uninstalling needs confirmation,
   unless the user's own `on_remove` policy says otherwise.
 + *Loading is pure.* Evaluating specs has no side effects, so `mdot plan` is always safe to run.
-+ *"User's fault" boundary.* If specs declare paths that conflict from the target software's point
-  of view (e.g. both `~/.vimrc` and `~/.vim/vimrc`), mdot doesn't try to detect it.
++ *"User's fault" boundary* (widened by ADR 0039). mdot doesn't try to predict mistakes that depend
+  on what the user writes: paths that conflict from the target software's point of view (e.g. both
+  `~/.vimrc` and `~/.vim/vimrc`), or a marker expression with no value on some host. It reports
+  every error it does find, naming the problem.
 
 = Stack
 
@@ -287,9 +289,16 @@ Neovim's `vim`. Only `mdot.vars` is designed:
 
 - `config.lua` is the only file that defines vars. Its `mdot.vars` is the *base `vars`*, which the
   markers' git clean filter evaluates with (ADR 0037).
-- The host file may only override existing keys: `mdot.vars.cursor.size = 24`. After it runs,
-  `mdot.vars` must have exactly the base's keys; a new key or a missing key is an error naming it.
+- The host file may only override existing keys: `mdot.vars.cursor.size = 24`.
 - Specs only read `mdot.vars`. A spec that writes to it is an error naming the spec.
+- *Typed by a schema* (ADR 0039). mdot builds a schema from the base `mdot.vars` and checks the
+  host's overrides against it. All errors are reported in one run, each naming the key path and
+  the host file.
+  - A *record* (string keys) keeps exactly the base's keys, and each value keeps its base type.
+  - A *list* (keys exactly `1..n`) holds one element type. A host may change its length, not its
+    element type. In a list of records, every element matches the base's first element.
+  - Integers and floats are one type, `number`.
+  - In base, an empty `{}`, a mixed table (`{ "A", x = 1 }`) or a list with gaps is an error.
 
 ```lua
 -- config.lua
@@ -301,7 +310,7 @@ mdot.vars.cursor.size = 24
 return spec { depends("desktop") }
 ```
 
-*Open* (ADR 0038): whether an override may change a value's type, spec-declared defaults, a
+*Open* (ADR 0038): spec-declared defaults, a
 shorter alias for `mdot`, whether `host` moves into `mdot`, and the other members (`mdot.os`,
 `mdot.dirs`, `mdot.opt`/`mdot.o`, `mdot.g`; `mdot.env` would conflict with ADR 0013). Each is
 designed when a real spec needs it.
@@ -464,11 +473,17 @@ export XCURSOR_SIZE=16   # {< replace_number(vars.cursor.size) >}
 - *In place (Mode A):* mdot evaluates the markers with this host's values and rewrites the repo
   file itself. The `link` clause still points at that file. Rendering to a copy (Mode B) is later.
 - A marker that finds nothing to replace is an error, and nothing is written.
+- *Replace functions* (ADR 0039), with strict parameter types; any other argument, including `nil`,
+  is an error. More are added when a real file needs one.
+  - `replace_quoted(v)`: `v` is a string or a number; replaces the text inside the quotes.
+  - `replace_number(v)`: `v` is a number; replaces the number with `tostring(v)`.
+
+  A marker that may index past the end of a list needs a fallback: `vars.fonts[3] or "C"`.
 - *Git clean filter* (designed, built later): git stores each marker's *canonical value*, the
   marker evaluated with the base `vars`, while the working tree keeps the host's value. The clean
   step is pure and runs in the ADR 0013 sandbox. It can be turned off per file.
 
-*Open* (ADR 0037): the clause name, the replace functions, the filter option's default and scope,
+*Open* (ADR 0037): the clause name, the filter option's default and scope,
 registering the filter on a fresh clone, and the resource-model table. Base and per-host `vars` are
 settled by ADR 0038.
 
