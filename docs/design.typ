@@ -277,7 +277,8 @@ conflict rules apply across groups.
 `env()` is dropped (ADR 0013).
 
 *The `mdot` global* (ADR 0038). Values mdot hands to Lua live in one global table, in the style of
-Neovim's `vim`. The old `host` global is removed (ADR 0040). Designed so far: `mdot.os`, `mdot.dirs` and `mdot.vars`.
+Neovim's `vim`. The old `host` global is removed (ADR 0040). Its members are `mdot.os`, `mdot.dirs`, `mdot.vars` and `mdot.opt`. There is no `mdot.g`;
+`mdot.vars` covers it (ADR 0046). Reading or writing any other member is an error naming it.
 
 *No alias* (ADR 0041). `mdot` is the only name. For a shorter one, use a local:
 `local v = mdot.vars`. A local refers to the same table, so it gets the same read-only and schema
@@ -356,9 +357,27 @@ mdot.vars.cursor.size = 24
 return spec { depends("desktop") }
 ```
 
-*Open* (ADR 0038): the other members of `mdot`
-(`mdot.opt`/`mdot.o`, `mdot.g`; `mdot.env` would
-conflict with ADR 0013). Each is designed when a real spec needs it.
+*`mdot.opt`* (ADR 0045). mdot's own settings. There is no `mdot.o`.
+
+- Built-in default, then `config.lua`, then the host file; the last write wins. Assigning a leaf
+  (`mdot.opt.on_remove.package = "keep"`) changes only that key. A host may set an option
+  `config.lua` never set.
+- Each option is either host-overridable or `config.lua` only. An option that changes committed
+  content must be `config.lua` only.
+- Setting an unknown option, a value outside its allowed set, or a `config.lua`-only option in a
+  host file is an error naming the option and the file. All errors are reported in one run.
+- Specs may read `mdot.opt`. A spec that writes to it is an error naming the spec.
+
+#table(
+  columns: 4,
+  [*Option*], [*Values*], [*Built-in default*], [*Set by*],
+  [`on_remove.files`], [`"remove"`, `"ask"`, `"keep"`], [`"remove"`], [`config.lua`, host],
+  [`on_remove.package`], [`"uninstall"`, `"ask"`, `"keep"`], [`"ask"`], [`config.lua`, host],
+)
+
+*Open* (ADR 0038, 0045): `mdot.env`, which would replace part of ADR 0013; on hold until a real
+spec needs it. The marker filter default's "Set by" class (ADR 0037), and
+whether command-line flags (`--color`, `-v`) get matching options.
 
 = Deployment kinds
 
@@ -708,7 +727,7 @@ resource's `on_remove` policy in state at apply time* and uses that recorded pol
   [`package`], [`"uninstall"`, `"ask"`, `"keep"`], [`"ask"`],
 )
 
-`config.lua`'s `defaults.on_remove` overrides the built-in default. A spec's own `on_remove`
+`mdot.opt.on_remove`, set in `config.lua` or a host file, overrides the built-in default (ADR 0045). A spec's own `on_remove`
 overrides both.
 
 Deleting a symlink is always safe, because the content is in the repo. Deleting a rendered copy is
