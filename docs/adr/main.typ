@@ -66,6 +66,7 @@ directory and is collected here.
   link(<adr-0044>)[0044], [`mdot.os` describes the real machine: name, family, arch and comtrya's fields], [Accepted],
   link(<adr-0045>)[0045], [`mdot.opt` holds mdot's own settings; each option says who may set it], [Accepted],
   link(<adr-0046>)[0046], [No `mdot.g`; unknown `mdot` members are errors], [Accepted],
+  link(<adr-0047>)[0047], [Command-line flags have no matching `mdot.opt` options; a flag wins], [Accepted],
 )
 
 #include "0001-fresh-design-not-comtrya-port.typ"
@@ -114,3 +115,4 @@ directory and is collected here.
 #include "0044-mdot-os-fields.typ"
 #include "0045-mdot-opt.typ"
 #include "0046-no-mdot-g.typ"
+#include "0047-flags-are-cli-only.typ"

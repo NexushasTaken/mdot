@@ -367,6 +367,8 @@ return spec { depends("desktop") }
 - Setting an unknown option, a value outside its allowed set, or a `config.lua`-only option in a
   host file is an error naming the option and the file. All errors are reported in one run.
 - Specs may read `mdot.opt`. A spec that writes to it is an error naming the spec.
+- Command-line flags have no matching options (ADR 0047). If one is added later (a new ADR and a
+  row below), the order is flag, then host file, then `config.lua`, then built-in default.
 
 #table(
   columns: 4,
@@ -376,8 +378,7 @@ return spec { depends("desktop") }
 )
 
 *Open* (ADR 0038, 0045): `mdot.env`, which would replace part of ADR 0013; on hold until a real
-spec needs it. The marker filter default's "Set by" class (ADR 0037), and
-whether command-line flags (`--color`, `-v`) get matching options.
+spec needs it. The marker filter default's "Set by" class (ADR 0037).
 
 = Deployment kinds
 
