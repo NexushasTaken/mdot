@@ -437,6 +437,11 @@ Each question is a claim the design depends on that hasn't been demonstrated yet
   - whether whitespace and comments are preserved
   - how hard it is to write queries by hand
   - whether "exactly one match, else error" is too strict
+
+  *Partly answered (S1/S2, @results-s1):* edits do preserve every byte outside the target node,
+  comments included, and "exactly one match" was useful rather than too strict. But real files
+  already have parse errors, the re-parse misses many bad values, and hand-written queries need the
+  parsed tree in front of you. Open questions are in @results-open.
 ]
 
 #rq("RQ2", "Can one-spec-one-package ownership coexist with pacman on a rolling-release system?")[
@@ -542,7 +547,144 @@ question and is judged by an explicit pass/fail criterion.
 }
 
 The order is S1/S2 first (highest uncertainty, most novel), then S4, S5, and S3. Results go into
-@evaluation of this document, and decisions that come out of them go into new ADRs.
+@results, and decisions that come out of them go into new ADRs.
+
+= Results <results>
+
+== S1 and S2: tree-sitter editing (2026-10-25) <results-s1>
+
+*Setup.* Claude ran S1 and S2 together as a throwaway Rust spike outside the repo, not as the
+C++ program the table above describes (mdot moved to Rust, ADR 0036). Versions: `tree-sitter` 0.27.1,
+grammars `tree-sitter-ini` 1.4.0, `-css` 0.25.0, `-json` 0.24.8, `-lua` 0.5.0, `-toml-ng` 0.7.0,
+`-yaml` 0.7.2. The spike implements the engine as `design.typ` describes it ("Tree-sitter engine"): parse,
+query, splice the captured byte ranges in reverse order, re-parse, check for errors. It ran
+against copies of the author's live `~/.config/kritarc` (719 lines), waybar `style.css` and
+`config.jsonc`, and Hyprland `configs/misc.lua` and `configs/autostart.lua`. TOML and YAML were
+tested only on small made-up samples, because the author has no real files in those formats in scope.
+
+*How an edit works,* because the spec doesn't spell it out. Tree-sitter turns the file into a tree
+in which every node knows its start and end byte. For kritarc, `canvasState=OPENGL_SUCCESS` is a
+`setting` node with two children, `setting_name` and `setting_value`. A query picks a node, the
+engine replaces that node's bytes in the original text, and the result is parsed again to check it.
+Tree-sitter never writes the file and never prints a tree back to text. It only says _where_ to
+cut. That is why everything outside the edited node, comments and whitespace included, stays as it
+was.
+
+*What worked:*
+
+#table(
+  columns: (1.3fr, 1fr),
+  [Check], [Result],
+  [`set` on kritarc `canvasState`, Lua `font_family` and `local cursor_size`, JSON `spacing`, TOML,
+    YAML], [Every other byte identical],
+  [Applying the same edit to its own output, or the desired value to the live file],
+  [No change (idempotent)],
+  [Text predicates (`#eq?`)], [Evaluated by the Rust binding],
+  [A query with a misspelt node, a syntax error or an unknown field],
+  [Rejected when the query is compiled, with row and column, so `q[[...]]` can be checked at load
+    time],
+  [A query matching two nodes (`spacing` exists at the top level and inside `tray`)],
+  [Rejected, as the strictness rule in ADR 0008 wants],
+  [Cost: parse, query, edit and re-parse on the 28 KB kritarc], [About 6 ms per edit],
+)
+
+*What failed, most serious first:*
+
++ *Real files already contain parse errors.* kritarc uses KDE's `Key[$e]=value` flag (lines 654,
+  683), which the INI grammar doesn't know. waybar's `config.jsonc` has trailing commas (lines 102,
+  121), which waybar accepts and `tree-sitter-json` doesn't. `style.css` and both Lua files parse
+  cleanly. With the rule in `design.typ` ("any ERROR node, nothing is written"), mdot could never
+  edit kritarc or `config.jsonc`. The spike instead compared error counts ("the edit adds no new
+  errors"), which let the edits through. A count is a weak check: an edit that removes one error
+  and adds another would pass. This is not a decided rule.
+
++ *Keys near a parse error disappear, and `ensure` duplicates them.* Error recovery after
+  `File1[$e]=` swallowed the next keys (`Name1`, `maxRecentFileItems`) into the ERROR node. A query
+  for `maxRecentFileItems` returns zero hits. `set` then fails safely ("matched nothing"), but
+  `ensure` reads zero hits as "missing" and inserts a second `maxRecentFileItems=` line. The
+  re-parse doesn't notice. This is silent corruption.
+
++ *Re-parsing does not catch bad values.* Grammars are built to tolerate broken input, so many wrong
+  edits still parse:
+
+  #table(
+    columns: (1fr, auto),
+    [Edit (value inserted as raw text)], [Re-parse],
+    [JSON number := empty, or := unquoted `Hack Nerd Font`], [caught],
+    [Lua string content := `a"b`], [caught],
+    [YAML value := `a: b`], [caught],
+    [JSON pair inserted without its comma], [caught],
+    [CSS string content := `a"b`], [*not caught*],
+    [CSS string content := a value that closes the rule and starts a new one], [*not caught*],
+    [CSS `font-family: 12` (wrong type, valid syntax)], [*not caught*],
+    [INI value containing a newline: adds a new key], [*not caught*],
+    [Lua string content := `x" .. os.getenv("HOME") .. "`: Hyprland would run it],
+    [*not caught*],
+  )
+
+  The re-parse is a syntax check only, and an incomplete one. Whether values are inserted raw or
+  encoded for the target language is not in the spec (@results-open).
+
++ *The example queries in this document were wrong.* The waybar query in @translation captures
+  `plain_value`. On the real `style.css` (`font-family: "Noto Sans", sans-serif;`) it matched
+  `sans-serif`, not the font: a quoted font is a `string_value` with a `string_content` child. An
+  unquoted `Hack Nerd Font` is three `plain_value` nodes, so `all = true` would edit one word at a
+  time. A query that works is
+  `(declaration (property_name) @p (#eq? @p "font-family") . (string_value (string_content) @v))`.
+  The krita query in @translation worked unchanged.
+
++ *`ensure` and inserts leave syntax to the user.* Adding a key to a JSON object needs the comma
+  written by hand (`",\n  \"exclusive\": true"`), and a Lua field needs its comma and indentation.
+  Leaving them out was rejected by the re-parse for JSON. `ensure` was idempotent once the text was
+  right.
+
+*S2: writing queries.* Claude wrote the queries, not the author, so the pass criterion ("the author
+finds it writable") is not judged yet. What was measured: none of the working queries could be
+written without first dumping the parsed tree, because node names differ per grammar (`setting_name`,
+`property_name`, `string_content`, `block_mapping_pair`). Unscoped queries fit on one line. Scoped
+ones (a key inside a section, table or object) were 110 to 270 characters.
+
+*A key-path helper,* the fallback the S2 row names. The spike tried a small per-language function
+that _generates_ the query from a key path, so the engine stays the same underneath:
+
+#table(
+  columns: (auto, 1fr, auto),
+  [Lang], [Path], [Generated query],
+  [ini], [`{"canvasState"}` (key before any section)], [81 chars],
+  [ini], [`{"GradientChooser", "global/viewMode"}`], [137 chars],
+  [json], [`{"tray", "spacing"}` (anchored at the document root)], [172 chars],
+  [lua], [`{"misc", "font_family"}`], [145 chars],
+  [css], [`{"*", "font-family"}` (replaces the whole declaration)], [107 chars],
+)
+
+All five edited the right node on the real files. A helper that knows the language can also encode
+the value (`a"b` becomes `"a\"b"` in JSON and Lua) and refuse values that have no encoding (a
+newline in plain INI). Things the spike found that a helper has to deal with: CSS values are several
+sibling nodes, so a path can only target the whole declaration; Lua configs wrap tables in calls such
+as `hl.config({...})`, so Lua paths can't be anchored at the file root; INI keys before the first
+section need their own form. Paths cover "change a value". They don't cover "insert this block
+here", which still needs a raw query.
+
+*Verdict against the pass criteria.* S1 passes the byte-identity part on all real files. It fails
+"a malformed edit is rejected" in general: some are, many aren't (table above). S2 is open until the
+author judges writability. The idea itself is feasible. The engine as specified is not safe enough
+yet, for the reasons in failures 1 to 3.
+
+== Open questions from S1/S2 <results-open>
+
+Not decided. These are questions for a later decision (ADR), not answers.
+
++ *What does the user write: raw queries, key paths, or both?* Options seen: raw queries only (as
+  `design.typ` has now); paths as the normal form with raw queries as an escape hatch; paths only.
++ *What happens when the target file already has parse errors?* Options seen: refuse to edit;
+  allow only if no error is near the edited node; allow and warn. Whatever the choice, `ensure`
+  must not insert when an ERROR node could be hiding the key (failure 2).
++ *Are values inserted raw or encoded per language?* Raw is what `design.typ` implies today and is
+  what lets the injections in failure 3 through. Encoding needs a per-language encoder, which ties
+  in with question 1.
++ *Which grammars cover the real files?* KDE's INI dialect (`[$e]`) and JSONC trailing commas are
+  not handled by the stock grammars. Options not explored: other grammars, patching the grammar, or
+  living with the gaps.
 
 = Evaluation criteria <evaluation>
 
@@ -569,7 +711,8 @@ mdot v1, meaning the core config manager (phases 1–4), is successful if it mee
 
 - *Content rollback for symlinked files* is unresolved (RQ4).
 - *Grammar coverage:* formats without a maintained tree-sitter grammar (kanata `.kbd`) can't use
-  `render`/`patch`.
+  `render`/`patch`. Dialects the stock grammars don't handle (KDE INI `[$e]`, JSONC trailing commas)
+  leave parts of a file unreachable (@results-s1).
 - *Single user:* `dirs.home` always means the invoking user. Multi-user and system-wide user
   configuration are deferred.
 - *Arch only* in practice: other distros and OSes are interface-ready but unresearched. Each needs
@@ -662,7 +805,8 @@ return spec {
 }
 ```
 
-The krita keys are illustrative. Which queries are actually needed is S2.
+The krita keys are illustrative. Which queries are actually needed is S2. This query worked
+unchanged on the real kritarc (@results-s1).
 
 *`Comtrya.yaml` variables.* These become `vars` + `render`:
 
@@ -686,6 +830,9 @@ return spec {
   }),
 }
 ```
+
+This `render` query does not work on the real `style.css`: it matches `sans-serif`, not the font
+(@results-s1, failure 4).
 
 *`modules/kanata`, `tablet.yaml`, `phinger-cursors.yaml`, `paru.yaml`.* These are AUR packages, some
 built from a custom git repo (`NexushasTaken/kanata-bin`). Until then, only their configs can be
