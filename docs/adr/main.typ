@@ -67,6 +67,7 @@ directory and is collected here.
   link(<adr-0045>)[0045], [`mdot.opt` holds mdot's own settings; each option says who may set it], [Accepted],
   link(<adr-0046>)[0046], [No `mdot.g`; unknown `mdot` members are errors], [Accepted],
   link(<adr-0047>)[0047], [Command-line flags have no matching `mdot.opt` options; a flag wins], [Accepted],
+  link(<adr-0048>)[0048], [Every file gets a fresh environment; shared library tables are read-only], [Accepted],
 )
 
 #include "0001-fresh-design-not-comtrya-port.typ"
@@ -116,3 +117,4 @@ directory and is collected here.
 #include "0045-mdot-opt.typ"
 #include "0046-no-mdot-g.typ"
 #include "0047-flags-are-cli-only.typ"
+#include "0048-file-isolation.typ"

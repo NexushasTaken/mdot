@@ -133,8 +133,9 @@ return spec { depends("hypr", "waybar", "dunst", "uwsm") }
 + If `config.lua` exists it runs in its own environment and assigns the base values into `mdot.vars`
   (ADR 0038). Without it, base `vars` is empty.
 + mdot loads `hosts/<hostname>.lua` (or `--host`) and then follows `depends` to load only the specs
-  it reaches. Each spec with a `spec.lua` runs in a *fresh environment table*, so globals can't leak
-  between specs. A directory without one becomes an implicit spec.
+  it reaches. A directory without a `spec.lua` becomes an implicit spec. Every file (`config.lua`,
+  the host file, each `spec.lua`) runs in its own fresh environment, so globals can't leak between
+  files (ADR 0048).
 + `specs/*/` is listed in sorted order, so error messages (such as the list of known names) are
   deterministic. Names are directory names, so duplicates cannot happen.
 + The reachable specs are collected into a `SpecSet` keyed by name, in dependency order.
@@ -183,8 +184,17 @@ environments get `string`, `table`, `math`, `utf8`, and `pairs`/`ipairs`/`next`/
 `tostring`/`tonumber`/`error`/`assert`/`pcall`/`setmetatable`/`getmetatable`/`print`. Nothing else is
 reachable, including `io`, `os`, `debug`, `coroutine`, `package`/`require`, `load`, `dofile`,
 `loadfile` and `string.dump`. There are no live-state helpers (no `env()`, no `exists()`), so
-`plan` and `apply` load the same clauses. Open: isolation between files, `require`, and mdot's
-replacement for `print`.
+`plan` and `apply` load the same clauses.
+
+*Isolation between files* (ADR 0048). Every file runs in its own fresh environment that holds only
+what mdot puts in it. Everything mdot puts in it is read-only, except that `config.lua` and the host
+file may write `mdot.vars` and `mdot.opt` (ADR 0038, 0045). `config.lua` and host files follow the
+same rules as specs. Writing to a library table is an error naming the file, the line and the key
+(`a/spec.lua:1: cannot set string.upper`). `getmetatable("")` returns a locked marker, so the real
+`string` table cannot be reached through a string. Known quirk: `next(string)` is `nil` and
+`#math` is `0`; `pairs(string)` works.
+
+Open: `require` (sharing helpers between files) and mdot's replacement for `print`.
 
 = Lua API <lua-api>
 
