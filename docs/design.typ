@@ -194,7 +194,11 @@ same rules as specs. Writing to a library table is an error naming the file, the
 `string` table cannot be reached through a string. Known quirk: `next(string)` is `nil` and
 `#math` is `0`; `pairs(string)` works.
 
-Open: `require` (sharing helpers between files) and mdot's replacement for `print`.
+*No `require`* (ADR 0049). Files cannot share helper modules; a helper lives in the file that uses
+it, and `mdot.vars` holds only data (a function in base vars is an error). Revisit when the same helper
+is copied into a second file, or `config.lua` becomes painful as one file.
+
+Open: mdot's replacement for `print`.
 
 = Lua API <lua-api>
 

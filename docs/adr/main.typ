@@ -18,19 +18,16 @@ directory and is collected here.
   columns: (auto, 1fr, auto),
   [ADR], [Title], [Status],
   link(<adr-0001>)[0001], [Fresh design instead of a comtrya port], [Accepted],
-  link(<adr-0002>)[0002], [Stack: C++20, CMake, vcpkg, sol2, tl::expected, Catch2],
-  [Superseded by 0036 (vcpkg earlier by 0025)],
+  link(<adr-0002>)[0002], [Stack: C++20, CMake, vcpkg, sol2, tl::expected, Catch2], [Superseded by 0036 (vcpkg earlier by 0025)],
   link(<adr-0003>)[0003], [Plain-Lua, lazy.nvim-style spec DSL], [Accepted],
   link(<adr-0004>)[0004], [Auto-merged `specs/` folder with mirror roots], [Superseded by 0014],
   link(<adr-0005>)[0005], [One spec owns at most one package], [Accepted (`pkg` default amended by 0014)],
   link(<adr-0006>)[0006], [Per-host variation via `enabled(<lua expr>)`], [Superseded by 0019],
   link(<adr-0007>)[0007], [System-scope files are root-owned copies, not symlinks], [Proposed],
-  link(<adr-0008>)[0008], [Tree-sitter structural editing instead of templating],
-  [Accepted (strictness rules Proposed; "instead of templating" amended by 0037)],
+  link(<adr-0008>)[0008], [Tree-sitter structural editing instead of templating], [Accepted (strictness rules Proposed; "instead of templating" amended by 0037)],
   link(<adr-0009>)[0009], [Resource model with a 3-way diff], [Accepted (link/git split in 0031)],
   link(<adr-0010>)[0010], [Git-based generations and rollback], [Accepted],
-  link(<adr-0011>)[0011], [Configurable removal policy, recorded at apply time],
-  [Accepted (recording Proposed)],
+  link(<adr-0011>)[0011], [Configurable removal policy, recorded at apply time], [Accepted (recording Proposed)],
   link(<adr-0012>)[0012], [Core config manager first; packages and extras later], [Accepted],
   link(<adr-0013>)[0013], [Spec loading is pure and sandboxed], [Accepted],
   link(<adr-0014>)[0014], [One directory per spec, implicit or explicit], [Accepted (applies-everything rule superseded by 0019)],
@@ -68,6 +65,7 @@ directory and is collected here.
   link(<adr-0046>)[0046], [No `mdot.g`; unknown `mdot` members are errors], [Accepted],
   link(<adr-0047>)[0047], [Command-line flags have no matching `mdot.opt` options; a flag wins], [Accepted],
   link(<adr-0048>)[0048], [Every file gets a fresh environment; shared library tables are read-only], [Accepted],
+  link(<adr-0049>)[0049], [No `require` for now; `mdot.vars` holds only data], [Accepted],
 )
 
 #include "0001-fresh-design-not-comtrya-port.typ"
@@ -118,3 +116,4 @@ directory and is collected here.
 #include "0046-no-mdot-g.typ"
 #include "0047-flags-are-cli-only.typ"
 #include "0048-file-isolation.typ"
+#include "0049-no-require-for-now.typ"
