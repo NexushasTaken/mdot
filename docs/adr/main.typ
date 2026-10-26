@@ -51,7 +51,7 @@ directory and is collected here.
   link(<adr-0032>)[0032], [The 3-way diff for downloads], [Accepted],
   link(<adr-0033>)[0033], [Link updates and deletes change the disk first, then state], [Accepted],
   link(<adr-0034>)[0034], [The planner matches desired and recorded resources by ID], [Accepted (ID parts in 0054, 0055, 0056)],
-  link(<adr-0035>)[0035], [A generic planner: classify each ID, then the kind decides], [Accepted (apply order amended by 0054; `both` and `match` refined by 0057)],
+  link(<adr-0035>)[0035], [A generic planner: classify each ID, then the kind decides], [Accepted (apply order amended by 0054; `both` and `match` refined by 0057, fallback by 0058)],
   link(<adr-0036>)[0036], [The implementation language is Rust], [Accepted],
   link(<adr-0037>)[0037], [Several templating engines; Yolk-style markers first, with a git clean filter], [Accepted],
   link(<adr-0038>)[0038], [A global `mdot` table; `config.lua` defines `mdot.vars`, hosts only override], [Accepted],
@@ -74,6 +74,7 @@ directory and is collected here.
   link(<adr-0055>)[0055], [The spec is not part of the resource ID; the record stores its owner], [Accepted],
   link(<adr-0056>)[0056], [IDs use the expanded, absolute, lexically normal path], [Accepted],
   link(<adr-0057>)[0057], [Classify compares each pair on its own; live vs desired is optional], [Accepted],
+  link(<adr-0058>)[0058], [Every kind's `decide` handles every case; no fallback], [Accepted],
 )
 
 #include "0001-fresh-design-not-comtrya-port.typ"
@@ -133,3 +134,4 @@ directory and is collected here.
 #include "0055-spec-is-not-part-of-the-id.typ"
 #include "0056-ids-use-the-expanded-lexical-path.typ"
 #include "0057-three-comparisons-optional-live-desired.typ"
+#include "0058-every-kind-decides-every-case.typ"

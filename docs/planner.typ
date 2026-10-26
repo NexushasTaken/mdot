@@ -7,7 +7,7 @@
 
 This page describes the algorithm behind `plan`: how desired, recorded and live become a list of
 steps, for any resource kind. The decisions are ADR 0034 (match by ID), ADR 0035 (classify, then
-the kind decides), ADR 0057 (one comparison per pair) and ADR 0054 (the kind is part of the ID; apply order). Each kind's own table is in `design.typ` (`<three-way>`) and its ADR.
+the kind decides), ADR 0057 (one comparison per pair), ADR 0058 (every kind decides every case) and ADR 0054 (the kind is part of the ID; apply order). Each kind's own table is in `design.typ` (`<three-way>`) and its ADR.
 
 The code below is *pseudocode* in Lua syntax. It is generic: it knows nothing about links, paths or
 state files. Translating it to Rust is the implementation work.
@@ -75,7 +75,7 @@ kind.observe(key)    -> value | nil  -- look at the real world; nil = absent
 kind.match_dr(d, r)  -> bool         -- desired vs recorded: does the spec still ask for what was recorded?
 kind.match_lr(l, r)  -> bool         -- live vs recorded: is disk still what mdot left there?
 kind.match_ld(l, d)  -> bool         -- live vs desired; OPTIONAL (nil if the kind can't compare them)
-kind.decide(case)    -> action       -- this kind's table (default: generic_decide)
+kind.decide(case)    -> action       -- this kind's full table, every case (ADR 0058)
 kind.update_detail(step) -> detail   -- optional: which kind of update to show and run (see below)
 ```
 
@@ -287,8 +287,9 @@ IDs that come out of the join. A file that no spec and no record mentions is nev
 
 = The default table
 
-This is the generic table from `design.typ`. It reads the case, top to bottom, in the three groups
-above:
+This is the generic table from `design.typ`. It is *not a fallback* (ADR 0058): no kind inherits
+rows from it. It is the starting pattern for a new kind's table: copy it, then change the rows that
+differ. It reads the case, top to bottom, in the three groups above:
 
 - *New* (`desired == "new"`): create it if nothing is there. Adopt it if someone already made
   exactly what the spec wants. Otherwise something else is in the way: conflict, since mdot never
@@ -319,22 +320,42 @@ end
 
 = A kind with its own rows
 
-A kind overrides only the rows that differ and falls back to the default for the rest. For a kind
-that follows the link rules (ADR 0030):
+Every kind writes its whole table (ADR 0058). There is no fallback, so a row nobody wrote cannot
+silently become `update` or `delete`. In Rust it is a `match` on the two enums with no `_` arm: a
+forgotten case is a compile error. Each impossible combination (the 7 cells outside "The 13
+cases") gets `unreachable()`. Reaching one is a bug in `classify` or in a kind's comparisons, and it
+panics, which is safe because planning has changed nothing yet.
+
+The table for links (ADR 0030), also used by downloads (ADR 0057):
 
 ```lua
 function links_like_decide(c)
-  if c.desired ~= "new" and c.live == "absent" then
-    return c.desired == "removed" and "forget" or "recreate"
+  if c.desired == "new" then
+    if c.live == "absent"   then return "create"   end
+    if c.live == "desired"  then return "adopt"    end
+    if c.live == "other"    then return "conflict" end
+    if c.live == "recorded" or c.live == "both" then unreachable() end
+  elseif c.desired == "removed" then
+    if c.live == "absent"   then return "forget"   end
+    if c.live == "recorded" then return "delete"   end
+    if c.live == "other"    then return "conflict" end
+    if c.live == "desired" or c.live == "both" then unreachable() end
+  elseif c.desired == "match" then
+    if c.live == "absent"   then return "recreate" end
+    if c.live == "both"     then return "noop"     end
+    if c.live == "other"    then return "conflict_drift" end
+    if c.live == "desired" or c.live == "recorded" then unreachable() end
+  elseif c.desired == "differ" then
+    if c.live == "absent"   then return "recreate" end
+    if c.live == "desired"  then return "adopt"    end
+    if c.live == "recorded" then return "update"   end
+    if c.live == "other"    then return "conflict_drift" end
+    if c.live == "both"     then unreachable() end
   end
-  if c.desired == "differ" and c.live == "desired" then
-    return "adopt"
-  end
-  return generic_decide(c)
 end
 ```
 
-The three rows links change:
+The rows where links differ from the generic table:
 
 - *Recorded, live absent, still desired: `recreate`.* The user deleted the link by hand. Nothing at
   the path can be lost, so mdot makes it again.
@@ -394,11 +415,11 @@ From ADR 0035:
 
 - A separate library, or a module inside mdot with no mdot includes.
 - Rust shape: a trait or an enum (ADR 0036 replaces ADR 0035's C++ wording).
-- Whether cases a kind's table does not list default to conflict.
 - How the differently shaped values (an observation, a state record, a clause) are typed in Rust.
   ADR 0057 fixes only that there is one comparison per pair and that `match_ld` is optional.
 
 From ADR 0054:
 
 - How the `on_remove` policy (ADR 0011) reaches `decide`, so a removed resource under `keep` becomes
-  `forget` instead of `delete`.
+  `forget` instead of `delete`. A package's `installed_by_mdot` (ADR 0028) has the same problem
+  (ADR 0058).
