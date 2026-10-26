@@ -6,8 +6,8 @@
 )
 
 This page describes the algorithm behind `plan`: how desired, recorded and live become a list of
-steps, for any resource kind. The decisions are ADR 0034 (match by ID) and ADR 0035 (classify, then
-the kind decides). Each kind's own table is in `design.typ` (`<three-way>`) and its ADR.
+steps, for any resource kind. The decisions are ADR 0034 (match by ID), ADR 0035 (classify, then
+the kind decides) and ADR 0054 (the kind is part of the ID; apply order). Each kind's own table is in `design.typ` (`<three-way>`) and its ADR.
 
 The code below is *pseudocode* in Lua syntax. It is generic: it knows nothing about links, paths or
 state files. Translating it to Rust is the implementation work.
@@ -21,7 +21,7 @@ Each of the three sides is either *absent* or *a value*:
 - *live:* what is on disk now.
 
 *Running example: one link.* A clause `link("nvim", "~/.config/nvim")` is one resource. Its ID is
-the `dst`, `~/.config/nvim`. For that ID:
+the kind plus the `dst`, `link:~/.config/nvim` (ADR 0054). For that ID:
 
 #table(
   columns: (auto, 1fr, 1fr),
@@ -68,7 +68,9 @@ check.
 = What a kind supplies
 
 ```lua
+kind.name            -> string       -- "link", "download", ...; the prefix of every ID
 kind.id(item)        -> key          -- what makes two items "the same thing"
+kind.slot(item)      -> slot         -- the place it occupies: "<world>:<output>" (ADR 0054)
 kind.observe(key)    -> value | nil  -- look at the real world; nil = absent
 kind.match(a, b)     -> bool         -- a and b both present; does a "count as" b?
 kind.decide(case)    -> action       -- this kind's table (default: generic_decide)
@@ -76,8 +78,9 @@ kind.decide(case)    -> action       -- this kind's table (default: generic_deci
 
 For links:
 
-- `id`: the clause's `dst`. Two clauses with the same `dst` are the same resource. Which form of the
-  path is used (as written, expanded, normalized) is open (ADR 0034).
+- `id`: `link:` and the clause's `dst` (ADR 0054). Two link clauses with the same `dst` are the same
+  resource. Which form of the path is used (as written, expanded, normalized) is open (ADR 0034).
+- `slot`: `fs:` and the `dst`. A download at the same `dst` has the same slot.
 - `observe`: looks at `dst` on disk. It returns `nil` if nothing is there, the `readlink` string if
   it is a link, and something that matches nothing if it is a regular file or a directory.
 - `match`: the `src` strings are equal (`link-rules.typ`).
@@ -155,33 +158,91 @@ kind.
 
 = Plan: match by ID, then classify each ID
 
-```lua
-function plan(kind, desired_items, recorded_items)
-  local D = index_by(kind.id, desired_items)   -- error on a duplicate ID: one owner per ID
-  local R = index_by(kind.id, recorded_items)
+The kind is part of the ID (ADR 0054), so `link:~/.foo` and `download:~/.foo` are two IDs. Desired
+and recorded are matched per kind, and the steps of all kinds go into one plan.
 
-  local steps = {}
-  for _, key in ipairs(sorted(union(keys(D), keys(R)))) do  -- sorted: stable output
-    local d, r = D[key], R[key]
-    local l    = kind.observe(key)                         -- only known IDs are observed
-    local c    = classify(d, r, l, kind.match)
-    steps[#steps+1] = { key = key, action = kind.decide(c),
-                        desired = d, recorded = r, live = l }
+```lua
+function plan(kinds, desired_items, recorded_items)  -- items grouped by kind name
+  -- 1. Match desired and recorded by ID, kind by kind.
+  local entries = {}
+  for _, kind in ipairs(kinds) do
+    local D = index_by(kind.id, desired_items[kind.name])  -- error on a duplicate ID: one owner per ID
+    local R = index_by(kind.id, recorded_items[kind.name])
+    for _, key in ipairs(union(keys(D), keys(R))) do
+      entries[#entries+1] = { kind = kind, key = key, d = D[key], r = R[key] }
+    end
   end
-  return steps          -- data only: nothing changed. apply() runs the steps later.
+
+  -- 2. IDs with a record first, so we know which slots a delete frees.
+  local steps, freed = {}, {}
+  for _, e in ipairs(entries) do
+    if e.r then
+      local s = make_step(e, e.kind.observe(e.key))
+      if s.action == "delete" then freed[e.kind.slot(e.r)] = true end
+      steps[#steps+1] = s
+    end
+  end
+
+  -- 3. Then the new IDs. A slot freed by a delete in this plan counts as absent (ADR 0054).
+  --    (Rule 2: needed once a second kind writes files; with links only, freed never matches.)
+  for _, e in ipairs(entries) do
+    if not e.r then
+      local l
+      if freed[e.kind.slot(e.d)] then l = nil else l = e.kind.observe(e.key) end
+      steps[#steps+1] = make_step(e, l)
+    end
+  end
+
+  -- 4. Order for apply: phase first, then ID (stable output).
+  table.sort(steps, function(a, b)
+    if phase(a.action) ~= phase(b.action) then return phase(a.action) < phase(b.action) end
+    return a.key < b.key
+  end)
+  return steps          -- data only: nothing changed. apply() runs the steps in this order.
+end
+
+function make_step(e, l)
+  local c = classify(e.d, e.r, l, e.kind.match)
+  return { key = e.key, action = e.kind.decide(c), desired = e.d, recorded = e.r, live = l }
+end
+
+function phase(action)  -- ADR 0054: free slots first, fill them last
+  if action == "delete" or action == "forget"   then return 1 end
+  if action == "create" or action == "recreate" then return 3 end
+  return 2              -- update, adopt, noop, conflicts
 end
 ```
 
 Step by step:
 
-+ `index_by` builds a table from ID to item: `D` for desired (all clauses from all specs), `R` for
-  recorded (all entries in state). Two desired items with the same ID are an error, because two
-  clauses cannot own the same resource.
-+ `union(keys(D), keys(R))` is every ID that appears on either side, each once.
-+ For each ID, `D[key]` and `R[key]` are the two items. One of them is `nil` when the ID is on only
-  one side. That is where `classify`'s `nil`s come from.
-+ `observe` looks at the disk for that ID, and `classify` and `decide` turn the three into an action.
++ `index_by` builds a table from ID to item, per kind: `D` for desired (all clauses from all specs),
+  `R` for recorded (all entries in state). Two desired items with the same ID are an error, because
+  two clauses cannot own the same resource.
++ `union(keys(D), keys(R))` is every ID of that kind that appears on either side, each once. Each
+  becomes an entry. One of `d` and `r` is `nil` when the ID is on only one side. That is where
+  `classify`'s `nil`s come from.
++ Entries with a record (kept or removed) are classified and decided first. Each one whose action is
+  `delete` adds its slot to `freed`.
++ Then the new entries (desired only). Their live is observed, unless a delete in this plan frees
+  their slot: then live is `nil`, because the delete runs first (step 4).
++ The steps are sorted: deletes and forgets, then updates and the rest, then creates; by ID within
+  each phase. Same input, same plan.
 + The step keeps the values too, so `apply` and the plan output know what to do and what to show.
+
+*Why the order of steps 2 and 3 matters.* A spec turns `~/.foo` from a link into a download. Without
+step 2 first, the download would observe the old link still on disk, which ADR 0032 calls a
+conflict. With it, the link's `delete` frees `fs:~/.foo`, the download sees it as absent and is a
+`create`, and apply deletes before it creates. If the old link's step is `forget` instead (for
+example under `on_remove.files = "keep"`), the slot is not freed and the download is a conflict
+(ADR 0054). How the `on_remove` policy reaches `decide` is not shown here; it is open.
+
+*Two clauses of different kinds with the same slot* (situation A in ADR 0054) never reach `plan`:
+the same-slot check (ADR 0021's same-`dst` check, for files) compares slots across kinds and fails
+the plan first. Two items of the *same* kind and output have the same ID, so `index_by` catches them.
+
+*ID and slot.* The ID says _what_ a resource is (`link:~/.foo`); matching uses it. The slot says
+_where_ it is (`fs:~/.foo`); conflicts and freed places use it. `plan` only compares slots for
+equality. It does not know what `fs` or `pacman` means, so it stays generic.
 
 Matching by ID gives three groups (ADR 0034):
 
@@ -196,7 +257,7 @@ Matching by ID gives three groups (ADR 0034):
 Live is not part of the match. mdot cannot list the whole filesystem, so live is observed only for
 IDs that come out of the join. A file that no spec and no record mentions is never looked at.
 
-`index_by`, `union`, `keys` and `sorted` are not shown. They are ordinary table helpers.
+`index_by`, `union` and `keys` are not shown. They are ordinary table helpers.
 
 = The default table
 
@@ -275,3 +336,8 @@ From ADR 0035:
 - Whether `"match"` / `"differ"` is enough: downloads tell "only `mode` differs" apart from "`R ≠ D`".
 - `match` compares different shapes (an observation, a state record, a clause). For downloads, live
   can only be compared with the record.
+
+From ADR 0054:
+
+- How the `on_remove` policy (ADR 0011) reaches `decide`, so a removed resource under `keep` becomes
+  `forget` instead of `delete`.

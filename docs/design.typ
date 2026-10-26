@@ -625,17 +625,21 @@ Specs compile into a flat list of *resources*:
 #table(
   columns: 4,
   [Kind], [Identity], [Desired], [Observed (live)],
-  [`Link`], [target path], [link → repo source], [`lstat` + `readlink`],
-  [`Render`], [target path], [output hash + bytes], [file hash],
-  [`Patch`], [target path + query], [the edits],
+  [`Link`], [kind + target path], [link → repo source], [`lstat` + `readlink`],
+  [`Render`], [kind + target path], [output hash + bytes], [file hash],
+  [`Patch`], [kind + target path + query], [the edits],
   [does the query on the live file already yield the desired values?],
-  [`Download`], [target path], [content key: hash, or `url` when `verify = false`],
+  [`Download`], [kind + target path], [content key: hash, or `url` when `verify = false`],
   [`stat` compared with the recorded `size`/`mtime_ns`/`inode` (no hashing)],
-  [`SysFile`], [target path], [bytes hash, owner, mode], [hash, owner, mode],
-  [`Package` _(phase 5)_], [package name], [installed, reason explicit/dep], [provider query],
+  [`SysFile`], [kind + target path], [bytes hash, owner, mode], [hash, owner, mode],
+  [`Package` _(phase 5)_], [kind + package name], [installed, reason explicit/dep], [provider query],
 )
 
 Each resource implements `desired()`, `observe()` and `recorded()`.
+
+An ID is a string `<kind>:<output>`, one per output of a clause; a package's ID has no version
+(ADR 0054). Every resource also occupies a *slot*, `<world>:<output>` (`fs:~/.foo`,
+`pacman:hyprland`): the place it takes. Two clauses with the same slot are a conflict (ADR 0021).
 
 *Every kind has its own table* (ADR 0009) in desired × recorded × live form. Before a kind gets one,
 it defines its identity, what live observes (and how expensive that is), what "matches" means, and

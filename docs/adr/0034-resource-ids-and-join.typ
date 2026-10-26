@@ -42,8 +42,7 @@ Accepted additions (2026-10-24, with ADR 0035):
 - State must keep enough per record to act on it without a spec.
 
 = Open
-- *Is the kind part of the ID?* If a spec turns `~/.foo` from a link into a download, is that one ID
-  with a new kind, or two IDs (delete the link, create the download)? What does `plan` show?
+- *Is the kind part of the ID?* Closed by ADR 0054: yes.
 - *Is the spec part of the ID?* If `nvim/` is renamed to `neovim/` and still links the same `dst`,
   is that a delete + create, or nothing?
 - *Which form of the path is the ID:* as written in the spec (`~/...`), or expanded to an absolute
