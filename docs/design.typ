@@ -697,17 +697,19 @@ to be a git repository.
 == Output
 
 *Plan layout* (ADR 0051). `mdot plan` groups resources under each spec's name, in dependency order.
-Inside a spec, resources come in the order the spec declares them, then the spec's conflicts. A line
+Inside a spec, resources come in the order the spec declares them. A line
 is symbol, kind (padded so paths line up), `dst -> src`, and an optional detail in parentheses;
 `src` and `dst` are shown as written (`~` kept). Symbols: `+` create, `~` update, `-` delete, `=`
-no-op. Conflicts are ADR 0050 `conflict:` lines on stderr, not indented. One summary line ends the
-run, leaving out zero counts; with nothing to do it is `No changes.`
+no-op, `!` conflict (ADR 0052). A conflicting resource gets its `!` line at its own position,
+directly followed by its ADR 0050 `conflict:` line on stderr, not indented. One summary line ends
+the run, leaving out zero counts; with nothing to do it is `No changes.`
 
 ```
 waybar
   + link  ~/.config/waybar -> config
 foot
   + link  ~/.config/foot/colors.ini -> colors.ini
+  ! link  ~/.config/foot/foot.ini -> foot.ini
 conflict: ~/.config/foot/foot.ini: exists and is not managed
 hyprshot
   - link  ~/.config/hyprshot  (spec removed; on_remove.files=remove)
@@ -719,8 +721,28 @@ Plan: 2 to create, 1 to delete, 1 conflict.
 (default) shows changes and conflicts only; a spec's heading appears only when it has a line to
 show. Level 1 adds no-ops as `=` lines. Level 2 also shows what is desired, recorded and live for
 each resource. Higher levels act like 2. Errors and warnings show at every level. `-v 2` is level 1
-with a spec path `2`. Open: the form of the level-2 lines, colors for the symbols, the wording of
-details per kind, and `apply`'s output.
+with a spec path `2`. Open: the form of the level-2 lines, colors for the symbols, and the wording
+of details per kind.
+
+*Apply output* (ADR 0052). `apply` uses the same layout, order, headings and `-v` levels. Each step
+line is printed once, after its step finishes. A failed step gets `!` and its `error:` line right
+under it; the error says what was attempted (`could not create link: ...`). Steps after the failure
+are not attempted and not reported. The summary goes to stdout, past tense, without counting the
+failure: `Applied: 2 created, 1 updated, 1 deleted.`, `Applied: nothing.` when the first step
+failed, `No changes.` when there was nothing to do. "Run `apply` again" comes later as a `hint:`
+line. Open: what `apply` prints when it refuses because of conflicts, the confirmation prompt and
+`--yes`, progress for slow steps.
+
+```
+waybar
+  + link  ~/.config/waybar -> config
+foot
+  + link  ~/.config/foot/colors.ini -> colors.ini
+  ! link  ~/.config/foot/foot.ini -> foot.ini
+error: ~/.config/foot/foot.ini: could not create link: permission denied
+
+Applied: 2 created.
+```
 
 *Streams and markers* (ADR 0050). The plan and `mdot.print` go to stdout; errors, conflicts and
 warnings go to stderr. A diagnostic is `<word>: <message>` with the word `error`, `conflict` or
@@ -731,8 +753,8 @@ warnings go to stderr. A diagnostic is `<word>: <message>` with the word `error`
 `apply` refuses to run while any conflict exists. There is no `--force` for now (ADR 0016).
 
 *Executing a clean plan* (ADR 0029). `apply` creates each link first, then records it in state
-right away. It stops at the first failed write and exits with 3, naming the failed link, what was
-done and what was not attempted. Running `apply` again continues: links already made are no-ops,
+right away. It stops at the first failed write and exits with 3; the output is described under
+*Apply output* (ADR 0052). Running `apply` again continues: links already made are no-ops,
 and a link whose state write was lost is adopted. Directories mdot creates follow the same order;
 if mdot dies between `mkdir` and recording it, the empty directory is left behind on removal.
 There is no special Ctrl-C handling.
