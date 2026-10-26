@@ -1,6 +1,6 @@
 #import "../template.typ": adr
 
-#adr(number: 34, title: [The planner matches desired and recorded resources by ID], status: [Proposed], date: [2026-10-23])[
+#adr(number: 34, title: [The planner matches desired and recorded resources by ID], status: [Accepted (confirmed 2026-10-26)], date: [2026-10-23])[
 = Context
 ADR 0009 requires every kind to define its *identity*, and `design.typ` lists one per kind (target
 path; target path + query for `Patch`). `design.typ` says the planner compares desired × recorded ×
@@ -41,9 +41,8 @@ Accepted additions (2026-10-24, with ADR 0035):
 - Removing a spec or a clause is visible to the planner, through the recorded-only group.
 - State must keep enough per record to act on it without a spec.
 
-= Open
+= Open (all closed)
 - *Is the kind part of the ID?* Closed by ADR 0054: yes.
 - *Is the spec part of the ID?* Closed by ADR 0055: no.
-- *Which form of the path is the ID:* as written in the spec (`~/...`), or expanded to an absolute
-  path? This matters if state moves between machines or users with different home directories.
+- *Which form of the path is the ID?* Closed by ADR 0056: expanded, absolute, lexically normal.
 ]

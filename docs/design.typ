@@ -641,7 +641,8 @@ An ID is a string `<kind>:<output>`, one per output of a clause; a package's ID 
 (ADR 0054). Every resource also occupies a *slot*, `<world>:<output>` (`fs:~/.foo`,
 `pacman:hyprland`): the place it takes. Two clauses with the same slot are a conflict (ADR 0021).
 The spec is not part of the ID; each record stores its owning spec as a plain field that the planner
-never compares, so renaming a spec directory is an update (ADR 0055).
+never compares, so renaming a spec directory is an update (ADR 0055). Paths in IDs and slots are
+expanded, absolute and lexically normal (ADR 0056).
 
 *Every kind has its own table* (ADR 0009) in desired × recorded × live form. Before a kind gets one,
 it defines its identity, what live observes (and how expensive that is), what "matches" means, and

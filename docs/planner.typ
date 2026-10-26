@@ -79,7 +79,7 @@ kind.decide(case)    -> action       -- this kind's table (default: generic_deci
 For links:
 
 - `id`: `link:` and the clause's `dst` (ADR 0054). Two link clauses with the same `dst` are the same
-  resource. Which form of the path is used (as written, expanded, normalized) is open (ADR 0034).
+  resource. The path is expanded, absolute and lexically normal (ADR 0056).
 - `slot`: `fs:` and the `dst`. A download at the same `dst` has the same slot.
 - `observe`: looks at `dst` on disk. It returns `nil` if nothing is there, the `readlink` string if
   it is a link, and something that matches nothing if it is a regular file or a directory.
