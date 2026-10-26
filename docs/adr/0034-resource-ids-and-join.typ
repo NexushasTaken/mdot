@@ -43,8 +43,7 @@ Accepted additions (2026-10-24, with ADR 0035):
 
 = Open
 - *Is the kind part of the ID?* Closed by ADR 0054: yes.
-- *Is the spec part of the ID?* If `nvim/` is renamed to `neovim/` and still links the same `dst`,
-  is that a delete + create, or nothing?
+- *Is the spec part of the ID?* Closed by ADR 0055: no.
 - *Which form of the path is the ID:* as written in the spec (`~/...`), or expanded to an absolute
   path? This matters if state moves between machines or users with different home directories.
 ]

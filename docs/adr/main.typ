@@ -50,7 +50,7 @@ directory and is collected here.
   link(<adr-0031>)[0031], [mdot does not track linked content; `status` shows only mdot's resources], [Accepted],
   link(<adr-0032>)[0032], [The 3-way diff for downloads], [Accepted],
   link(<adr-0033>)[0033], [Link updates and deletes change the disk first, then state], [Accepted],
-  link(<adr-0034>)[0034], [The planner matches desired and recorded resources by ID], [Proposed (kind in the ID decided by 0054)],
+  link(<adr-0034>)[0034], [The planner matches desired and recorded resources by ID], [Proposed (kind in the ID decided by 0054, spec by 0055)],
   link(<adr-0035>)[0035], [A generic planner: classify each ID, then the kind decides], [Accepted (apply order amended by 0054)],
   link(<adr-0036>)[0036], [The implementation language is Rust], [Accepted],
   link(<adr-0037>)[0037], [Several templating engines; Yolk-style markers first, with a git clean filter], [Accepted],
@@ -71,6 +71,7 @@ directory and is collected here.
   link(<adr-0052>)[0052], [Output of `mdot apply`; step lines print when a step finishes], [Accepted (exit code 3 superseded by 0053)],
   link(<adr-0053>)[0053], [Exit codes: 0 success, 1 refused by a rule, 2 error], [Accepted],
   link(<adr-0054>)[0054], [The kind is part of the resource ID], [Accepted],
+  link(<adr-0055>)[0055], [The spec is not part of the resource ID; the record stores its owner], [Accepted],
 )
 
 #include "0001-fresh-design-not-comtrya-port.typ"
@@ -127,3 +128,4 @@ directory and is collected here.
 #include "0052-apply-output.typ"
 #include "0053-exit-codes.typ"
 #include "0054-kind-is-part-of-the-id.typ"
+#include "0055-spec-is-not-part-of-the-id.typ"
