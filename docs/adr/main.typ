@@ -15,7 +15,7 @@ directory and is collected here.
   not discussed on its own. Confirm or supersede before the relevant phase starts.
 
 #table(
-  columns: (auto, 1fr, auto),
+  columns: (auto, 3fr, 2fr),
   [ADR], [Title], [Status],
   link(<adr-0001>)[0001], [Fresh design instead of a comtrya port], [Accepted],
   link(<adr-0002>)[0002], [Stack: C++20, CMake, vcpkg, sol2, tl::expected, Catch2], [Superseded by 0036 (vcpkg earlier by 0025)],
