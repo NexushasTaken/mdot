@@ -7,7 +7,7 @@
 
 This page describes the algorithm behind `plan`: how desired, recorded and live become a list of
 steps, for any resource kind. The decisions are ADR 0034 (match by ID), ADR 0035 (classify, then
-the kind decides) and ADR 0054 (the kind is part of the ID; apply order). Each kind's own table is in `design.typ` (`<three-way>`) and its ADR.
+the kind decides), ADR 0057 (one comparison per pair) and ADR 0054 (the kind is part of the ID; apply order). Each kind's own table is in `design.typ` (`<three-way>`) and its ADR.
 
 The code below is *pseudocode* in Lua syntax. It is generic: it knows nothing about links, paths or
 state files. Translating it to Rust is the implementation work.
@@ -41,7 +41,7 @@ splits into a part that is the same for every kind and a part each kind supplies
   columns: (1fr, 1fr),
   [Generic],                                                [Per kind],
   [match desired and recorded by ID],                       [`id(item)`],
-  [observe live for each ID, then classify it into a case], [`observe(id)`, `match(a, b)`],
+  [observe live for each ID, then classify it into a case], [`observe(id)`, `match_dr`, `match_lr`, `match_ld`],
   [return the plan: a list of (ID, action)],                [`decide(case)`, its table],
   [],                                                       [running an action, which `apply` does later],
 )
@@ -72,9 +72,17 @@ kind.name            -> string       -- "link", "download", ...; the prefix of e
 kind.id(item)        -> key          -- what makes two items "the same thing"
 kind.slot(item)      -> slot         -- the place it occupies: "<world>:<output>" (ADR 0054)
 kind.observe(key)    -> value | nil  -- look at the real world; nil = absent
-kind.match(a, b)     -> bool         -- a and b both present; does a "count as" b?
+kind.match_dr(d, r)  -> bool         -- desired vs recorded: does the spec still ask for what was recorded?
+kind.match_lr(l, r)  -> bool         -- live vs recorded: is disk still what mdot left there?
+kind.match_ld(l, d)  -> bool         -- live vs desired; OPTIONAL (nil if the kind can't compare them)
 kind.decide(case)    -> action       -- this kind's table (default: generic_decide)
+kind.update_detail(step) -> detail   -- optional: which kind of update to show and run (see below)
 ```
+
+*One comparison per pair* (ADR 0057). Desired, recorded and live can have different shapes, so each
+pair has its own comparison. All three get both sides present; `classify` handles the `nil`s.
+`match_ld` is optional: a kind that cannot compare live with desired leaves it out, and `plan` then
+never adopts that kind (only the two adopt cases need it, see Classify).
 
 For links:
 
@@ -83,11 +91,22 @@ For links:
 - `slot`: `fs:` and the `dst`. A download at the same `dst` has the same slot.
 - `observe`: looks at `dst` on disk. It returns `nil` if nothing is there, the `readlink` string if
   it is a link, and something that matches nothing if it is a regular file or a directory.
-- `match`: the `src` strings are equal (`link-rules.typ`).
+- `match_dr`, `match_lr`, `match_ld`: all three are the same test, the `src` strings are equal
+  (`link-rules.typ`). All three sides have the same shape.
 - `decide`: ADR 0030's table.
 
-The planner never looks inside a value. It only passes values to `match` and asks "same or not?".
-That is what makes it generic.
+For downloads (ADR 0032, ADR 0057):
+
+- `match_dr`: the content keys are equal (`R == D`) and so is `mode`.
+- `match_lr`: the live stat equals the recorded one (`size`, `mtime_ns`, `inode`, permission bits).
+- `match_ld`: none. Desired has a hash or `url`, live only a stat, and `plan` never hashes.
+  Adopting is `mdot verify`'s job (ADR 0024).
+- `decide`: the same as links (`links_like_decide` below).
+- `update_detail`: `R != D` means download again; otherwise only `mode` changed, so `chmod` and
+  update the record.
+
+The planner never looks inside a value. It only passes values to the comparisons and asks "same or
+not?". That is what makes it generic.
 
 = Classify: three values in, one case out
 
@@ -114,7 +133,8 @@ Names used in the code:
   [`c.desired`], [how desired relates to recorded; always set. `"new"`: desired has this ID and
   recorded does not. `"removed"`: recorded has this ID and desired does not. `"match"`: desired still
   asks for what was recorded. `"differ"`: desired asks for something else now.],
-  [`ld`],      [live matches desired: "disk already is what the spec wants"],
+  [`ld`],      [live matches desired: "disk already is what the spec wants". `nil` when the kind has
+  no `match_ld`.],
   [`lr`],      [live matches recorded: "disk is still what mdot left there"],
   [`c.live`],  [which of them disk agrees with: `absent`, `desired`, `recorded`, `both` or `other`
   (neither: someone else put it there or changed it)],
@@ -123,15 +143,21 @@ Names used in the code:
 `nil` here is not "false". It means that side has no value for this ID. The `nil`s come from `plan`
 below: looking up an ID that is not in the desired or recorded table gives `nil`.
 
-In `d and match(l, d)`, the `and` short-circuits. If `d` is `nil` the result is `nil` and `match` is
-never called, because live cannot match a desired value that does not exist.
+In `d and kind.match_ld(l, d)`, the `and` short-circuits. If `d` is `nil` the result is `nil` and
+the comparison is never called, because live cannot match a desired value that does not exist.
+
+*`both` does not use `ld`* (ADR 0057). If live matches the record and the record matches desired,
+live and desired count as equal. For links this is the same as `ld and lr`, because equality is
+transitive. For downloads it is what makes "nothing to do" (stat matches, `R == D`) a `both`, and so
+a noop, instead of `recorded`, which would be an update. `ld` is only needed for `desired`, which
+only the adopt cases use.
 
 ```lua
-function classify(d, r, l, match)
+function classify(d, r, l, kind)
   local c = {}
 
   if d and r then
-    c.desired = match(d, r) and "match" or "differ"
+    c.desired = kind.match_dr(d, r) and "match" or "differ"
   elseif r == nil then
     c.desired = "new"
   elseif d == nil then
@@ -141,12 +167,12 @@ function classify(d, r, l, match)
   if l == nil then
     c.live = "absent"
   else
-    local ld = d and match(l, d)
-    local lr = r and match(l, r)
-    if     ld and lr then c.live = "both"       -- only possible when desired == "match"
-    elseif ld        then c.live = "desired"
-    elseif lr        then c.live = "recorded"
-    else                  c.live = "other"
+    local lr = r and kind.match_lr(l, r)                     -- every kind has it
+    local ld = d and kind.match_ld and kind.match_ld(l, d)   -- optional: nil = can't tell
+    if     lr and c.desired == "match" then c.live = "both"
+    elseif ld                          then c.live = "desired"
+    elseif lr                          then c.live = "recorded"
+    else                                    c.live = "other"
     end
   end
   return c
@@ -202,7 +228,7 @@ function plan(kinds, desired_items, recorded_items)  -- items grouped by kind na
 end
 
 function make_step(e, l)
-  local c = classify(e.d, e.r, l, e.kind.match)
+  local c = classify(e.d, e.r, l, e.kind)
   return { key = e.key, action = e.kind.decide(c), desired = e.d, recorded = e.r, live = l }
 end
 
@@ -317,8 +343,44 @@ The three rows links change:
 - *The spec changed and disk already matches the new `src`: `adopt`.* Someone already did the
   update by hand. Only the record changes.
 
-Checked by running it: with plain equality as `match`, this gives ADR 0030's result for all 13
-cases.
+Checked by running it: with plain equality as all three comparisons, this gives ADR 0030's result
+for all 13 cases.
+
+= Downloads use the same table
+
+With the download comparisons above (no `match_ld`), `links_like_decide` gives ADR 0032's result
+for every row (checked by running it, ADR 0057):
+
+#table(
+  columns: (auto, auto, 1fr),
+  [case],                          [action],          [ADR 0032 row],
+  [new / absent],                  [create],          [create],
+  [new / other],                   [conflict],        [present, no record: "unknown, run `mdot verify`"],
+  [match / both],                  [noop],            [stat matches, `R == D`, same `mode`],
+  [differ / recorded],             [update],          [`chmod` only, or download again (`update_detail`)],
+  [match or differ / other],       [conflict_drift],  [stat differs: "changed, run `mdot verify`"],
+  [match or differ / absent],      [recreate],        [absent: re-create, shown in the plan],
+  [removed / recorded],            [delete],          [stat matches: delete (per `on_remove`)],
+  [removed / other],               [conflict],        [stat differs: conflict],
+  [removed / absent],              [forget],          [absent: forget],
+)
+
+New / desired and differ / desired (the two adopt cases) are never reached, because downloads have
+no `match_ld`. Those are the cases only a hash could answer, and `mdot verify` answers them.
+
+*"Same / differ" is enough* (ADR 0057). The `chmod` and download-again rows are both an update, so
+`decide` does not tell them apart. The step keeps `desired` and `recorded`, and the kind's
+`update_detail` picks from them, for the plan output and for `apply`:
+
+```lua
+function download.update_detail(step)
+  if step.desired.key ~= step.recorded.key then
+    return "download again"                  -- content changed (R ≠ D)
+  else
+    return "chmod " .. step.desired.mode     -- only the mode changed
+  end
+end
+```
 
 = Testing
 
@@ -333,9 +395,8 @@ From ADR 0035:
 - A separate library, or a module inside mdot with no mdot includes.
 - Rust shape: a trait or an enum (ADR 0036 replaces ADR 0035's C++ wording).
 - Whether cases a kind's table does not list default to conflict.
-- Whether `"match"` / `"differ"` is enough: downloads tell "only `mode` differs" apart from "`R ≠ D`".
-- `match` compares different shapes (an observation, a state record, a clause). For downloads, live
-  can only be compared with the record.
+- How the differently shaped values (an observation, a state record, a clause) are typed in Rust.
+  ADR 0057 fixes only that there is one comparison per pair and that `match_ld` is optional.
 
 From ADR 0054:
 
