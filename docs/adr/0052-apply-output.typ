@@ -1,6 +1,6 @@
 #import "../template.typ": adr
 
-#adr(number: 52, title: [Output of `mdot apply`; step lines print when a step finishes], status: [Accepted], date: [2026-10-26])[
+#adr(number: 52, title: [Output of `mdot apply`; step lines print when a step finishes], status: [Accepted (exit code 3 superseded by 0053)], date: [2026-10-26])[
 = Context
 ADR 0051 designed the layout of `mdot plan` and left the output of `mdot apply` open. Plan lines go
 to stdout and diagnostics (`error:`, `conflict:`, `warning:`) to stderr (ADR 0050). `apply` stops

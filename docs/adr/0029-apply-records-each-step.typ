@@ -1,6 +1,6 @@
 #import "../template.typ": adr
 
-#adr(number: 29, title: [`apply` records state after each step and stops at the first failure], status: [Accepted], date: [2026-10-23])[
+#adr(number: 29, title: [`apply` records state after each step and stops at the first failure], status: [Accepted (exit code 3 superseded by 0053)], date: [2026-10-23])[
 = Context
 `apply` re-plans and writes nothing if the plan has any error or conflict (ADR 0016, ADR 0021). A
 write can still fail after a clean plan, for example a permission error on link 3 of 5, and mdot

@@ -45,7 +45,7 @@ directory and is collected here.
   link(<adr-0026>)[0026], [`file.copy` and `net.download` share one regular-file mechanism], [Accepted],
   link(<adr-0027>)[0027], [`requires` declares raw packages; `depends` names specs only], [Accepted (parts Proposed)],
   link(<adr-0028>)[0028], [Only packages mdot installed are removable; the record is mdot's own], [Proposed],
-  link(<adr-0029>)[0029], [`apply` records state after each step and stops at the first failure], [Accepted ("not attempted" in the message superseded by 0052)],
+  link(<adr-0029>)[0029], [`apply` records state after each step and stops at the first failure], [Accepted ("not attempted" in the message superseded by 0052, exit code 3 by 0053)],
   link(<adr-0030>)[0030], [The 3-way diff for links], [Accepted],
   link(<adr-0031>)[0031], [mdot does not track linked content; `status` shows only mdot's resources], [Accepted],
   link(<adr-0032>)[0032], [The 3-way diff for downloads], [Accepted],
@@ -68,7 +68,8 @@ directory and is collected here.
   link(<adr-0049>)[0049], [No `require` for now; `mdot.vars` holds only data], [Accepted],
   link(<adr-0050>)[0050], [Output streams and diagnostic markers], [Accepted],
   link(<adr-0051>)[0051], [Layout of `mdot plan` and the `--verbose` levels], [Accepted (conflict position superseded by 0052)],
-  link(<adr-0052>)[0052], [Output of `mdot apply`; step lines print when a step finishes], [Accepted],
+  link(<adr-0052>)[0052], [Output of `mdot apply`; step lines print when a step finishes], [Accepted (exit code 3 superseded by 0053)],
+  link(<adr-0053>)[0053], [Exit codes: 0 success, 1 refused by a rule, 2 error], [Accepted],
 )
 
 #include "0001-fresh-design-not-comtrya-port.typ"
@@ -123,3 +124,4 @@ directory and is collected here.
 #include "0050-output-streams-and-markers.typ"
 #include "0051-plan-layout.typ"
 #include "0052-apply-output.typ"
+#include "0053-exit-codes.typ"

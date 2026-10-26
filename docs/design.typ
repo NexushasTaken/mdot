@@ -750,10 +750,15 @@ warnings go to stderr. A diagnostic is `<word>: <message>` with the word `error`
 `error:` and `conflict:` are red, `warning:` yellow, only when that stream is a terminal and
 `NO_COLOR` is unset or empty. Follow-up `hint:` / `note:` lines come later, near the end.
 
+*Exit codes* (ADR 0053). 0 is success, including a plan with pending changes and a run with only
+warnings. 1 means mdot refused because of a rule: a conflict, or a spec that breaks a rule. 2 is an
+error: a usage error (clap's own code), an unreadable file, a Lua error while loading, or a failed
+write during `apply`. When both 1 and 2 apply, the code is 2.
+
 `apply` refuses to run while any conflict exists. There is no `--force` for now (ADR 0016).
 
 *Executing a clean plan* (ADR 0029). `apply` creates each link first, then records it in state
-right away. It stops at the first failed write and exits with 3; the output is described under
+right away. It stops at the first failed write and exits with 2 (ADR 0053); the output is described under
 *Apply output* (ADR 0052). Running `apply` again continues: links already made are no-ops,
 and a link whose state write was lost is adopted. Directories mdot creates follow the same order;
 if mdot dies between `mkdir` and recording it, the empty directory is left behind on removal.
