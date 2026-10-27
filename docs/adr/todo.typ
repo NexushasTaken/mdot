@@ -22,7 +22,9 @@ designing the state record, check that a download record (ADR 0032) fits the sam
 - [x] *Locking* (ADR 0063). OS file lock on `$XDG_STATE_HOME/mdot/lock`: shared for `plan` /
   `status`, exclusive for `apply`; a run that can't lock errors with exit 1. Still open there: the
   lock path on macOS and Windows (with ADR 0062's state directory).
-- [ ] *`mdot status` output.* Not designed; Phase 1 acceptance test step 5 depends on it.
+- [x] *`mdot status` output* (ADR 0064). Dropped: no `status` command; `plan` reports drift, and
+  acceptance test step 5 now checks `plan`. Still open there: whether a drift-only command returns
+  in a later phase.
 - [ ] *`mdot specs` output.* Not designed (minor).
 - [ ] *`apply` confirmation* (ADR 0052, Open). The prompt, `--yes` (already in the CLI table), and
   what `apply` prints when it refuses because of conflicts.
@@ -43,6 +45,8 @@ designing the state record, check that a download record (ADR 0032) fits the sam
   (never defined).
 - [ ] ADR 0020's rule "a `$` anywhere in `dst` is a load error" is missing from `file.link()`.
 - [ ] `plan --diff` is in the CLI table but never defined.
+- [ ] *Purity vs the lock file:* `research.typ` says `mdot plan` never modifies the filesystem,
+  but ADR 0063 has `plan` create the state directory and the lock file if they are missing.
 - [ ] `-q` and `--color` have no ADR (ADR 0050 decides color from the terminal and `NO_COLOR`):
   decide, or drop them from Phase 1.
 

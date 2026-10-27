@@ -47,7 +47,7 @@ directory and is collected here.
   link(<adr-0028>)[0028], [Only packages mdot installed are removable; the record is mdot's own], [Proposed],
   link(<adr-0029>)[0029], [`apply` records state after each step and stops at the first failure], [Accepted ("not attempted" in the message superseded by 0052, exit code 3 by 0053)],
   link(<adr-0030>)[0030], [The 3-way diff for links], [Accepted],
-  link(<adr-0031>)[0031], [mdot does not track linked content; `status` shows only mdot's resources], [Accepted],
+  link(<adr-0031>)[0031], [mdot does not track linked content; `status` shows only mdot's resources], [Accepted (`status` removed by 0064)],
   link(<adr-0032>)[0032], [The 3-way diff for downloads], [Accepted],
   link(<adr-0033>)[0033], [Link updates and deletes change the disk first, then state], [Accepted],
   link(<adr-0034>)[0034], [The planner matches desired and recorded resources by ID], [Accepted (ID parts in 0054, 0055, 0056)],
@@ -79,7 +79,8 @@ directory and is collected here.
   link(<adr-0060>)[0060], [`state.json` is a versioned flat resource list with top-level `created_dirs`], [Accepted (its `on_remove` open item closed by 0061; `repo` field and repo-id item by 0062)],
   link(<adr-0061>)[0061], [No removal policy; removed resources follow their kind's table], [Accepted],
   link(<adr-0062>)[0062], [One state directory; the stored repo path is checked on every run], [Accepted (locking open item closed by 0063)],
-  link(<adr-0063>)[0063], [An OS file lock on the state directory: shared for readers, exclusive for `apply`], [Accepted],
+  link(<adr-0063>)[0063], [An OS file lock on the state directory: shared for readers, exclusive for `apply`], [Accepted (`status` removed by 0064)],
+  link(<adr-0064>)[0064], [No `mdot status` command; `plan` reports drift], [Accepted],
 )
 
 #include "0001-fresh-design-not-comtrya-port.typ"
@@ -145,3 +146,4 @@ directory and is collected here.
 #include "0061-no-removal-policy.typ"
 #include "0062-single-state-dir-and-repo-check.typ"
 #include "0063-state-lock.typ"
+#include "0064-no-status-command.typ"

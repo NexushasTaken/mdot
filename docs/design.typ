@@ -124,7 +124,7 @@ return spec { depends("hypr", "waybar", "dunst", "uwsm") }
   cycle. A spec reached more than once is applied once.
 - A host file has no directory, so it only holds selection (`depends`) and overrides of
   `mdot.vars` (ADR 0038, 0042). A `file.link` in a host file is an error.
-- `--host <name>` makes `plan` and `status` load `hosts/<name>.lua` instead, as a dry run. `apply`
+- `--host <name>` makes `plan` load `hosts/<name>.lua` instead, as a dry run. `apply`
   with a `--host` that differs from the real hostname is an error. A missing host file is an error
   that lists the files in `hosts/`.
 
@@ -441,7 +441,7 @@ net.download { url = "...", dst = "...", verify = false }
 Both are known without the network, which is why `plan` can stay offline. Updating a verified download
 means changing both `url` and the hash.
 
-*Where hashing happens.* Only in `apply` and in `mdot verify`. `plan` and `status` never read file
+*Where hashing happens.* Only in `apply` and in `mdot verify`. `plan` never reads file
 contents, because the file can be gigabytes and the machine slow.
 
 - `apply` writes the download to a temporary file next to `dst` and hashes the bytes as they arrive
@@ -609,7 +609,8 @@ error: hypr: cannot link ~/.config/hypr
 ```
 
 If state says mdot created that resource, the report adds that it *drifted*. It is still a
-conflict: mdot reports it and you fix it. `status` uses the same wording.
+conflict: mdot reports it and you fix it. There is no `status` command; `plan` is how drift is seen
+(ADR 0064).
 
 === Common pattern
 
@@ -656,8 +657,8 @@ link that points elsewhere is still a conflict.
 
 *How diff works for symlinks* (ADR 0031). For a `Link`, mdot owns only _the link itself_: whether
 it exists and where it points. An edit made through the link edits the repo file, so it is never
-reported by `plan` or `status`; it is a change to the repo, not drift. A user who wants content
-history keeps the repo in git. `mdot status` shows only mdot's resource diff. The repo does not have
+reported by `plan`; it is a change to the repo, not drift. A user who wants content
+history keeps the repo in git. `plan` shows only mdot's resource diff. The repo does not have
 to be a git repository.
 
 === Downloads
@@ -824,7 +825,7 @@ touching the real setup, point `XDG_STATE_HOME` elsewhere. _Open: the state dire
 Windows._
 
 *Locking* (ADR 0063). Runs lock `$XDG_STATE_HOME/mdot/lock` with an OS file lock, which the kernel
-releases when the process exits, even on a crash. `plan` and `status` take a shared lock; `apply`
+releases when the process exits, even on a crash. `plan` takes a shared lock; `apply`
 takes an exclusive one. The lock is taken before `state.json` is read and held until the run exits,
 including while `apply` waits for its confirmation. A run that cannot get the lock prints
 `error: another mdot run is using <state dir>; try again when it finishes` and exits 1. `specs`,
@@ -899,7 +900,6 @@ Package semantics:
   [Command], [Purpose],
   [`mdot plan [--diff]`], [show what apply would do (@output)],
   [`mdot apply [--yes]`], [execute the plan, write state and a generation (@apply)],
-  [`mdot status`], [resource drift, read-only (ADR 0031)],
   [`mdot verify [--all]`],
   [hash downloads that `plan` reported as conflicts (all with `--all`) and refresh their recorded
     stat; never changes `dst` (@net-download)],
@@ -946,7 +946,7 @@ The core config manager comes first. Package handling and the other extras come 
   [1],
   [Skeleton (Cargo + CI build, ADR 0036). Lua loader + sandbox, `spec {}` clause
     tables, `hosts/` + `depends` selection, `file.link()`, `dst` conflict checks, state file, `plan` /
-    `apply` / `status` / `specs`. User scope only],
+    `apply` / `specs`. User scope only],
   [2], [`adopt`, generations + `rollback` via git worktree, backups],
   [3], [System scope: `sysfile`, sudo batch executor (on hold, ADR 0014)],
   [4], [Tree-sitter engine: `mdot query`, then `render()` and `patch()`],
@@ -962,7 +962,8 @@ The core config manager comes first. Package handling and the other extras come 
 + `apply` creates them.
 + Running `plan` again shows nothing to do.
 + After deleting a spec file, `plan` shows the removals.
-+ A link retargeted by hand shows up as drift in `status`.
++ A link retargeted by hand shows up in `plan` as a `conflict:` line (drift), and `plan` exits
+  with 1.
 
 = Open questions
 

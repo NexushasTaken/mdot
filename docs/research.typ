@@ -327,7 +327,7 @@ kind, and what to record so it can be recognised later, stays with the caller.
 - *Per-machine variation* uses ordinary Lua expressions in `enabled(...)`. (ADR-0006)
 - *Four deployment kinds:* `config` (symlink), `render` (base file + edits → copy), `patch` (enforce
   parts of an app-owned file), and `sysfile` (root-owned copy). (ADR-0007, ADR-0008)
-- *A resource model with a 3-way diff* drives plan, apply, status and removal. (ADR-0009)
+- *A resource model with a 3-way diff* drives plan, apply and removal. (ADR-0009; no `status` command, ADR 0064)
 - *Removal is configurable* per spec. The policy is saved at apply time. (ADR-0011)
 - *Generations are git commits plus recorded state.* Rollback goes through a git worktree.
   (ADR-0010)
@@ -419,8 +419,8 @@ raises RQ4.
 
 The author raised this question. If a deployed file is a symlink into the repo, a content diff
 between "repo" and "live" is always empty. The resolution: mdot diffs *resources*, and for links
-that means _existence and target_. mdot does not track linked content, and `mdot status` shows
-only mdot's resources (ADR 0031). Whether this split is understandable in practice is RQ3.
+that means _existence and target_. mdot does not track linked content, and `mdot plan` shows
+only mdot's resources (ADR 0031, ADR 0064). Whether this split is understandable in practice is RQ3.
 
 = Research questions <rqs>
 
@@ -792,13 +792,13 @@ mdot v1, meaning the core config manager (phases 1–4), is successful if it mee
 
 + *Expressiveness:* every construct in `~/dotfiles-v2` and `~/dotfiles-yolk` is either expressible
   or explicitly deferred to a planned phase (@translation).
-+ *Purity:* `mdot plan` and `mdot status` never modify the filesystem. Testable by running them
++ *Purity:* `mdot plan` never modifies the filesystem. Testable by running them
   against a read-only `$HOME`.
 + *Idempotence:* `apply` followed by `plan` yields an empty plan.
 + *Removal:* deleting a spec and applying removes exactly its recorded resources, following the
   recorded `on_remove` policy.
 + *Drift detection:* a hand-retargeted link, a hand-edited rendered file and an un-applied patch are
-  each reported by `status`.
+  each reported by `plan`.
 + *Safety:* no destructive operation happens without confirmation, unless the user's policy allows
   it. Ambiguous states stop with an error and never resolve silently.
 + *Rollback:* restores at least the link set and rendered files of generation N, per the outcome of
