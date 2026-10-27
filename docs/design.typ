@@ -48,13 +48,13 @@ These rules decide every later design question:
   [Errors], [`Result<T, E>` with mdot's own error types],
   [Tests], [`cargo test`],
   [CLI], [clap (derive)],
-  [Logging], [open (ADR 0036)],
-  [State files], [JSON; library open (ADR 0036)],
+  [Logging], [open (ADR 0036). _Stale: decided by ADR 0059._],
+  [State files], [JSON; library open (ADR 0036). _Stale: decided by ADR 0059._],
   [Structural editing], [tree-sitter (+ vendored grammars); Rust binding open (ADR 0036)],
   [Git], [shell out to system `git` (no libgit2)],
 )
 
-= Repository layout and loading <layout>
+= Repository layout <layout>
 
 ```
 dotfiles/
@@ -68,8 +68,8 @@ dotfiles/
 ```
 
 A spec is a directory under `specs/`. Its name is the directory name. *A spec in `specs/` is not
-applied just because it exists*: it is applied only when a host reaches it through `depends` (see
-below). There are two modes, decided only by whether `spec.lua` exists:
+applied just because it exists*: it is applied only when a host reaches it through `depends`
+(@hosts). There are two modes, decided only by whether `spec.lua` exists:
 
 #table(
   columns: (auto, 1fr),
@@ -102,8 +102,9 @@ Consequences worth knowing:
 - *System scope is parked.* It is deliberately not part of this layout yet. See ADR 0014.
 - An implicit spec has no `spec.lua`, so it cannot call `depends`. It is always a leaf.
 
-*Hosts and selection.* `specs/` is a library; a machine says what it wants in
-`hosts/<hostname>.lua` (ADR 0019):
+= Hosts and selection <hosts>
+
+`specs/` is a library; a machine says what it wants in `hosts/<hostname>.lua` (ADR 0019):
 
 ```lua
 -- hosts/nexos.lua
@@ -127,6 +128,8 @@ return spec { depends("hypr", "waybar", "dunst", "uwsm") }
   with a `--host` that differs from the real hostname is an error. A missing host file is an error
   that lists the files in `hosts/`.
 
+= Loading and sandbox <loading>
+
 *Loading:*
 
 + mdot finds the repo root: `--repo <dir>`, else `$PWD` if it contains `specs/`, else error.
@@ -141,43 +144,6 @@ return spec { depends("hypr", "waybar", "dunst", "uwsm") }
 + The reachable specs are collected into a `SpecSet` keyed by name, in dependency order.
 + Two reachable specs (or two clauses) with the same `dst` are an error naming both. `plan` reports
   every error it finds, and `apply` stops before the first write if the plan has any (ADR 0021).
-
-*Links in `spec.lua`.* The one deployment clause for now is `file.link`, with two forms:
-
-```lua
--- specs/bash/spec.lua
-return spec {
-  file.link("bashrc", "~/.bashrc"),
-}
-
--- specs/hypr/spec.lua   (files live in specs/hypr/config/)
-return spec {
-  file.link("config", "~/.config/hypr"),
-}
-
--- specs/x11/spec.lua   (several files, same name as the target, with a leading dot)
-return spec {
-  file.link { "Xresources", "xinitrc", "xsession", "gtkrc-2.0", into = "~", dot = true },
-}
-
--- specs/systemd-user/spec.lua   (several files into one directory)
-return spec {
-  file.link { "i3-session.service", "i3-session.target", "kanata.service",
-         into = "~/.config/systemd/user" },
-}
-```
-
-- `file.link(src, dst)` takes two strings and is the form for renames. `file.link { names..., into = dir }`
-  links each name to `dir/<name>`; `dot = true` makes that `dir/.<name>`. Any other call is an error
-  (ADR 0022).
-- `src` is a path relative to the spec's directory. `dst` and `into` are plain strings; a leading `~`
-  expands to `$HOME`.
-- A link is always "this path in the spec directory" to "that path on disk", whether it is a file or
-  a directory. There are no special modes.
-- *`spec.lua` is absolute.* mdot does not exclude or protect anything. `link(".", "~/.config/hypr")`
-  is allowed and will link `spec.lua` too. Keeping `spec.lua` out of a target is the author's job,
-  which is why the recommended layout for directory targets is a `config/` subfolder.
-- A missing `src` is a hard error at load time, before anything touches the system.
 
 *Sandbox.* The sandbox is for purity, not security (ADR 0013). It is an allowlist: spec and config
 environments get `string`, `table`, `math`, `utf8`, and `pairs`/`ipairs`/`next`/`select`/`type`/
@@ -236,8 +202,7 @@ return spec {
 }
 ```
 
-A spec in explicit mode is a `spec.lua` like this one (see the layout section). Implicit specs have no
-Lua at all.
+A spec in explicit mode is a `spec.lua` like this one (@layout). Implicit specs have no Lua at all.
 
 == Clauses
 
@@ -258,8 +223,8 @@ Lua at all.
     Phase 1.],
   [`depends(names...)`],
   [Names other specs from `<repo root>/specs/` that this one needs. A host or group spec uses it to
-    select specs; any spec can use it to pull in what it needs (ADR 0019). Unknown names and cycles
-    are errors. Packages will use it for install reasons (Phase 5).],
+    select specs; any spec can use it to pull in what it needs (ADR 0019, @hosts). Unknown names and
+    cycles are errors. Packages will use it for install reasons (Phase 5).],
 )
 
 A spec's identity is its directory name (ADR 0021); there is no `name()` clause.
@@ -283,7 +248,7 @@ conflict rules apply across groups.
   [marker clause (name open)], [Yolk-style markers evaluated in place in the repo file
     (@markers, ADR 0037).], [—],
   [`package(name?, opts?)`], [The spec needs a package. No arguments means the spec's directory
-    name; `opts` carries `pkg_alts` per-platform names (ADR 0021).], [5],
+    name; `opts` carries `pkg_alts` per-platform names (ADR 0021, @packages).], [5],
 )
 
 == Context values
@@ -394,37 +359,51 @@ return spec { depends("desktop") }
 *Open* (ADR 0038, 0045): `mdot.env`, which would replace part of ADR 0013; on hold until a real
 spec needs it. The marker filter default's "Set by" class (ADR 0037).
 
-= Deployment kinds
+= Resource kinds
+
+What each resource clause declares and how it acts on disk. How each kind is planned (its
+desired × recorded × live table) is in @three-way.
 
 == `file.link()` — symlinks <config-links>
 
-`file.link(src, dst)` makes `dst` a symlink to `src` (see the layout section). The batch form
-`file.link { ..., into = dir }` expands to one such link per name, and everything below applies to each
-of them. The planner looks at what
-is at `dst` and never overwrites anything:
+`file.link(src, dst)` makes `dst` a symlink to `src`. It has two forms:
 
-#table(
-  columns: (auto, 1fr),
-  [`dst` is...], [Result],
-  [missing], [create the symlink (and any missing parent directories, below)],
-  [a symlink to our `src`], [no-op],
-  [a symlink to somewhere else], [*conflict*],
-  [a real file or directory], [*conflict*],
-  [a dangling symlink], [*conflict*],
-)
+```lua
+-- specs/bash/spec.lua
+return spec {
+  file.link("bashrc", "~/.bashrc"),
+}
 
-*A conflict is a hard error.* There is no `--force`. `plan` reports every conflict, and `apply`
-re-checks all links before it changes anything, so it never stops half-applied. Each error names the
-spec, `src`, `dst` and what was found, for example:
+-- specs/hypr/spec.lua   (files live in specs/hypr/config/)
+return spec {
+  file.link("config", "~/.config/hypr"),
+}
 
+-- specs/x11/spec.lua   (several files, same name as the target, with a leading dot)
+return spec {
+  file.link { "Xresources", "xinitrc", "xsession", "gtkrc-2.0", into = "~", dot = true },
+}
+
+-- specs/systemd-user/spec.lua   (several files into one directory)
+return spec {
+  file.link { "i3-session.service", "i3-session.target", "kanata.service",
+         into = "~/.config/systemd/user" },
+}
 ```
-error: hypr: cannot link ~/.config/hypr
-  expected: missing, or symlink to specs/hypr/config
-  found:    symlink to ~/old-hypr
-```
 
-If state says mdot created that link, the report adds that it *drifted*. It is still a conflict:
-mdot reports it and you fix it. `status` uses the same wording.
+- `file.link(src, dst)` takes two strings and is the form for renames. `file.link { names..., into = dir }`
+  links each name to `dir/<name>`; `dot = true` makes that `dir/.<name>`. Any other call is an error
+  (ADR 0022). The batch form expands to one link per name, and everything below applies to each
+  of them.
+- `src` is a path relative to the spec's directory. `dst` and `into` are plain strings; a leading `~`
+  expands to `$HOME`.
+- A link is always "this path in the spec directory" to "that path on disk", whether it is a file or
+  a directory. There are no special modes.
+- *`spec.lua` is absolute.* mdot does not exclude or protect anything. `link(".", "~/.config/hypr")`
+  is allowed and will link `spec.lua` too. Keeping `spec.lua` out of a target is the author's job,
+  which is why the recommended layout for directory targets is a `config/` subfolder.
+- A missing `src` is a hard error at load time, before anything touches the system.
+- The planner looks at what is at `dst` and never overwrites anything (links table in @three-way).
 
 *Parent directories.* If a parent of `dst` is missing, mdot creates it and records it in state.
 Directories that already existed are never recorded. When the link is removed, mdot tries to remove
@@ -472,30 +451,6 @@ contents, because the file can be gigabytes and the machine slow.
 - State records the content key `R`, the sha256 of the written bytes `W`, and the file's `size`,
   `mtime_ns` and `inode` right after the rename.
 
-*Plan* (ADR 0032). "Stat matches" means the live size, mtime, inode and permission bits equal the
-recorded ones. That says the file is unchanged since mdot wrote it, so the record still describes it.
-The check can say "unchanged" but never "equal", so when unsure it reports a conflict. `R` is the
-recorded content key and `D` the desired one:
-
-#table(
-  columns: (auto, auto, auto, 1fr),
-  [desired], [recorded], [live], [result],
-  [yes], [no], [absent], [*create*],
-  [yes], [no], [present], [*conflict*: "unknown, run `mdot verify`"],
-  [yes], [yes], [stat matches, `R == D`, same `mode`], [*noop*],
-  [yes], [yes], [stat matches, `R == D`, `mode` differs], [*update*: `chmod` only],
-  [yes], [yes], [stat matches, `R != D`], [*update*: download again],
-  [yes], [yes], [stat differs], [*conflict*: "changed, run `mdot verify`"],
-  [yes], [yes], [absent], [*re-create*; the plan shows it was removed by hand and will be downloaded again],
-  [no], [yes], [stat matches], [*delete* (per `on_remove`)],
-  [no], [yes], [stat differs], [*conflict*],
-  [no], [yes], [absent], [*forget*: drop the record; the plan shows it],
-)
-
-`plan` never adopts a download with no record, since that needs a hash; `mdot verify` does.
-Conflicts are hard errors as for links (ADR 0016), and `apply` never overwrites one. Open: whether a
-stat mismatch still blocks `apply` when the recorded policy is `on_remove.files = "keep"`.
-
 *`mdot verify`* hashes the downloads that `plan` reported as conflicts (or all of them with a flag
 that ignores the stat cache). With the live hash `L`, the recorded hash `W` and the verified hash `D`:
 
@@ -506,8 +461,10 @@ that ignores the stat cache). With the live hash `L`, the recorded hash `W` and 
 So `verify` writes state but never touches `dst`. A `verify = false` file with no record cannot be
 adopted, since there is nothing to compare it with.
 
-*Removal.* Covered by the "not desired" rows above. Run `mdot verify` first if a conflict there
-is only moved metadata.
+*Shared with `file.copy`* (ADR 0026, ADR 0032). The stat record, the plan table, `verify` and `mode` are one
+mechanism for every clause that writes a regular file. The permission bits are part of the recorded
+stat, so a hand `chmod` is a conflict. A `mode` in the spec that differs from the recorded one, with
+the same content key, is an update that only runs `chmod`. `file.copy` itself is not designed.
 
 *Known costs.*
 
@@ -521,12 +478,12 @@ is only moved metadata.
 
 *Not designed.* A checksum file URL (such as `SHA256SUMS`), signatures, extraction, mirrors, a download
 cache, authentication, proxies and retries. Open: which algorithms beyond sha256. The libraries are
-libcurl and OpenSSL (ADR 0025).
+libcurl and OpenSSL (ADR 0025). _Stale: ADR 0025 is superseded by ADR 0036._
 
-*Shared with `file.copy`* (ADR 0026, ADR 0032). The stat record, the plan table, `verify` and `mode` are one
-mechanism for every clause that writes a regular file. The permission bits are part of the recorded
-stat, so a hand `chmod` is a conflict. A `mode` in the spec that differs from the recorded one, with
-the same content key, is an update that only runs `chmod`. `file.copy` itself is not designed.
+= Templating
+
+Templating has several engines, one clause each (ADR 0037). `render` and `patch` are the
+tree-sitter engines; markers are the first other engine.
 
 == `render()` — generated copy
 
@@ -540,9 +497,7 @@ files fights the app. `patch` only enforces the queried nodes and leaves everyth
 
 == Markers — Yolk-style templating <markers>
 
-Templating has several engines, one clause each (ADR 0037). `render` and `patch` are the
-tree-sitter engines. The first other engine is *Yolk-style markers*: a marker in a comment holds a
-Lua expression, and mdot rewrites the value it points at.
+A marker in a comment holds a Lua expression, and mdot rewrites the value it points at.
 
 ```
 export XCURSOR_SIZE=16   # {< replace_number(vars.cursor.size) >}
@@ -566,19 +521,7 @@ export XCURSOR_SIZE=16   # {< replace_number(vars.cursor.size) >}
 registering the filter on a fresh clone, and the resource-model table. Base and per-host `vars` are
 settled by ADR 0038.
 
-= System scope <system-scope>
-
-- `sysfile()` (parked, ADR 0014) targets deploy as *root-owned copies with explicit
-  `owner`/`group`/`mode`, never symlinks*. A root-read config that points into a user-writable repo
-  would be a privilege-escalation path.
-- `render()` may target system locations. The result is still a copy.
-- Privileged steps are collected into one batch. mdot writes the batch to a temp file and runs
-  `sudo mdot --exec-plan <file>`, so there's one prompt per apply. The privileged side re-validates
-  the batch and only executes resources marked `system`.
-
-Systemd units, groups and users are deferred (@architecture).
-
-= Tree-sitter engine <tree-sitter>
+== Tree-sitter engine <tree-sitter>
 
 The jq idea, extended to any language with a tree-sitter grammar:
 
@@ -656,15 +599,29 @@ i.e. what mdot deployed last time) × *live*. Desired and recorded are first mat
 A generic step then classifies each ID into a case, and the kind decides the action from its own
 table; the plan is data that `apply` runs later (ADR 0035). The algorithm is in `planner.typ`.
 
-The table below is the common pattern; each kind's own table governs (links: ADR 0030, downloads:
-ADR 0032, @net-download):
+*Conflicts.* A conflict is a hard error. There is no `--force` (ADR 0016). `plan` reports every
+conflict, and `apply` re-checks all resources before it changes anything, so it never stops
+half-applied. Each error names the spec, `src`, `dst` and what was found, for example:
+
+```
+error: hypr: cannot link ~/.config/hypr
+  expected: missing, or symlink to specs/hypr/config
+  found:    symlink to ~/old-hypr
+```
+
+If state says mdot created that resource, the report adds that it *drifted*. It is still a
+conflict: mdot reports it and you fix it. `status` uses the same wording.
+
+=== Common pattern
+
+The table below is the common pattern; each kind's own table governs:
 
 #table(
   columns: (auto, auto, auto, 1fr),
   [desired], [recorded], [live], [result],
   [yes], [no], [absent], [*create*],
   [yes], [no], [present, matches], [*adopt into state* (noop on disk)],
-  [yes], [no], [present, differs], [*conflict* (first-run table, @config-links)],
+  [yes], [no], [present, differs], [*conflict*],
   [yes], [yes], [matches recorded], [*update* if desired ≠ recorded, else *noop*],
   [yes], [yes], [differs from recorded],
   [*conflict: drift*. Someone hand-edited a managed file. Show the diff. An error for now; there is no `--force` (ADR 0016)],
@@ -673,13 +630,16 @@ ADR 0032, @net-download):
   [*conflict*: it was modified since mdot deployed it, so mdot won't delete it silently],
 )
 
-*Links* (ADR 0030). A link "matches" when its `readlink` string equals the absolute, normalized
-`src`:
+=== Links
+
+(ADR 0030, @config-links.) A link "matches" when its `readlink` string equals the absolute,
+normalized `src`. With no record, "anything else" covers a symlink to somewhere else, a real file
+or directory, and a dangling symlink.
 
 #table(
   columns: (auto, auto, auto, 1fr),
   [desired], [recorded], [live], [result],
-  [yes], [no], [absent], [*create*],
+  [yes], [no], [absent], [*create* (and any missing parent directories)],
   [yes], [no], [link → desired `src`], [*adopt* into state (nothing changes on disk)],
   [yes], [no], [anything else], [*conflict*],
   [yes], [yes], [link → recorded `src` = desired `src`], [*noop*],
@@ -701,7 +661,69 @@ reported by `plan` or `status`; it is a change to the repo, not drift. A user wh
 history keeps the repo in git. `mdot status` shows only mdot's resource diff. The repo does not have
 to be a git repository.
 
-== Output
+=== Downloads
+
+(ADR 0032, @net-download.) "Stat matches" means the live size, mtime, inode and permission bits
+equal the recorded ones. That says the file is unchanged since mdot wrote it, so the record still
+describes it. The check can say "unchanged" but never "equal", so when unsure it reports a
+conflict. `R` is the recorded content key and `D` the desired one:
+
+#table(
+  columns: (auto, auto, auto, 1fr),
+  [desired], [recorded], [live], [result],
+  [yes], [no], [absent], [*create*],
+  [yes], [no], [present], [*conflict*: "unknown, run `mdot verify`"],
+  [yes], [yes], [stat matches, `R == D`, same `mode`], [*noop*],
+  [yes], [yes], [stat matches, `R == D`, `mode` differs], [*update*: `chmod` only],
+  [yes], [yes], [stat matches, `R != D`], [*update*: download again],
+  [yes], [yes], [stat differs], [*conflict*: "changed, run `mdot verify`"],
+  [yes], [yes], [absent], [*re-create*; the plan shows it was removed by hand and will be downloaded again],
+  [no], [yes], [stat matches], [*delete* (per `on_remove`)],
+  [no], [yes], [stat differs], [*conflict*],
+  [no], [yes], [absent], [*forget*: drop the record; the plan shows it],
+)
+
+`plan` never adopts a download with no record, since that needs a hash; `mdot verify` does.
+`apply` never overwrites a conflict. Removal is covered by the "not desired" rows; run
+`mdot verify` first if a conflict there is only moved metadata. Open: whether a stat mismatch
+still blocks `apply` when the recorded policy is `on_remove.files = "keep"`.
+
+== Removal policy <removal>
+
+When a spec disappears or becomes disabled, its file is often already deleted, so *mdot records each
+resource's `on_remove` policy in state at apply time* and uses that recorded policy for the delete.
+
+The keys, values and built-in defaults are the `on_remove.*` rows of the `mdot.opt` table
+(@lua-api). `mdot.opt.on_remove`, set in `config.lua` or a host file, overrides the built-in
+default (ADR 0045). A spec's own `on_remove` overrides both. `files = "remove"` applies to links
+and rendered copies; *patched files are never touched* (the edit stays; mdot just stops enforcing
+it).
+
+Deleting a symlink is always safe, because the content is in the repo. Deleting a rendered copy is
+safe only if live == recorded. Otherwise it's a conflict.
+
+= Apply <apply>
+
+`apply` refuses to run while any conflict exists. There is no `--force` for now (ADR 0016).
+
+*Executing a clean plan* (ADR 0029). `apply` creates each link first, then records it in state
+right away. It stops at the first failed write and exits with 2 (ADR 0053); the output is described
+under *Apply output* (@output). Running `apply` again continues: links already made are no-ops,
+and a link whose state write was lost is adopted. Directories mdot creates follow the same order;
+if mdot dies between `mkdir` and recording it, the empty directory is left behind on removal.
+There is no special Ctrl-C handling.
+
+Updates and deletes also change the disk first and write state once, after their disk steps
+(ADR 0033), so state may lag the disk but never leads it. A delete unlinks, then tries the recorded
+`rmdir`s deepest first, then drops the record. An update unlinks the old link, makes the new one,
+then updates the record; `dst` is missing for a very short moment. A `rmdir` on a directory that is
+already gone counts as done; one that fails for any reason other than "not empty" is treated like
+"not empty" (left, dropped from state, warned). A crash lands on an existing row: after a delete's
+unlink on *forget*, after an update's unlink on *re-create* (whose "removed by hand" message is
+then wrong), after an update's new link on *adopt*. Open: whether a partial apply gets a
+generation.
+
+= Output <output>
 
 *Plan layout* (ADR 0051). `mdot plan` groups resources under each spec's name, in dependency order.
 Inside a spec, resources come in the order the spec declares them. A line
@@ -762,45 +784,6 @@ warnings. 1 means mdot refused because of a rule: a conflict, or a spec that bre
 error: a usage error (clap's own code), an unreadable file, a Lua error while loading, or a failed
 write during `apply`. When both 1 and 2 apply, the code is 2.
 
-`apply` refuses to run while any conflict exists. There is no `--force` for now (ADR 0016).
-
-*Executing a clean plan* (ADR 0029). `apply` creates each link first, then records it in state
-right away. It stops at the first failed write and exits with 2 (ADR 0053); the output is described under
-*Apply output* (ADR 0052). Running `apply` again continues: links already made are no-ops,
-and a link whose state write was lost is adopted. Directories mdot creates follow the same order;
-if mdot dies between `mkdir` and recording it, the empty directory is left behind on removal.
-There is no special Ctrl-C handling.
-
-Updates and deletes also change the disk first and write state once, after their disk steps
-(ADR 0033), so state may lag the disk but never leads it. A delete unlinks, then tries the recorded
-`rmdir`s deepest first, then drops the record. An update unlinks the old link, makes the new one,
-then updates the record; `dst` is missing for a very short moment. A `rmdir` on a directory that is
-already gone counts as done; one that fails for any reason other than "not empty" is treated like
-"not empty" (left, dropped from state, warned). A crash lands on an existing row: after a delete's
-unlink on *forget*, after an update's unlink on *re-create* (whose "removed by hand" message is
-then wrong), after an update's new link on *adopt*. Open: whether a partial apply gets a
-generation.
-
-== Removal policy <removal>
-
-When a spec disappears or becomes disabled, its file is often already deleted, so *mdot records each
-resource's `on_remove` policy in state at apply time* and uses that recorded policy for the delete.
-
-#table(
-  columns: (auto, auto, 1fr),
-  [Key], [Values], [Built-in default],
-  [`files`], [`"remove"`, `"ask"`, `"keep"`],
-  [`"remove"` for links and rendered copies. *Patched files are never touched* (the edit stays;
-    mdot just stops enforcing it)],
-  [`package`], [`"uninstall"`, `"ask"`, `"keep"`], [`"ask"`],
-)
-
-`mdot.opt.on_remove`, set in `config.lua` or a host file, overrides the built-in default (ADR 0045). A spec's own `on_remove`
-overrides both.
-
-Deleting a symlink is always safe, because the content is in the repo. Deleting a rendered copy is
-safe only if live == recorded. Otherwise it's a conflict.
-
 = State and generations (git-based) <generations>
 
 The repo already has history in git. Generations reuse it: they record *which commit was applied*
@@ -835,44 +818,21 @@ A generation record looks like this:
 
 State writes are atomic: write to a temp file, then `rename`.
 
-= CLI
+= System scope <system-scope>
 
-#table(
-  columns: (auto, 1fr),
-  [Command], [Purpose],
-  [`mdot plan [--diff]`], [show what apply would do],
-  [`mdot apply [--yes]`], [execute the plan, write state and a generation],
-  [`mdot status`], [resource drift, read-only (ADR 0031)],
-  [`mdot verify [--all]`],
-  [hash downloads that `plan` reported as conflicts (all with `--all`) and refresh their recorded
-    stat; never changes `dst` (@net-download)],
-  [`mdot adopt <path> [--name N]`],
-  [move an existing target into its mirror slot, symlink it back, and write `specs/<N>.lua` if no
-    spec owns that path],
-  [`mdot generations`], [list generations],
-  [`mdot rollback [N]`], [plan and apply an older generation],
-  [`mdot query <file> <q> ...`], [standalone tree-sitter query/edit (@tree-sitter)],
-  [`mdot specs`], [list the specs the current host reaches, in dependency order (debugging)],
-)
+- `sysfile()` (parked, ADR 0014) targets deploy as *root-owned copies with explicit
+  `owner`/`group`/`mode`, never symlinks*. A root-read config that points into a user-writable repo
+  would be a privilege-escalation path.
+- `render()` may target system locations. The result is still a copy.
+- Privileged steps are collected into one batch. mdot writes the batch to a temp file and runs
+  `sudo mdot --exec-plan <file>`, so there's one prompt per apply. The privileged side re-validates
+  the batch and only executes resources marked `system`.
 
-Global flags: `--repo <dir>`, `-v`/`-q`, `--color`.
+Systemd units, groups and users are deferred (@roadmap).
 
-= Architecture <architecture>
+= Packages <packages>
 
-```
-src/
-  lua/       loader: config.lua + specs/** -> SpecSet; sandboxed per-file environment table; clause constructors
-  model/     Spec, Host/OS context, Resource variants
-  graph/     depends DAG from hosts/<host>.lua, topo sort, cycle reporting
-  ts/        tree-sitter query + edit engine, grammar registry
-  planner/   desired x recorded x live -> Plan; pretty printer
-  executor/  apply Plan; privileged batch via sudo re-exec
-  state/     state.json, generations, backups (atomic writes)
-  vcs/       git shell-out: rev-parse, worktree
-  platform/  XDG resolution, os-release, PackageProvider interface
-  bin/       clap command wiring (mdot.rs)
-tests/       cargo integration tests + fixture repos for end-to-end plan/apply
-```
+Phase 5. _May change: ADR 0028 (Proposed) says this section is outdated._
 
 The package provider interface is defined in phase 1 so the resource model accounts for it, and
 implemented in phase 5:
@@ -896,6 +856,46 @@ Package semantics:
 - A package reached only through `depends` is installed as a *dependency* (`--asdeps`). It becomes
   removable once nothing references it, using the provider's own orphan tracking (`pacman -Qdtq`).
 
+= CLI
+
+#table(
+  columns: (auto, 1fr),
+  [Command], [Purpose],
+  [`mdot plan [--diff]`], [show what apply would do (@output)],
+  [`mdot apply [--yes]`], [execute the plan, write state and a generation (@apply)],
+  [`mdot status`], [resource drift, read-only (ADR 0031)],
+  [`mdot verify [--all]`],
+  [hash downloads that `plan` reported as conflicts (all with `--all`) and refresh their recorded
+    stat; never changes `dst` (@net-download)],
+  [`mdot adopt <path> [--name N]`],
+  [move an existing target into its mirror slot, symlink it back, and write `specs/<N>.lua` if no
+    spec owns that path. _Stale: the layout is `specs/<name>/` (ADR 0014)._],
+  [`mdot generations`], [list generations],
+  [`mdot rollback [N]`], [plan and apply an older generation],
+  [`mdot query <file> <q> ...`], [standalone tree-sitter query/edit (@tree-sitter)],
+  [`mdot specs`], [list the specs the current host reaches, in dependency order (debugging)],
+)
+
+Global flags: `--repo <dir>`, `-v`/`-q`, `--color`. _Open: `-q` and `--color` have no ADR; ADR
+0050 decides color from the terminal and `NO_COLOR`._
+
+= Architecture <architecture>
+
+```
+src/
+  lua/       loader: config.lua + specs/** -> SpecSet; sandboxed per-file environment table; clause constructors
+  model/     Spec, Host/OS context, Resource variants
+  graph/     depends DAG from hosts/<host>.lua, topo sort, cycle reporting
+  ts/        tree-sitter query + edit engine, grammar registry
+  planner/   desired x recorded x live -> Plan; pretty printer
+  executor/  apply Plan; privileged batch via sudo re-exec
+  state/     state.json, generations, backups (atomic writes)
+  vcs/       git shell-out: rev-parse, worktree
+  platform/  XDG resolution, os-release, PackageProvider interface
+  bin/       clap command wiring (mdot.rs)
+tests/       cargo integration tests + fixture repos for end-to-end plan/apply
+```
+
 = Roadmap <roadmap>
 
 The core config manager comes first. Package handling and the other extras come later.
@@ -907,9 +907,9 @@ The core config manager comes first. Package handling and the other extras come 
   [Research experiments S1–S6 (`research.typ`, Methodology). Their results may change this spec
     before Phase 1 is locked],
   [1],
-  [Skeleton (CMake + Conan + CI build). Lua loader + sandbox, `spec {}` clause tables, `hosts/` +
-    `depends` selection, `file.link()`, `dst` conflict checks, state file, `plan` / `apply` / `status` /
-    `specs`. User scope only],
+  [Skeleton (CMake + Conan + CI build; _stale: ADR 0036_). Lua loader + sandbox, `spec {}` clause
+    tables, `hosts/` + `depends` selection, `file.link()`, `dst` conflict checks, state file, `plan` /
+    `apply` / `status` / `specs`. User scope only],
   [2], [`adopt`, `on_remove` policies, generations + `rollback` via git worktree, backups],
   [3], [System scope: `sysfile`, sudo batch executor (on hold, ADR 0014)],
   [4], [Tree-sitter engine: `mdot query`, then `render()` and `patch()`],
