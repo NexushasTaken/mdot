@@ -1,5 +1,6 @@
 // TODO list of open items: anything still to decide or fix in the docs. Not part of the ADR
-// index. Tick an item when the ADR or spec fix that closes it is written.
+// index. Remove an item once the ADR or spec fix that closes it is written; move any follow-up
+// that is still open into its own item first.
 
 #set page(margin: 2cm)
 #set text(size: 10pt)
@@ -10,27 +11,12 @@ Goal: Phase 0 and Phase 1 fully specified (plan A, 2026-10-27). Later phases sta
 designing the state record, check that a download record (ADR 0032) fits the same shape.
 
 == Blocking Phase 1
-- [x] *`state.json` schema* (ADR 0060). Versioned flat `resources` list, link record = `kind`,
-  `spec`, `src`, `dst`; top-level `created_dirs` with derived usage. Still open there: exact download
-  fields, migration details (`on_remove` closed by ADR 0061).
-- [x] *How `on_remove` reaches `decide`* (ADR 0061). Dropped: no removal policy; removed resources
-  follow their kind's table. Supersedes ADR 0011. Still open there: what removing a package does
-  (ADR 0028), and whether an empty `mdot.opt` ships in Phase 1.
-- [x] *Repo-id* (ADR 0062). No repo-id: one state directory `$XDG_STATE_HOME/mdot/`; `state.json`
-  stores the repo path and a different path warns and asks (refuses without a terminal). Still open
-  there: the state directory on macOS and Windows, prompt mechanics shared with ADR 0052.
-- [x] *Locking* (ADR 0063). OS file lock on `$XDG_STATE_HOME/mdot/lock`: shared for `plan` /
-  `status`, exclusive for `apply`; a run that can't lock errors with exit 1. Still open there: the
-  lock path on macOS and Windows (with ADR 0062's state directory).
-- [x] *`mdot status` output* (ADR 0064). Dropped: no `status` command; `plan` reports drift, and
-  acceptance test step 5 now checks `plan`. Still open there: whether a drift-only command returns
-  in a later phase.
-- [x] *`mdot specs` output* (ADR 0065). Both directions per spec, unreached specs listed,
-  optional `<spec-name>`, no all-hosts view, partial output on load errors; cycles stay errors.
-  Spec order closed by ADR 0066 (written `depends` order, first reach); every missing spec or host
-  name exits 2 (ADR 0067). Still open there, not `specs`-specific: `mdot.os` fields under `--host`.
 - [ ] *`apply` confirmation* (ADR 0052, Open). The prompt, `--yes` (already in the CLI table), and
-  what `apply` prints when it refuses because of conflicts.
+  what `apply` prints when it refuses because of conflicts. Shares prompt mechanics with the
+  repo-path prompt (ADR 0062).
+- [ ] *`state.json` leftovers* (ADR 0060). Exact download fields, migration details.
+- [ ] *Empty `mdot.opt` in Phase 1* (ADR 0061). Whether it ships.
+- [ ] *State directory and lock path on macOS and Windows* (ADR 0062, 0063).
 - [ ] *Replacement for `print`* (ADR 0013). Settled so far: `mdot.print`, tagged with file:line.
   `mdot.print` goes to stdout (ADR 0050). Still open: whether a spec can choose a stream
   (`mdot.stdout.print` / `mdot.stderr.print`), and where its lines appear relative to the plan
@@ -38,6 +24,8 @@ designing the state record, check that a download record (ADR 0032) fits the sam
   any other member is an error.
 - [ ] *Hostname source* (ADR 0040). Where the real hostname comes from (`gethostname()`,
   `/etc/hostname`, per OS). Matters for cross-platform.
+- [ ] *`mdot.os` under `--host`* (ADR 0013 "Host and OS info", ADR 0065). The fields other than
+  `hostname` still describe the real machine.
 - [ ] *`file.link` `src` validation.* An absolute `src`, or one whose `..` escapes the spec
   directory: allowed or an error?
 
@@ -52,6 +40,10 @@ designing the state record, check that a download record (ADR 0032) fits the sam
   but ADR 0063 has `plan` create the state directory and the lock file if they are missing.
 - [ ] `-q` and `--color` have no ADR (ADR 0050 decides color from the terminal and `NO_COLOR`):
   decide, or drop them from Phase 1.
+
+== Later phases (not blocking)
+- [ ] *Removing a package* (ADR 0028, ADR 0061): what it does. Phase 5.
+- [ ] *A drift-only command* (ADR 0064): whether one returns in a later phase.
 
 == Phase 0 experiments (`research.typ`, Methodology)
 - [ ] *Re-scope Phase 0* to the experiments that gate Phase 1: S4 and S6. Move S1/S2 (Phase 4),
@@ -70,5 +62,5 @@ designing the state record, check that a download record (ADR 0032) fits the sam
   - Its "virtual vs `std::variant`" question is now a Rust one (trait or enum).
 
 == Rust libraries (ADR 0036)
-- [x] *Logging:* `tracing` + `tracing-subscriber` for user output and debug logs (ADR 0059). Open: how the two outputs are separated, conflict marker, default level, env var name.
-- [x] *State files:* `serde` + `serde_json` (ADR 0059).
+- [ ] *Logging leftovers* (ADR 0059). How user output and debug logs are separated, the conflict
+  marker, the default level, the env var name.
