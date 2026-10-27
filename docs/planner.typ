@@ -258,9 +258,9 @@ Step by step:
 *Why the order of steps 2 and 3 matters.* A spec turns `~/.foo` from a link into a download. Without
 step 2 first, the download would observe the old link still on disk, which ADR 0032 calls a
 conflict. With it, the link's `delete` frees `fs:~/.foo`, the download sees it as absent and is a
-`create`, and apply deletes before it creates. If the old link's step is `forget` instead (for
-example under `on_remove.files = "keep"`), the slot is not freed and the download is a conflict
-(ADR 0054). How the `on_remove` policy reaches `decide` is not shown here; it is open.
+`create`, and apply deletes before it creates. Only a `delete` frees a slot (ADR 0054). If the old
+link was changed by hand, its step is a conflict and the plan stops there. There is no removal
+policy that could turn the `delete` into a `forget` (ADR 0061).
 
 *Two clauses of different kinds with the same slot* (situation A in ADR 0054) never reach `plan`:
 the same-slot check (ADR 0021's same-`dst` check, for files) compares slots across kinds and fails
@@ -381,7 +381,7 @@ for every row (checked by running it, ADR 0057):
   [differ / recorded],             [update],          [`chmod` only, or download again (`update_detail`)],
   [match or differ / other],       [conflict_drift],  [stat differs: "changed, run `mdot verify`"],
   [match or differ / absent],      [recreate],        [absent: re-create, shown in the plan],
-  [removed / recorded],            [delete],          [stat matches: delete (per `on_remove`)],
+  [removed / recorded],            [delete],          [stat matches: delete],
   [removed / other],               [conflict],        [stat differs: conflict],
   [removed / absent],              [forget],          [absent: forget],
 )
@@ -418,8 +418,8 @@ From ADR 0035:
 - How the differently shaped values (an observation, a state record, a clause) are typed in Rust.
   ADR 0057 fixes only that there is one comparison per pair and that `match_ld` is optional.
 
-From ADR 0054:
+From ADR 0058:
 
-- How the `on_remove` policy (ADR 0011) reaches `decide`, so a removed resource under `keep` becomes
-  `forget` instead of `delete`. A package's `installed_by_mdot` (ADR 0028) has the same problem
-  (ADR 0058).
+- How information that is not in the case reaches `decide`: a package's `installed_by_mdot`
+  (ADR 0028) changes the answer for removed / recorded. The `on_remove` policy, which had the same
+  problem, was dropped (ADR 0061).

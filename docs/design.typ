@@ -29,8 +29,7 @@ These rules decide every later design question:
   package is called on each distro. The user writes all of that in specs.
 + *Ambiguity is a hard error.* mdot never guesses. Examples: both the repo slot and the target
   exist; two specs share a name; a `depends` cycle.
-+ *Nothing destructive without consent.* Deleting, overwriting or uninstalling needs confirmation,
-  unless the user's own `on_remove` policy says otherwise.
++ *Nothing destructive without consent.* Deleting, overwriting or uninstalling needs confirmation.
 + *Loading is pure.* Evaluating specs has no side effects, so `mdot plan` is always safe to run.
 + *"User's fault" boundary* (widened by ADR 0039). mdot doesn't try to predict mistakes that depend
   on what the user writes: paths that conflict from the target software's point of view (e.g. both
@@ -232,7 +231,7 @@ A spec's identity is its directory name (ADR 0021); there is no `name()` clause.
 
 *Groups.* Clauses that put a managed resource on the system live in a group named after what they
 act on, written `group.clause(...)`: `file.link` and `net.download`, later `file.copy`. Clauses that
-describe the spec itself (`depends`, `enabled`, `package`, `config`, `on_remove`) stay flat. The rule
+describe the spec itself (`depends`, `enabled`, `package`, `config`) stay flat. The rule
 is not strict: a clause is grouped only where the group name reads naturally (`file.depends` would
 not). Whatever the group, every resource clause produces the same kind of resource, so the `dst`
 conflict rules apply across groups.
@@ -242,7 +241,6 @@ conflict rules apply across groups.
 #table(
   columns: (auto, 1fr, auto),
   [Clause], [Purpose], [Phase],
-  [`on_remove {...}`], [Removal policy for the spec (@removal).], [2],
   [`file.copy(src, dst)`], [Copy a file from the spec directory instead of linking it.], [—],
   [`sysfile(...)`], [Root-owned copies (@system-scope). On hold, see ADR 0014.], [3],
   [`render(...)`, `patch(...)`], [Tree-sitter editing (@tree-sitter).], [4],
@@ -340,7 +338,7 @@ return spec { depends("desktop") }
 *`mdot.opt`* (ADR 0045). mdot's own settings. There is no `mdot.o`.
 
 - Built-in default, then `config.lua`, then the host file; the last write wins. Assigning a leaf
-  (`mdot.opt.on_remove.package = "keep"`) changes only that key. A host may set an option
+  (`mdot.opt.group.key = value`) changes only that key. A host may set an option
   `config.lua` never set.
 - Each option is either host-overridable or `config.lua` only. An option that changes committed
   content must be `config.lua` only.
@@ -350,12 +348,9 @@ return spec { depends("desktop") }
 - Command-line flags have no matching options (ADR 0047). If one is added later (a new ADR and a
   row below), the order is flag, then host file, then `config.lua`, then built-in default.
 
-#table(
-  columns: 4,
-  [*Option*], [*Values*], [*Built-in default*], [*Set by*],
-  [`on_remove.files`], [`"remove"`, `"ask"`, `"keep"`], [`"remove"`], [`config.lua`, host],
-  [`on_remove.package`], [`"uninstall"`, `"ask"`, `"keep"`], [`"ask"`], [`config.lua`, host],
-)
+There are no options yet: its only rows, `on_remove.files` and `on_remove.package`, were removed
+with the removal policy (ADR 0061). Open: whether an empty `mdot.opt` ships in Phase 1, or the
+mechanism waits for its first option.
 
 *Open* (ADR 0038, 0045): `mdot.env`, which would replace part of ADR 0013; on hold until a real
 spec needs it. The marker filter default's "Set by" class (ADR 0037).
@@ -629,7 +624,7 @@ The table below is the common pattern; each kind's own table governs:
   [yes], [yes], [matches recorded], [*update* if desired ≠ recorded, else *noop*],
   [yes], [yes], [differs from recorded],
   [*conflict: drift*. Someone hand-edited a managed file. Show the diff. An error for now; there is no `--force` (ADR 0016)],
-  [no], [yes], [matches recorded], [*delete* (per `on_remove`)],
+  [no], [yes], [matches recorded], [*delete*],
   [no], [yes], [differs from recorded],
   [*conflict*: it was modified since mdot deployed it, so mdot won't delete it silently],
 )
@@ -651,7 +646,7 @@ or directory, and a dangling symlink.
   [yes], [yes], [absent], [*re-create*; the plan shows it was removed by hand],
   [yes], [yes], [link → desired `src` ≠ recorded `src`], [*adopt*: update the record, nothing changes on disk],
   [yes], [yes], [anything else], [*conflict: drift* (ADR 0016)],
-  [no], [yes], [link → recorded `src`], [*delete* (per `on_remove`)],
+  [no], [yes], [link → recorded `src`], [*delete*],
   [no], [yes], [absent], [*forget*: try the recorded `rmdir`s, drop the record; the plan shows it],
   [no], [yes], [anything else], [*conflict*],
 )
@@ -682,26 +677,23 @@ conflict. `R` is the recorded content key and `D` the desired one:
   [yes], [yes], [stat matches, `R != D`], [*update*: download again],
   [yes], [yes], [stat differs], [*conflict*: "changed, run `mdot verify`"],
   [yes], [yes], [absent], [*re-create*; the plan shows it was removed by hand and will be downloaded again],
-  [no], [yes], [stat matches], [*delete* (per `on_remove`)],
+  [no], [yes], [stat matches], [*delete*],
   [no], [yes], [stat differs], [*conflict*],
   [no], [yes], [absent], [*forget*: drop the record; the plan shows it],
 )
 
 `plan` never adopts a download with no record, since that needs a hash; `mdot verify` does.
 `apply` never overwrites a conflict. Removal is covered by the "not desired" rows; run
-`mdot verify` first if a conflict there is only moved metadata. Open: whether a stat mismatch
-still blocks `apply` when the recorded policy is `on_remove.files = "keep"`.
+`mdot verify` first if a conflict there is only moved metadata.
 
-== Removal policy <removal>
+== Removal <removal>
 
-When a spec disappears or becomes disabled, its file is often already deleted, so *mdot records each
-resource's `on_remove` policy in state at apply time* and uses that recorded policy for the delete.
-
-The keys, values and built-in defaults are the `on_remove.*` rows of the `mdot.opt` table
-(@lua-api). `mdot.opt.on_remove`, set in `config.lua` or a host file, overrides the built-in
-default (ADR 0045). A spec's own `on_remove` overrides both. `files = "remove"` applies to links
-and rendered copies; *patched files are never touched* (the edit stays; mdot just stops enforcing
-it).
+*There is no removal policy* (ADR 0061, superseding ADR 0011). When a spec disappears or becomes
+disabled, each of its recorded resources gets its kind's "not desired" rows in the tables above:
+deleted if it is still what mdot left, a conflict if it changed, forgotten if it is already gone.
+To keep a resource, keep it in a spec. A policy may be added later if a real use case appears.
+Open: what removing a package does (ADR 0028). *Patched files are never touched* (the edit stays;
+mdot just stops enforcing it).
 
 Deleting a symlink is always safe, because the content is in the repo. Deleting a rendered copy is
 safe only if live == recorded. Otherwise it's a conflict.
@@ -745,7 +737,7 @@ foot
   ! link  ~/.config/foot/foot.ini -> foot.ini
 conflict: ~/.config/foot/foot.ini: exists and is not managed
 hyprshot
-  - link  ~/.config/hyprshot  (spec removed; on_remove.files=remove)
+  - link  ~/.config/hyprshot  (spec removed)
 
 Plan: 2 to create, 1 to delete, 1 conflict.
 ```
@@ -803,8 +795,8 @@ $XDG_STATE_HOME/mdot/<repo-id>/      repo-id = hash of the repo's absolute path
 `state.json` (ADR 0060) is a version number, the directories mdot created, and a flat list of
 resource records. Each record has a `kind` and that kind's fields; its ID is computed from them
 (ADR 0054), not stored. A link record holds its owning `spec` (ADR 0055) and absolute `src` and
-`dst`. Download fields follow ADR 0032 and are not fixed yet. Open: how the `on_remove` policy is
-stored.
+`dst`. Download fields follow ADR 0032 and are not fixed yet. There is no removal policy to store
+(ADR 0061).
 
 ```json
 { "version": 1,
@@ -936,7 +928,7 @@ The core config manager comes first. Package handling and the other extras come 
   [Skeleton (Cargo + CI build, ADR 0036). Lua loader + sandbox, `spec {}` clause
     tables, `hosts/` + `depends` selection, `file.link()`, `dst` conflict checks, state file, `plan` /
     `apply` / `status` / `specs`. User scope only],
-  [2], [`adopt`, `on_remove` policies, generations + `rollback` via git worktree, backups],
+  [2], [`adopt`, generations + `rollback` via git worktree, backups],
   [3], [System scope: `sysfile`, sudo batch executor (on hold, ADR 0014)],
   [4], [Tree-sitter engine: `mdot query`, then `render()` and `patch()`],
   [5], [Package providers: pacman, the `package` clause, explicit/dep install reasons],

@@ -11,11 +11,11 @@ designing the state record, check that a download record (ADR 0032) fits the sam
 
 == Blocking Phase 1
 - [x] *`state.json` schema* (ADR 0060). Versioned flat `resources` list, link record = `kind`,
-  `spec`, `src`, `dst`; top-level `created_dirs` with derived usage. Still open there: `on_remove`
-  (next item), exact download fields, migration details.
-- [ ] *How `on_remove` reaches `decide`* (`planner.typ`, Open; ADR 0011, 0054, 0058). Phase 1 plan
-  output already shows `on_remove.files=remove`, and ADR 0011 records the policy at apply time. If
-  Phase 1 state doesn't record it, Phase 2 has to guess it for old records.
+  `spec`, `src`, `dst`; top-level `created_dirs` with derived usage. Still open there: exact download
+  fields, migration details (`on_remove` closed by ADR 0061).
+- [x] *How `on_remove` reaches `decide`* (ADR 0061). Dropped: no removal policy; removed resources
+  follow their kind's table. Supersedes ADR 0011. Still open there: what removing a package does
+  (ADR 0028), and whether an empty `mdot.opt` ships in Phase 1.
 - [ ] *Repo-id and locking* (`design.typ`, State and generations). The repo-id is a hash of the
   absolute path, so moving the repo loses state: accept and document, or change. No rule for two
   `apply` runs at once.
