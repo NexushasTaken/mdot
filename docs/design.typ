@@ -30,6 +30,8 @@ These rules decide every later design question:
 + *Ambiguity is a hard error.* mdot never guesses. Examples: both the repo slot and the target
   exist; two specs share a name; a `depends` cycle.
 + *Nothing destructive without consent.* Deleting, overwriting or uninstalling needs confirmation.
+  mdot only changes what it recorded, while the live value still matches the record; anything else
+  is a conflict (ADR 0016). `apply`'s question only guards against running it by accident (ADR 0068).
 + *Loading is pure.* Evaluating specs has no side effects, so `mdot plan` is always safe to run.
 + *"User's fault" boundary* (widened by ADR 0039). mdot doesn't try to predict mistakes that depend
   on what the user writes: paths that conflict from the target software's point of view (e.g. both
@@ -760,8 +762,7 @@ under it; the error says what was attempted (`could not create link: ...`). Step
 are not attempted and not reported. The summary goes to stdout, past tense, without counting the
 failure: `Applied: 2 created, 1 updated, 1 deleted.`, `Applied: nothing.` when the first step
 failed, `No changes.` when there was nothing to do. "Run `apply` again" comes later as a `hint:`
-line. Open: what `apply` prints when it refuses because of conflicts, the confirmation prompt and
-`--yes`, progress for slow steps.
+line. Open: what `apply` prints when it refuses because of conflicts, progress for slow steps.
 
 ```
 waybar
@@ -773,6 +774,15 @@ error: ~/.config/foot/foot.ini: could not create link: permission denied
 
 Applied: 2 created.
 ```
+
+*Confirmation* (ADR 0068). Every `apply` asks once, as a guard against running it by accident;
+`mdot plan` is the review. It plans first without printing; on conflicts it refuses before asking
+(exit 1), also with `--yes`. An empty plan prints `No changes.` without asking. Otherwise it asks
+`apply? [y/N]` on stderr (default No), with no plan or counts. Yes runs the steps with the output
+above. No prints nothing more and exits 0. `--yes` skips the question. With no terminal on stdin
+and no `--yes`, it prints `error: cannot ask for confirmation: stdin is not a terminal; use --yes`
+and exits 1. _Open: prompt wording and how an answer is read (shared with the repo-path prompt,
+ADR 0062)._
 
 *Streams and markers* (ADR 0050). The plan and `mdot.print` go to stdout; errors, conflicts and
 warnings go to stderr. A diagnostic is `<word>: <message>` with the word `error`, `conflict` or
