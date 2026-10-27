@@ -10,9 +10,9 @@ Goal: Phase 0 and Phase 1 fully specified (plan A, 2026-10-27). Later phases sta
 designing the state record, check that a download record (ADR 0032) fits the same shape.
 
 == Blocking Phase 1
-- [ ] *`state.json` schema* (`design.typ`, State and generations). Only the generation record
-  (Phase 2) is shown. A link record needs at least: ID, owning spec, `src`, `dst`, created
-  directories, `on_remove` policy. Also open: a format version field.
+- [x] *`state.json` schema* (ADR 0060). Versioned flat `resources` list, link record = `kind`,
+  `spec`, `src`, `dst`; top-level `created_dirs` with derived usage. Still open there: `on_remove`
+  (next item), exact download fields, migration details.
 - [ ] *How `on_remove` reaches `decide`* (`planner.typ`, Open; ADR 0011, 0054, 0058). Phase 1 plan
   output already shows `on_remove.files=remove`, and ADR 0011 records the policy at apply time. If
   Phase 1 state doesn't record it, Phase 2 has to guess it for old records.

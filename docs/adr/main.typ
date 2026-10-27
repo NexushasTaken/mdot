@@ -76,6 +76,7 @@ directory and is collected here.
   link(<adr-0057>)[0057], [Classify compares each pair on its own; live vs desired is optional], [Accepted],
   link(<adr-0058>)[0058], [Every kind's `decide` handles every case; no fallback], [Accepted],
   link(<adr-0059>)[0059], [Logging uses `tracing`; state files use `serde_json`], [Accepted],
+  link(<adr-0060>)[0060], [`state.json` is a versioned flat resource list with top-level `created_dirs`], [Accepted],
 )
 
 #include "0001-fresh-design-not-comtrya-port.typ"
@@ -137,3 +138,4 @@ directory and is collected here.
 #include "0057-three-comparisons-optional-live-desired.typ"
 #include "0058-every-kind-decides-every-case.typ"
 #include "0059-logging-and-state-file-libraries.typ"
+#include "0060-state-file-schema.typ"

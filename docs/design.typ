@@ -406,10 +406,13 @@ return spec {
 - A missing `src` is a hard error at load time, before anything touches the system.
 - The planner looks at what is at `dst` and never overwrites anything (links table in @three-way).
 
-*Parent directories.* If a parent of `dst` is missing, mdot creates it and records it in state.
-Directories that already existed are never recorded. When the link is removed, mdot tries to remove
-the recorded directories, deepest first, with `rmdir` semantics. A directory that is not empty is
-left alone and dropped from state, so mdot never deletes a file it doesn't know about.
+*Parent directories.* If a parent of `dst` is missing, mdot creates it and adds it to the
+top-level `created_dirs` list in state (ADR 0060), not to the link's record. Directories that
+already existed are never recorded. After the delete phase, mdot tries to remove each recorded
+directory that no remaining record's `dst` is under, deepest first, with `rmdir` semantics. Usage
+is derived from the records, never counted, so two links sharing a new parent don't leak it. A
+directory that is not empty is left alone, warned about and dropped from state, so mdot never
+deletes a file it doesn't know about.
 
 == `net.download()` — pinned downloads <net-download>
 
@@ -796,6 +799,27 @@ $XDG_STATE_HOME/mdot/<repo-id>/      repo-id = hash of the repo's absolute path
   generations/0001.json ...         one per successful apply
   backups/<gen>/...                 originals moved aside by adopt
 ```
+
+`state.json` (ADR 0060) is a version number, the directories mdot created, and a flat list of
+resource records. Each record has a `kind` and that kind's fields; its ID is computed from them
+(ADR 0054), not stored. A link record holds its owning `spec` (ADR 0055) and absolute `src` and
+`dst`. Download fields follow ADR 0032 and are not fixed yet. Open: how the `on_remove` policy is
+stored.
+
+```json
+{ "version": 1,
+  "created_dirs": ["/home/nexus/.config/foo"],
+  "resources": [
+    { "kind": "link", "spec": "foo",
+      "src": "/home/nexus/dotfiles/specs/foo/foo.conf",
+      "dst": "/home/nexus/.config/foo/foo.conf" } ] }
+```
+
+Loading: a missing file is empty state. A file that doesn't parse, has no `version`, holds two
+records with one ID, or a `kind` this mdot doesn't know is an error (exit 2). A newer `version`
+than mdot knows is refused with "upgrade mdot" (exit 2). An older one is migrated in memory and
+saved as the current version on the next write; each version bump ships a migration from the one
+before.
 
 A generation record looks like this:
 
