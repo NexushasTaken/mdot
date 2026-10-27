@@ -762,7 +762,7 @@ under it; the error says what was attempted (`could not create link: ...`). Step
 are not attempted and not reported. The summary goes to stdout, past tense, without counting the
 failure: `Applied: 2 created, 1 updated, 1 deleted.`, `Applied: nothing.` when the first step
 failed, `No changes.` when there was nothing to do. "Run `apply` again" comes later as a `hint:`
-line. Open: what `apply` prints when it refuses because of conflicts, progress for slow steps.
+line. Open: progress for slow steps.
 
 ```
 waybar
@@ -777,7 +777,8 @@ Applied: 2 created.
 
 *Confirmation* (ADR 0068). Every `apply` asks once, as a guard against running it by accident;
 `mdot plan` is the review. It plans first without printing; on conflicts it refuses before asking
-(exit 1), also with `--yes`. An empty plan prints `No changes.` without asking. Otherwise it asks
+(exit 1), also with `--yes`, and prints only `conflict: apply refused; run 'mdot plan' to review`
+(ADR 0069). An empty plan prints `No changes.` without asking. Otherwise it asks
 `apply? [y/N]` on stderr (default No), with no plan or counts. Yes runs the steps with the output
 above. No prints nothing more and exits 0. `--yes` skips the question. With no terminal on stdin
 and no `--yes`, it prints `error: cannot ask for confirmation: stdin is not a terminal; use --yes`
