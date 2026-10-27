@@ -141,7 +141,11 @@ return spec { depends("hypr", "waybar", "dunst", "uwsm") }
   files (ADR 0048).
 + `specs/*/` is listed in sorted order, so error messages (such as the list of known names) are
   deterministic. Names are directory names, so duplicates cannot happen.
-+ The reachable specs are collected into a `SpecSet` keyed by name, in dependency order.
++ The reachable specs are collected into a `SpecSet` keyed by name, in dependency order (ADR 0066):
+  a spec comes right after its deps, deps are taken in the order they are written in `depends`, and
+  a spec reached more than once is placed where it is first reached. With `laptop` depending on
+  `wm`, `term`, `wm` on `hypr`, `fonts` and `term` on `fonts`, `foot`, the order is hypr, fonts, wm,
+  foot, term.
 + Two reachable specs (or two clauses) with the same `dst` are an error naming both. `plan` reports
   every error it finds, and `apply` stops before the first write if the plan has any (ADR 0021).
 
@@ -782,9 +786,8 @@ dependency order, with indented `depends on:` and `needed by:` lines (a host sho
 directories in `specs/` the host does not reach; their `spec.lua` is not run. `mdot specs <spec-name>`
 shows only that spec, or that it is not reached; an unknown name is an error listing the known names.
 On a load error `specs` prints the error, then what did
-load: a missing `depends` name shows as `<name> (missing)`. The exit code is the error's (ADR 0053).
-There is no all-hosts view; use `--host <name>`. Open: the exit code for an unknown `<spec-name>`,
-and the order of unrelated specs.
+load: a missing `depends` name shows as `<name> (missing)`. The exit code is the error's (ADR 0053,
+0067). There is no all-hosts view; use `--host <name>`.
 
 ```
 hypr
@@ -801,8 +804,9 @@ not reached: rofi
 
 *Exit codes* (ADR 0053). 0 is success, including a plan with pending changes and a run with only
 warnings. 1 means mdot refused because of a rule: a conflict, or a spec that breaks a rule. 2 is an
-error: a usage error (clap's own code), an unreadable file, a Lua error while loading, or a failed
-write during `apply`. When both 1 and 2 apply, the code is 2.
+error: a usage error (clap's own code), an unreadable file, a missing spec or host name (in `depends`,
+`--host` or `mdot specs <name>`, ADR 0067), a Lua error while loading, or a failed write during
+`apply`. When both 1 and 2 apply, the code is 2.
 
 = State and generations (git-based) <generations>
 

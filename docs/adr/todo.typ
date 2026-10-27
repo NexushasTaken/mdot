@@ -27,7 +27,8 @@ designing the state record, check that a download record (ADR 0032) fits the sam
   in a later phase.
 - [x] *`mdot specs` output* (ADR 0065). Both directions per spec, unreached specs listed,
   optional `<spec-name>`, no all-hosts view, partial output on load errors; cycles stay errors.
-  Still open there: exit code for an unknown `<spec-name>`, order of unrelated specs.
+  Spec order closed by ADR 0066 (written `depends` order, first reach); every missing spec or host
+  name exits 2 (ADR 0067). Still open there, not `specs`-specific: `mdot.os` fields under `--host`.
 - [ ] *`apply` confirmation* (ADR 0052, Open). The prompt, `--yes` (already in the CLI table), and
   what `apply` prints when it refuses because of conflicts.
 - [ ] *Replacement for `print`* (ADR 0013). Settled so far: `mdot.print`, tagged with file:line.
