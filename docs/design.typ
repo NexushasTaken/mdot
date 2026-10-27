@@ -821,7 +821,16 @@ the current repo, `plan` and `apply` first print a `warning:` naming both paths 
 `continue? [y/N]`; no stops, yes plans normally. `--yes` does not answer it. With no terminal on
 stdin, mdot refuses (exit 1). A successful `apply` stores the new path. To try another repo without
 touching the real setup, point `XDG_STATE_HOME` elsewhere. _Open: the state directory on macOS and
-Windows; locking two `apply` runs at once._
+Windows._
+
+*Locking* (ADR 0063). Runs lock `$XDG_STATE_HOME/mdot/lock` with an OS file lock, which the kernel
+releases when the process exits, even on a crash. `plan` and `status` take a shared lock; `apply`
+takes an exclusive one. The lock is taken before `state.json` is read and held until the run exits,
+including while `apply` waits for its confirmation. A run that cannot get the lock prints
+`error: another mdot run is using <state dir>; try again when it finishes` and exits 1. `specs`,
+`--help` and `--version` don't lock. The state directory and lock file are created if missing, and
+the lock file is never deleted. Later commands that write state (`adopt`, `rollback`) lock
+exclusively; read-only ones (`generations`) share.
 
 A generation record looks like this:
 

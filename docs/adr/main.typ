@@ -78,7 +78,8 @@ directory and is collected here.
   link(<adr-0059>)[0059], [Logging uses `tracing`; state files use `serde_json`], [Accepted],
   link(<adr-0060>)[0060], [`state.json` is a versioned flat resource list with top-level `created_dirs`], [Accepted (its `on_remove` open item closed by 0061; `repo` field and repo-id item by 0062)],
   link(<adr-0061>)[0061], [No removal policy; removed resources follow their kind's table], [Accepted],
-  link(<adr-0062>)[0062], [One state directory; the stored repo path is checked on every run], [Accepted],
+  link(<adr-0062>)[0062], [One state directory; the stored repo path is checked on every run], [Accepted (locking open item closed by 0063)],
+  link(<adr-0063>)[0063], [An OS file lock on the state directory: shared for readers, exclusive for `apply`], [Accepted],
 )
 
 #include "0001-fresh-design-not-comtrya-port.typ"
@@ -143,3 +144,4 @@ directory and is collected here.
 #include "0060-state-file-schema.typ"
 #include "0061-no-removal-policy.typ"
 #include "0062-single-state-dir-and-repo-check.typ"
+#include "0063-state-lock.typ"
