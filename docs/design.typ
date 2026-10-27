@@ -776,6 +776,29 @@ warnings go to stderr. A diagnostic is `<word>: <message>` with the word `error`
 `error:` and `conflict:` are red, `warning:` yellow, only when that stream is a terminal and
 `NO_COLOR` is unset or empty. Follow-up `hint:` / `note:` lines come later, near the end.
 
+*`mdot specs`* (ADR 0065). For the current host (or `--host`), each spec reached is a heading in
+dependency order, with indented `depends on:` and `needed by:` lines (a host shows as
+`<name> (host)`; empty lines are left out). Then one sorted line `not reached: <names>` for the
+directories in `specs/` the host does not reach; their `spec.lua` is not run. `mdot specs <spec-name>`
+shows only that spec, or that it is not reached; an unknown name is an error listing the known names.
+On a load error `specs` prints the error, then what did
+load: a missing `depends` name shows as `<name> (missing)`. The exit code is the error's (ADR 0053).
+There is no all-hosts view; use `--host <name>`. Open: the exit code for an unknown `<spec-name>`,
+and the order of unrelated specs.
+
+```
+hypr
+  needed by:  desktop
+waybar
+  needed by:  desktop
+desktop
+  depends on: hypr, waybar
+  needed by:  laptop (host)
+bash
+  needed by:  laptop (host)
+not reached: rofi
+```
+
 *Exit codes* (ADR 0053). 0 is success, including a plan with pending changes and a run with only
 warnings. 1 means mdot refused because of a rule: a conflict, or a spec that breaks a rule. 2 is an
 error: a usage error (clap's own code), an unreadable file, a Lua error while loading, or a failed
@@ -910,7 +933,8 @@ Package semantics:
   [`mdot generations`], [list generations],
   [`mdot rollback [N]`], [plan and apply an older generation],
   [`mdot query <file> <q> ...`], [standalone tree-sitter query/edit (@tree-sitter)],
-  [`mdot specs`], [list the specs the current host reaches, in dependency order (debugging)],
+  [`mdot specs [<spec-name>]`],
+  [show each spec's dependencies and what needs it, plus unreached specs (debugging, @output)],
 )
 
 Global flags: `--repo <dir>`, `-v`/`-q`, `--color`. _Open: `-q` and `--color` have no ADR; ADR

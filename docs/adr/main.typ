@@ -81,6 +81,7 @@ directory and is collected here.
   link(<adr-0062>)[0062], [One state directory; the stored repo path is checked on every run], [Accepted (locking open item closed by 0063)],
   link(<adr-0063>)[0063], [An OS file lock on the state directory: shared for readers, exclusive for `apply`], [Accepted (`status` removed by 0064)],
   link(<adr-0064>)[0064], [No `mdot status` command; `plan` reports drift], [Accepted],
+  link(<adr-0065>)[0065], [`mdot specs` output and `<spec-name>`], [Accepted],
 )
 
 #include "0001-fresh-design-not-comtrya-port.typ"
@@ -147,3 +148,4 @@ directory and is collected here.
 #include "0062-single-state-dir-and-repo-check.typ"
 #include "0063-state-lock.typ"
 #include "0064-no-status-command.typ"
+#include "0065-specs-output.typ"

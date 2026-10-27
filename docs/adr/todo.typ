@@ -25,7 +25,9 @@ designing the state record, check that a download record (ADR 0032) fits the sam
 - [x] *`mdot status` output* (ADR 0064). Dropped: no `status` command; `plan` reports drift, and
   acceptance test step 5 now checks `plan`. Still open there: whether a drift-only command returns
   in a later phase.
-- [ ] *`mdot specs` output.* Not designed (minor).
+- [x] *`mdot specs` output* (ADR 0065). Both directions per spec, unreached specs listed,
+  optional `<spec-name>`, no all-hosts view, partial output on load errors; cycles stay errors.
+  Still open there: exit code for an unknown `<spec-name>`, order of unrelated specs.
 - [ ] *`apply` confirmation* (ADR 0052, Open). The prompt, `--yes` (already in the CLI table), and
   what `apply` prints when it refuses because of conflicts.
 - [ ] *Replacement for `print`* (ADR 0013). Settled so far: `mdot.print`, tagged with file:line.
