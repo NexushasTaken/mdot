@@ -48,8 +48,9 @@ These rules decide every later design question:
   [Errors], [`Result<T, E>` with mdot's own error types],
   [Tests], [`cargo test`],
   [CLI], [clap (derive)],
-  [Logging], [open (ADR 0036). _Stale: decided by ADR 0059._],
-  [State files], [JSON; library open (ADR 0036). _Stale: decided by ADR 0059._],
+  [Logging], [`tracing` + `tracing-subscriber`, for user output and debug logs as separate outputs
+    (ADR 0059)],
+  [State files], [JSON via `serde` + `serde_json` (ADR 0059)],
   [Structural editing], [tree-sitter (+ vendored grammars); Rust binding open (ADR 0036)],
   [Git], [shell out to system `git` (no libgit2)],
 )
@@ -477,8 +478,8 @@ the same content key, is an update that only runs `chmod`. `file.copy` itself is
   extraction is designed.
 
 *Not designed.* A checksum file URL (such as `SHA256SUMS`), signatures, extraction, mirrors, a download
-cache, authentication, proxies and retries. Open: which algorithms beyond sha256. The libraries are
-libcurl and OpenSSL (ADR 0025). _Stale: ADR 0025 is superseded by ADR 0036._
+cache, authentication, proxies and retries. Open: which algorithms beyond sha256, and the HTTP
+client and hash library (ADR 0036).
 
 = Templating
 
@@ -869,7 +870,8 @@ Package semantics:
     stat; never changes `dst` (@net-download)],
   [`mdot adopt <path> [--name N]`],
   [move an existing target into its mirror slot, symlink it back, and write `specs/<N>.lua` if no
-    spec owns that path. _Stale: the layout is `specs/<name>/` (ADR 0014)._],
+    spec owns that path. _Open: what it writes now that a spec is a directory, `specs/<name>/`
+    (ADR 0014)._],
   [`mdot generations`], [list generations],
   [`mdot rollback [N]`], [plan and apply an older generation],
   [`mdot query <file> <q> ...`], [standalone tree-sitter query/edit (@tree-sitter)],
@@ -907,7 +909,7 @@ The core config manager comes first. Package handling and the other extras come 
   [Research experiments S1–S6 (`research.typ`, Methodology). Their results may change this spec
     before Phase 1 is locked],
   [1],
-  [Skeleton (CMake + Conan + CI build; _stale: ADR 0036_). Lua loader + sandbox, `spec {}` clause
+  [Skeleton (Cargo + CI build, ADR 0036). Lua loader + sandbox, `spec {}` clause
     tables, `hosts/` + `depends` selection, `file.link()`, `dst` conflict checks, state file, `plan` /
     `apply` / `status` / `specs`. User scope only],
   [2], [`adopt`, `on_remove` policies, generations + `rollback` via git worktree, backups],
