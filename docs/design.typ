@@ -786,13 +786,13 @@ The repo already has history in git. Generations reuse it: they record *which co
 and *what was deployed*, but they don't snapshot content.
 
 ```
-$XDG_STATE_HOME/mdot/<repo-id>/      repo-id = hash of the repo's absolute path
-  state.json                        current deployed resources + policies + hashes
+$XDG_STATE_HOME/mdot/               one state directory per user (ADR 0062)
+  state.json                        repo path, deployed resources, created dirs
   generations/0001.json ...         one per successful apply
   backups/<gen>/...                 originals moved aside by adopt
 ```
 
-`state.json` (ADR 0060) is a version number, the directories mdot created, and a flat list of
+`state.json` (ADR 0060) is a version number, the repo path (ADR 0062), the directories mdot created, and a flat list of
 resource records. Each record has a `kind` and that kind's fields; its ID is computed from them
 (ADR 0054), not stored. A link record holds its owning `spec` (ADR 0055) and absolute `src` and
 `dst`. Download fields follow ADR 0032 and are not fixed yet. There is no removal policy to store
@@ -800,6 +800,7 @@ resource records. Each record has a `kind` and that kind's fields; its ID is com
 
 ```json
 { "version": 1,
+  "repo": "/home/nexus/dotfiles",
   "created_dirs": ["/home/nexus/.config/foo"],
   "resources": [
     { "kind": "link", "spec": "foo",
@@ -812,6 +813,15 @@ records with one ID, or a `kind` this mdot doesn't know is an error (exit 2). A 
 than mdot knows is refused with "upgrade mdot" (exit 2). An older one is migrated in memory and
 saved as the current version on the next write; each version bump ships a migration from the one
 before.
+
+*The repo path* (ADR 0062). mdot supports one repo per user; moving or renaming it is not
+supported. The `repo` field holds the repo path, absolute and lexically normalized (ADR 0056). When it
+is missing (or there is no state), the current path is stored without a prompt. When it differs from
+the current repo, `plan` and `apply` first print a `warning:` naming both paths on stderr, then ask
+`continue? [y/N]`; no stops, yes plans normally. `--yes` does not answer it. With no terminal on
+stdin, mdot refuses (exit 1). A successful `apply` stores the new path. To try another repo without
+touching the real setup, point `XDG_STATE_HOME` elsewhere. _Open: the state directory on macOS and
+Windows; locking two `apply` runs at once._
 
 A generation record looks like this:
 

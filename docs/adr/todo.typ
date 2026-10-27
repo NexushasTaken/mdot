@@ -16,9 +16,10 @@ designing the state record, check that a download record (ADR 0032) fits the sam
 - [x] *How `on_remove` reaches `decide`* (ADR 0061). Dropped: no removal policy; removed resources
   follow their kind's table. Supersedes ADR 0011. Still open there: what removing a package does
   (ADR 0028), and whether an empty `mdot.opt` ships in Phase 1.
-- [ ] *Repo-id and locking* (`design.typ`, State and generations). The repo-id is a hash of the
-  absolute path, so moving the repo loses state: accept and document, or change. No rule for two
-  `apply` runs at once.
+- [x] *Repo-id* (ADR 0062). No repo-id: one state directory `$XDG_STATE_HOME/mdot/`; `state.json`
+  stores the repo path and a different path warns and asks (refuses without a terminal). Still open
+  there: the state directory on macOS and Windows, prompt mechanics shared with ADR 0052.
+- [ ] *Locking* (`design.typ`, State and generations). No rule for two `apply` runs at once.
 - [ ] *`mdot status` output.* Not designed; Phase 1 acceptance test step 5 depends on it.
 - [ ] *`mdot specs` output.* Not designed (minor).
 - [ ] *`apply` confirmation* (ADR 0052, Open). The prompt, `--yes` (already in the CLI table), and
