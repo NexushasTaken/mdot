@@ -799,8 +799,11 @@ Applied: 2 created.
 `apply? [y/N]` on stderr (default No), with no plan or counts. Yes runs the steps with the output
 above. No prints nothing more and exits 0. `--yes` skips the question. With no terminal on stdin
 and no `--yes`, it prints `error: cannot ask for confirmation: stdin is not a terminal; use --yes`
-and exits 1. _Open: prompt wording and how an answer is read (shared with the repo-path prompt,
-ADR 0062)._
+and exits 1.
+
+*Prompts* (ADR 0072). Both prompts (this one and the repo-path prompt) read one line, as pacman
+does: spaces are trimmed, `y` or `yes` (any case) is yes, and anything else (`n`, `no`, empty, any
+other text) is no, with no extra message. EOF prints a newline and is no. Ctrl-C has no handler.
 
 *Streams and markers* (ADR 0050). The plan and `mdot.print` go to stdout; errors, conflicts and
 warnings go to stderr. A diagnostic is `<word>: <message>` with the word `error`, `conflict` or
@@ -874,7 +877,7 @@ before.
 supported. The `repo` field holds the repo path, absolute and lexically normalized (ADR 0056). When it
 is missing (or there is no state), the current path is stored without a prompt. When it differs from
 the current repo, `plan` and `apply` first print a `warning:` naming both paths on stderr, then ask
-`continue? [y/N]`; no stops, yes plans normally. `--yes` does not answer it. With no terminal on
+`continue anyway? [y/N]`; no stops, yes plans normally. `--yes` does not answer it. With no terminal on
 stdin, mdot refuses (exit 1). A successful `apply` stores the new path. To try another repo without
 touching the real setup, point `XDG_STATE_HOME` elsewhere. _Open: the state directory on macOS and
 Windows._

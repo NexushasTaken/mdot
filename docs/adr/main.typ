@@ -68,7 +68,7 @@ directory and is collected here.
   link(<adr-0049>)[0049], [No `require` for now; `mdot.vars` holds only data], [Accepted],
   link(<adr-0050>)[0050], [Output streams and diagnostic markers], [Accepted],
   link(<adr-0051>)[0051], [Layout of `mdot plan` and the `--verbose` levels], [Accepted (conflict position superseded by 0052)],
-  link(<adr-0052>)[0052], [Output of `mdot apply`; step lines print when a step finishes], [Accepted (exit code 3 superseded by 0053; confirmation closed by 0068; refusal output by 0069)],
+  link(<adr-0052>)[0052], [Output of `mdot apply`; step lines print when a step finishes], [Accepted (exit code 3 superseded by 0053; confirmation closed by 0068; refusal output by 0069; prompt mechanics by 0072)],
   link(<adr-0053>)[0053], [Exit codes: 0 success, 1 refused by a rule, 2 error], [Accepted],
   link(<adr-0054>)[0054], [The kind is part of the resource ID], [Accepted (its open spec and path items closed by 0055, 0056)],
   link(<adr-0055>)[0055], [The spec is not part of the resource ID; the record stores its owner], [Accepted],
@@ -78,16 +78,17 @@ directory and is collected here.
   link(<adr-0059>)[0059], [Logging uses `tracing`; state files use `serde_json`], [Accepted],
   link(<adr-0060>)[0060], [`state.json` is a versioned flat resource list with top-level `created_dirs`], [Accepted (its `on_remove` open item closed by 0061; `repo` field and repo-id item by 0062)],
   link(<adr-0061>)[0061], [No removal policy; removed resources follow their kind's table], [Accepted],
-  link(<adr-0062>)[0062], [One state directory; the stored repo path is checked on every run], [Accepted (locking open item closed by 0063)],
+  link(<adr-0062>)[0062], [One state directory; the stored repo path is checked on every run], [Accepted (locking open item closed by 0063; prompt wording changed and mechanics closed by 0072)],
   link(<adr-0063>)[0063], [An OS file lock on the state directory: shared for readers, exclusive for `apply`], [Accepted (`status` removed by 0064)],
   link(<adr-0064>)[0064], [No `mdot status` command; `plan` reports drift], [Accepted (`--host` scope superseded by 0071)],
   link(<adr-0065>)[0065], [`mdot specs` output and `<spec-name>`], [Accepted (spec order closed by 0066; exit codes by 0067; `mdot.os` under `--host` by 0071)],
   link(<adr-0066>)[0066], [Dependency order is the written order, first reach], [Accepted],
   link(<adr-0067>)[0067], [Every missing spec or host name exits with 2], [Accepted (`--host` case moved to `preview` and `specs --host` by 0071)],
-  link(<adr-0068>)[0068], [`apply` asks once as a guard against running it by accident; `--yes` skips it], [Accepted (refusal output closed by 0069)],
+  link(<adr-0068>)[0068], [`apply` asks once as a guard against running it by accident; `--yes` skips it], [Accepted (refusal output closed by 0069; prompt mechanics by 0072)],
   link(<adr-0069>)[0069], [`apply` refuses on conflicts with one line that points to `mdot plan`], [Accepted],
   link(<adr-0070>)[0070], [The hostname comes from the OS's stable name, lowercased; bad names warn, unsafe ones are errors], [Accepted (`--host` rules extended to `preview` and missing-hostname message changed by 0071)],
   link(<adr-0071>)[0071], [`mdot preview <host>` replaces `plan --host`: `plan`'s format against an empty machine], [Accepted],
+  link(<adr-0072>)[0072], [Prompts read one line like pacman: `y`/`yes` is yes, anything else is no], [Accepted],
 )
 
 #include "0001-fresh-design-not-comtrya-port.typ"
@@ -161,3 +162,4 @@ directory and is collected here.
 #include "0069-apply-refusal-message.typ"
 #include "0070-hostname-source.typ"
 #include "0071-preview-command.typ"
+#include "0072-prompt-mechanics.typ"

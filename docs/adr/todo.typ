@@ -11,8 +11,7 @@ Goal: Phase 0 and Phase 1 fully specified (plan A, 2026-10-27). Later phases sta
 designing the state record, check that a download record (ADR 0032) fits the same shape.
 
 == Blocking Phase 1
-- [ ] *Prompt mechanics* (ADR 0062, 0068): wording, how an answer is read, what counts as yes, EOF or
-  Ctrl-C at the prompt.
+- [ ] *Exit code after a no at the repo-path prompt* (ADR 0062, 0072): 0 like `apply`'s no, or 1.
 - [ ] *`state.json` leftovers* (ADR 0060). Exact download fields, migration details.
 - [ ] *Empty `mdot.opt` in Phase 1* (ADR 0061). Whether it ships.
 - [ ] *State directory and lock path on macOS and Windows* (ADR 0062, 0063).
