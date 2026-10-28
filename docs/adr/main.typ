@@ -35,7 +35,7 @@ directory and is collected here.
   link(<adr-0016>)[0016], [Link conflicts are hard errors; parent directories are tracked], [Accepted],
   link(<adr-0017>)[0017], [`enabled(bool)` is an eager boolean over `host.name`], [Superseded by 0019],
   link(<adr-0018>)[0018], [`spec { ... }` collects declarative clauses], [Accepted],
-  link(<adr-0019>)[0019], [Specs are opt-in; hosts select them through `depends`], [Accepted],
+  link(<adr-0019>)[0019], [Specs are opt-in; hosts select them through `depends`], [Accepted (`plan --host` and `apply --host` superseded by 0071)],
   link(<adr-0020>)[0020], [`dst` expands only a leading `~`], [Accepted],
   link(<adr-0021>)[0021], [Drop `name()`, reject same-`dst` conflicts, add a `package` clause], [Accepted],
   link(<adr-0022>)[0022], [`link` has a batch form: `link { names..., into = dir, dot? }`], [Accepted],
@@ -56,14 +56,14 @@ directory and is collected here.
   link(<adr-0037>)[0037], [Several templating engines; Yolk-style markers first, with a git clean filter], [Accepted],
   link(<adr-0038>)[0038], [A global `mdot` table; `config.lua` defines `mdot.vars`, hosts only override], [Accepted],
   link(<adr-0039>)[0039], [`mdot.vars` is typed by a schema built from base; the "User's fault" boundary is widened], [Accepted],
-  link(<adr-0040>)[0040], [The `host` global becomes `mdot.os.hostname`], [Accepted],
+  link(<adr-0040>)[0040], [The `host` global becomes `mdot.os.hostname`], [Accepted (`--host` value is now the `preview` / `specs --host` name, 0071)],
   link(<adr-0041>)[0041], [`mdot` has no built-in alias], [Accepted],
   link(<adr-0042>)[0042], [No spec-declared defaults; `config.lua` is the only place vars are defined], [Accepted],
   link(<adr-0043>)[0043], [`mdot.dirs` holds the common dirs; implicit specs keep `~/.config`], [Accepted],
   link(<adr-0044>)[0044], [`mdot.os` describes the real machine: name, family, arch and comtrya's fields], [Accepted],
   link(<adr-0045>)[0045], [`mdot.opt` holds mdot's own settings; each option says who may set it], [Accepted],
   link(<adr-0046>)[0046], [No `mdot.g`; unknown `mdot` members are errors], [Accepted],
-  link(<adr-0047>)[0047], [Command-line flags have no matching `mdot.opt` options; a flag wins], [Accepted],
+  link(<adr-0047>)[0047], [Command-line flags have no matching `mdot.opt` options; a flag wins], [Accepted (`--host` no longer global, 0071)],
   link(<adr-0048>)[0048], [Every file gets a fresh environment; shared library tables are read-only], [Accepted],
   link(<adr-0049>)[0049], [No `require` for now; `mdot.vars` holds only data], [Accepted],
   link(<adr-0050>)[0050], [Output streams and diagnostic markers], [Accepted],
@@ -80,13 +80,14 @@ directory and is collected here.
   link(<adr-0061>)[0061], [No removal policy; removed resources follow their kind's table], [Accepted],
   link(<adr-0062>)[0062], [One state directory; the stored repo path is checked on every run], [Accepted (locking open item closed by 0063)],
   link(<adr-0063>)[0063], [An OS file lock on the state directory: shared for readers, exclusive for `apply`], [Accepted (`status` removed by 0064)],
-  link(<adr-0064>)[0064], [No `mdot status` command; `plan` reports drift], [Accepted],
-  link(<adr-0065>)[0065], [`mdot specs` output and `<spec-name>`], [Accepted (spec order closed by 0066; exit codes by 0067)],
+  link(<adr-0064>)[0064], [No `mdot status` command; `plan` reports drift], [Accepted (`--host` scope superseded by 0071)],
+  link(<adr-0065>)[0065], [`mdot specs` output and `<spec-name>`], [Accepted (spec order closed by 0066; exit codes by 0067; `mdot.os` under `--host` by 0071)],
   link(<adr-0066>)[0066], [Dependency order is the written order, first reach], [Accepted],
-  link(<adr-0067>)[0067], [Every missing spec or host name exits with 2], [Accepted],
+  link(<adr-0067>)[0067], [Every missing spec or host name exits with 2], [Accepted (`--host` case moved to `preview` and `specs --host` by 0071)],
   link(<adr-0068>)[0068], [`apply` asks once as a guard against running it by accident; `--yes` skips it], [Accepted (refusal output closed by 0069)],
   link(<adr-0069>)[0069], [`apply` refuses on conflicts with one line that points to `mdot plan`], [Accepted],
-  link(<adr-0070>)[0070], [The hostname comes from the OS's stable name, lowercased; bad names warn, unsafe ones are errors], [Accepted],
+  link(<adr-0070>)[0070], [The hostname comes from the OS's stable name, lowercased; bad names warn, unsafe ones are errors], [Accepted (`--host` rules extended to `preview` and missing-hostname message changed by 0071)],
+  link(<adr-0071>)[0071], [`mdot preview <host>` replaces `plan --host`: `plan`'s format against an empty machine], [Accepted],
 )
 
 #include "0001-fresh-design-not-comtrya-port.typ"
@@ -159,3 +160,4 @@ directory and is collected here.
 #include "0068-apply-confirmation.typ"
 #include "0069-apply-refusal-message.typ"
 #include "0070-hostname-source.typ"
+#include "0071-preview-command.typ"

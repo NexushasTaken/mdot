@@ -126,22 +126,25 @@ return spec { depends("hypr", "waybar", "dunst", "uwsm") }
   cycle. A spec reached more than once is applied once.
 - A host file has no directory, so it only holds selection (`depends`) and overrides of
   `mdot.vars` (ADR 0038, 0042). A `file.link` in a host file is an error.
-- `--host <name>` makes `plan` load `hosts/<name>.lua` instead, as a dry run. `apply`
-  with a `--host` that differs from the real hostname is an error. A missing host file is an error
-  that lists the files in `hosts/`.
+- *`mdot preview <host>`* (ADR 0071) shows what `hosts/<host>.lua` would get, in `plan`'s format
+  diffed against an empty machine: every resource is new. It reads only the repo: no live files, no
+  `state.json`, no state directory and no lock, and it never changes a file. `mdot.os` (except
+  `hostname`) and `mdot.dirs` are this machine's, and `~` is this machine's home, so a per-host
+  difference written in the host file previews accurately and an OS branch in a spec does not.
+  `<host>` is required. `plan` and `apply` always use the real hostname; `--host <name>` exists only
+  on `specs`. A missing host file is an error that lists the files in `hosts/`.
 - *Hostname* (ADR 0070). The real hostname is read once at startup from the OS's stable name:
   Linux `gethostname()`, macOS `LocalHostName` (Settings → General → Sharing → Local hostname),
   Windows the DNS hostname (not the NetBIOS name). It is lowercased (ASCII only) and otherwise used
   exactly: no domain trimming, so `nexos.lan` selects `hosts/nexos.lan.lua`. An empty or unavailable
-  hostname is an error that suggests `--host`.
-- Host names are lowercase. `--host` with uppercase is an error. A real hostname or `--host` value
-  that breaks RFC 1123 (`a`–`z`, `0`–`9`, `-`; labels of 1–63 characters separated by `.`, no `-`
+  hostname is an error: `error: cannot determine the hostname; set one` (ADR 0071).
+- Host names are lowercase. A `preview <host>` or `specs --host` name with uppercase is an error.
+  A real hostname or such a name that breaks RFC 1123 (`a`–`z`, `0`–`9`, `-`; labels of 1–63 characters separated by `.`, no `-`
   at a label's start or end; at most 253 characters) is a warning, and mdot continues. A name that
   is empty, `.`, `..` or contains `/` or `\` is an error from either source.
-- The hostname warning shows once per run when the real hostname is read, never under `--host`.
-  On every run that picks a host file, each file in `hosts/` whose name has uppercase (it can never
-  match) or breaks RFC 1123 gets a warning naming it. The `apply --host` check compares against the
-  lowercased real hostname.
+- The hostname warning shows once per run when the real hostname is read, never under `preview` or
+  `specs --host`. On every run that picks a host file, each file in `hosts/` whose name has
+  uppercase (it can never match) or breaks RFC 1123 gets a warning naming it.
 
 = Loading and sandbox <loading>
 
@@ -150,7 +153,7 @@ return spec { depends("hypr", "waybar", "dunst", "uwsm") }
 + mdot finds the repo root: `--repo <dir>`, else `$PWD` if it contains `specs/`, else error.
 + If `config.lua` exists it runs in its own environment and assigns the base values into `mdot.vars`
   (ADR 0038). Without it, base `vars` is empty.
-+ mdot loads `hosts/<hostname>.lua` (or `--host`) and then follows `depends` to load only the specs
++ mdot loads `hosts/<hostname>.lua` (or the `preview` / `specs --host` name) and then follows `depends` to load only the specs
   it reaches. A directory without a `spec.lua` becomes an implicit spec. Every file (`config.lua`,
   the host file, each `spec.lua`) runs in its own fresh environment, so globals can't leak between
   files (ADR 0048).
@@ -298,9 +301,10 @@ checks as `mdot`.
   [`hostname`], [see below], [`"laptop"`],
 )
 
-- Every field describes the real machine, even under `--host`, except `hostname`.
+- Every field describes the real machine, even under `preview`, except `hostname`.
 - `mdot.os.hostname` is exactly the `<name>` mdot used to select `hosts/<name>.lua`: the real
-  hostname (lowercased, ADR 0070), or the `--host` value (`plan --host laptop` gives `"laptop"`).
+  hostname (lowercased, ADR 0070), or the `preview` / `specs --host` name (`preview laptop` gives
+  `"laptop"`, ADR 0071).
 - `config.lua`, host files and specs may all read it. Writing to `mdot.os` is an error naming the
   file. Reading a field it does not have (`mdot.os.hostnme`) is an error naming the field.
 - A hostname branch in a spec puts a per-host difference outside the host file; that is allowed.
@@ -318,7 +322,7 @@ checks as `mdot`.
 - A dir that does not exist on this OS is `nil` (`state` and `executable` exist only on Linux), so
   `mdot.dirs.state or mdot.dirs.data_local` works. Reading a name not in the list is an error
   naming the field. Writing to `mdot.dirs` is an error naming the file.
-- `config.lua`, host files and specs may all read it. `--host` does not change it.
+- `config.lua`, host files and specs may all read it. `preview` does not change it.
 - mdot knows the common dirs, not where each program keeps its config: a spec for a program with a
   different location per OS chooses it itself. Implicit specs still link to `~/.config/<name>`
   (ADR 0020).
@@ -829,7 +833,7 @@ not reached: rofi
 *Exit codes* (ADR 0053). 0 is success, including a plan with pending changes and a run with only
 warnings. 1 means mdot refused because of a rule: a conflict, or a spec that breaks a rule. 2 is an
 error: a usage error (clap's own code), an unreadable file, a missing spec or host name (in `depends`,
-`--host` or `mdot specs <name>`, ADR 0067), a Lua error while loading, or a failed write during
+`preview <host>`, `specs --host` or `mdot specs <name>`, ADR 0067, 0071), a Lua error while loading, or a failed write during
 `apply`. When both 1 and 2 apply, the code is 2.
 
 = State and generations (git-based) <generations>
@@ -951,6 +955,9 @@ Package semantics:
   [Command], [Purpose],
   [`mdot plan [--diff]`], [show what apply would do (@output)],
   [`mdot apply [--yes]`], [execute the plan, write state and a generation (@apply)],
+  [`mdot preview <host>`],
+  [show what `hosts/<host>.lua` would get on an empty machine, in `plan`'s format; reads only the
+    repo (@hosts)],
   [`mdot verify [--all]`],
   [hash downloads that `plan` reported as conflicts (all with `--all`) and refresh their recorded
     stat; never changes `dst` (@net-download)],
@@ -961,7 +968,7 @@ Package semantics:
   [`mdot generations`], [list generations],
   [`mdot rollback [N]`], [plan and apply an older generation],
   [`mdot query <file> <q> ...`], [standalone tree-sitter query/edit (@tree-sitter)],
-  [`mdot specs [<spec-name>]`],
+  [`mdot specs [<spec-name>] [--host <name>]`],
   [show each spec's dependencies and what needs it, plus unreached specs (debugging, @output)],
 )
 

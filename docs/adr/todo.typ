@@ -22,9 +22,7 @@ designing the state record, check that a download record (ADR 0032) fits the sam
   (ADR 0051, Open). Also: `mdot.print` is missing from the `mdot` global's member list, which says
   any other member is an error.
 - [ ] *Exit codes for the hostname errors* (ADR 0070): 2 (error) or 1 (broken rule), e.g. for an
-  uppercase `--host`.
-- [ ] *`mdot.os` under `--host`* (ADR 0013 "Host and OS info", ADR 0065). The fields other than
-  `hostname` still describe the real machine.
+  uppercase `preview` or `specs --host` name.
 - [ ] *`file.link` `src` validation.* An absolute `src`, or one whose `..` escapes the spec
   directory: allowed or an error?
 
