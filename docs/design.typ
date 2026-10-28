@@ -129,6 +129,19 @@ return spec { depends("hypr", "waybar", "dunst", "uwsm") }
 - `--host <name>` makes `plan` load `hosts/<name>.lua` instead, as a dry run. `apply`
   with a `--host` that differs from the real hostname is an error. A missing host file is an error
   that lists the files in `hosts/`.
+- *Hostname* (ADR 0070). The real hostname is read once at startup from the OS's stable name:
+  Linux `gethostname()`, macOS `LocalHostName` (Settings → General → Sharing → Local hostname),
+  Windows the DNS hostname (not the NetBIOS name). It is lowercased (ASCII only) and otherwise used
+  exactly: no domain trimming, so `nexos.lan` selects `hosts/nexos.lan.lua`. An empty or unavailable
+  hostname is an error that suggests `--host`.
+- Host names are lowercase. `--host` with uppercase is an error. A real hostname or `--host` value
+  that breaks RFC 1123 (`a`–`z`, `0`–`9`, `-`; labels of 1–63 characters separated by `.`, no `-`
+  at a label's start or end; at most 253 characters) is a warning, and mdot continues. A name that
+  is empty, `.`, `..` or contains `/` or `\` is an error from either source.
+- The hostname warning shows once per run when the real hostname is read, never under `--host`.
+  On every run that picks a host file, each file in `hosts/` whose name has uppercase (it can never
+  match) or breaks RFC 1123 gets a warning naming it. The `apply --host` check compares against the
+  lowercased real hostname.
 
 = Loading and sandbox <loading>
 
@@ -287,7 +300,7 @@ checks as `mdot`.
 
 - Every field describes the real machine, even under `--host`, except `hostname`.
 - `mdot.os.hostname` is exactly the `<name>` mdot used to select `hosts/<name>.lua`: the real
-  hostname, or the `--host` value (`plan --host laptop` gives `"laptop"`).
+  hostname (lowercased, ADR 0070), or the `--host` value (`plan --host laptop` gives `"laptop"`).
 - `config.lua`, host files and specs may all read it. Writing to `mdot.os` is an error naming the
   file. Reading a field it does not have (`mdot.os.hostnme`) is an error naming the field.
 - A hostname branch in a spec puts a per-host difference outside the host file; that is allowed.

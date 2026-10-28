@@ -86,6 +86,7 @@ directory and is collected here.
   link(<adr-0067>)[0067], [Every missing spec or host name exits with 2], [Accepted],
   link(<adr-0068>)[0068], [`apply` asks once as a guard against running it by accident; `--yes` skips it], [Accepted (refusal output closed by 0069)],
   link(<adr-0069>)[0069], [`apply` refuses on conflicts with one line that points to `mdot plan`], [Accepted],
+  link(<adr-0070>)[0070], [The hostname comes from the OS's stable name, lowercased; bad names warn, unsafe ones are errors], [Accepted],
 )
 
 #include "0001-fresh-design-not-comtrya-port.typ"
@@ -157,3 +158,4 @@ directory and is collected here.
 #include "0067-missing-name-exit-code.typ"
 #include "0068-apply-confirmation.typ"
 #include "0069-apply-refusal-message.typ"
+#include "0070-hostname-source.typ"
