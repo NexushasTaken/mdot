@@ -448,7 +448,10 @@ net.download { url = "...", dst = "...", verify = false }
 #table(
   columns: (auto, 1fr),
   [Field], [Meaning],
-  [`url`, `dst`], [Required. `dst` expands like `file.link`'s (ADR 0020).],
+  [`url`, `dst`], [Required. `dst` expands like `file.link`'s (ADR 0020). `url` is normalized: parsed
+    as a URL (WHATWG rules: lowercase scheme and host, no default port, no dot segments) with the
+    `#fragment` dropped. A `url` that does not parse, or has a user name or password (`user@`,
+    `user:pw@`), is an error at spec load (ADR 0074).],
   [`sha256`], [Expected hash. The default way to verify.],
   [`hash`], [`"<algo>:<hex>"`, the algorithm is whatever precedes the first `:`. An unknown algorithm is
     an error at spec load.],
@@ -458,11 +461,11 @@ net.download { url = "...", dst = "...", verify = false }
   [`mode`], [Optional, for example `"755"`. Applied before the final rename. Not part of the content key.],
 )
 
-*Content key.* The desired content key `D` is the hash when verified, and the `url` when
-`verify = false`. (ADR 0024 and ADR 0032 call it the download's _identity_; it was renamed so that
-"identity" means only the resource ID, ADR 0034.)
-Both are known without the network, which is why `plan` can stay offline. Updating a verified download
-means changing both `url` and the hash.
+*Content key.* The desired content key `D` is the pair (normalized `url`, hash), with no hash when
+`verify = false` (ADR 0074). Changing either one downloads again; a changed `url` with the same hash
+is fetched and checked against that hash. (ADR 0024 and ADR 0032 call it the download's _identity_;
+it was renamed so that "identity" means only the resource ID, ADR 0034.)
+Both are known without the network, which is why `plan` can stay offline.
 
 *Where hashing happens.* Only in `apply` and in `mdot verify`. `plan` never reads file
 contents, because the file can be gigabytes and the machine slow.
@@ -470,8 +473,9 @@ contents, because the file can be gigabytes and the machine slow.
 - `apply` writes the download to a temporary file next to `dst` and hashes the bytes as they arrive
   (no second pass). A mismatch deletes the temporary file, leaves `dst` alone and fails that
   resource. A match renames it over `dst`. With `verify = false` the digest is only recorded.
-- State records the content key `R`, the sha256 of the written bytes `W`, and the file's `size`,
-  `mtime_ns` and `inode` right after the rename.
+- State records the content key `R` (`url` and `hash`), the sha256 of the written bytes `W`, and the
+  file's `size`, `mtime_ns`, `inode` and permission bits right after the rename (fields: @generations,
+  ADR 0074).
 
 *`mdot verify`* hashes the downloads that `plan` reported as conflicts (or all of them with a flag
 that ignores the stat cache). With the live hash `L`, the recorded hash `W` and the verified hash `D`:
@@ -594,7 +598,7 @@ Specs compile into a flat list of *resources*:
   [`Render`], [kind + target path], [output hash + bytes], [file hash],
   [`Patch`], [kind + target path + query], [the edits],
   [does the query on the live file already yield the desired values?],
-  [`Download`], [kind + target path], [content key: hash, or `url` when `verify = false`],
+  [`Download`], [kind + target path], [content key: normalized `url` + hash (none when `verify = false`)],
   [`stat` compared with the recorded `size`/`mtime_ns`/`inode` (no hashing)],
   [`SysFile`], [kind + target path], [bytes hash, owner, mode], [hash, owner, mode],
   [`Package` _(phase 5)_], [kind + package name], [installed, reason explicit/dep], [provider query],
@@ -854,8 +858,10 @@ $XDG_STATE_HOME/mdot/               one state directory per user (ADR 0062)
 `state.json` (ADR 0060) is a version number, the repo path (ADR 0062), the directories mdot created, and a flat list of
 resource records. Each record has a `kind` and that kind's fields; its ID is computed from them
 (ADR 0054), not stored. A link record holds its owning `spec` (ADR 0055) and absolute `src` and
-`dst`. Download fields follow ADR 0032 and are not fixed yet. There is no removal policy to store
-(ADR 0061).
+`dst`. A download record (ADR 0074) holds `spec`, `dst`, the normalized `url`, `hash`
+(`"<algo>:<hex>"`, lowercase hex, or `null` when `verify = false`), `written` (`"sha256:<hex>"`) and a
+`stat` object: `size`, `inode` and signed `mtime_ns` as integers, `mode` as an octal string such as
+`"755"` (`st_mode & 0o7777`). There is no removal policy to store (ADR 0061).
 
 ```json
 { "version": 1,

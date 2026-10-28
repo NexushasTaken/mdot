@@ -11,7 +11,7 @@ Goal: Phase 0 and Phase 1 fully specified (plan A, 2026-10-27). Later phases sta
 designing the state record, check that a download record (ADR 0032) fits the same shape.
 
 == Blocking Phase 1
-- [ ] *`state.json` leftovers* (ADR 0060). Exact download fields, migration details.
+- [ ] *`state.json` migration details* (ADR 0060). Download fields closed by ADR 0074.
 - [ ] *Empty `mdot.opt` in Phase 1* (ADR 0061). Whether it ships.
 - [ ] *State directory and lock path on macOS and Windows* (ADR 0062, 0063).
 - [ ] *Replacement for `print`* (ADR 0013). Settled so far: `mdot.print`, tagged with file:line.
@@ -39,6 +39,8 @@ designing the state record, check that a download record (ADR 0032) fits the sam
 == Later phases (not blocking)
 - [ ] *Removing a package* (ADR 0028, ADR 0061): what it does. Phase 5.
 - [ ] *A drift-only command* (ADR 0064): whether one returns in a later phase.
+- [ ] *Authenticated downloads* (ADR 0074): how a private download gets credentials without
+  putting them in the `url`.
 
 == Phase 0 experiments (`research.typ`, Methodology)
 - [ ] *Re-scope Phase 0* to the experiments that gate Phase 1: S4 and S6. Move S1/S2 (Phase 4),

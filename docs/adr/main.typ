@@ -48,7 +48,7 @@ directory and is collected here.
   link(<adr-0029>)[0029], [`apply` records state after each step and stops at the first failure], [Accepted ("not attempted" in the message superseded by 0052, exit code 3 by 0053)],
   link(<adr-0030>)[0030], [The 3-way diff for links], [Accepted],
   link(<adr-0031>)[0031], [mdot does not track linked content; `status` shows only mdot's resources], [Accepted (`status` removed by 0064)],
-  link(<adr-0032>)[0032], [The 3-way diff for downloads], [Accepted],
+  link(<adr-0032>)[0032], [The 3-way diff for downloads], [Accepted (content key redefined by 0074)],
   link(<adr-0033>)[0033], [Link updates and deletes change the disk first, then state], [Accepted],
   link(<adr-0034>)[0034], [The planner matches desired and recorded resources by ID], [Accepted (ID parts in 0054, 0055, 0056)],
   link(<adr-0035>)[0035], [A generic planner: classify each ID, then the kind decides], [Accepted (apply order amended by 0054; `both` and `match` refined by 0057, fallback by 0058)],
@@ -76,7 +76,7 @@ directory and is collected here.
   link(<adr-0057>)[0057], [Classify compares each pair on its own; live vs desired is optional], [Accepted],
   link(<adr-0058>)[0058], [Every kind's `decide` handles every case; no fallback], [Accepted (its `on_remove` open item closed by 0061)],
   link(<adr-0059>)[0059], [Logging uses `tracing`; state files use `serde_json`], [Accepted],
-  link(<adr-0060>)[0060], [`state.json` is a versioned flat resource list with top-level `created_dirs`], [Accepted (its `on_remove` open item closed by 0061; `repo` field and repo-id item by 0062)],
+  link(<adr-0060>)[0060], [`state.json` is a versioned flat resource list with top-level `created_dirs`], [Accepted (its `on_remove` open item closed by 0061; `repo` field and repo-id item by 0062; download fields by 0074)],
   link(<adr-0061>)[0061], [No removal policy; removed resources follow their kind's table], [Accepted],
   link(<adr-0062>)[0062], [One state directory; the stored repo path is checked on every run], [Accepted (locking open item closed by 0063; prompt wording changed and mechanics closed by 0072; exit code after a no by 0073)],
   link(<adr-0063>)[0063], [An OS file lock on the state directory: shared for readers, exclusive for `apply`], [Accepted (`status` removed by 0064)],
@@ -90,6 +90,7 @@ directory and is collected here.
   link(<adr-0071>)[0071], [`mdot preview <host>` replaces `plan --host`: `plan`'s format against an empty machine], [Accepted],
   link(<adr-0072>)[0072], [Prompts read one line like pacman: `y`/`yes` is yes, anything else is no], [Accepted (repo-prompt exit code closed by 0073)],
   link(<adr-0073>)[0073], [A no at the repo-path prompt exits with 1], [Accepted],
+  link(<adr-0074>)[0074], [A download record stores its normalized `url`; a changed `url` downloads again], [Accepted],
 )
 
 #include "0001-fresh-design-not-comtrya-port.typ"
@@ -165,3 +166,4 @@ directory and is collected here.
 #include "0071-preview-command.typ"
 #include "0072-prompt-mechanics.typ"
 #include "0073-repo-prompt-no-exit-code.typ"
+#include "0074-download-record-fields.typ"
