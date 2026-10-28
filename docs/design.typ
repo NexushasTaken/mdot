@@ -874,10 +874,12 @@ resource records. Each record has a `kind` and that kind's fields; its ID is com
 ```
 
 Loading: a missing file is empty state. A file that doesn't parse, has no `version`, holds two
-records with one ID, or a `kind` this mdot doesn't know is an error (exit 2). A newer `version`
-than mdot knows is refused with "upgrade mdot" (exit 2). An older one is migrated in memory and
-saved as the current version on the next write; each version bump ships a migration from the one
-before.
+records with one ID, a `kind` or field this mdot doesn't know, or misses a required field is an
+error (exit 2). A newer `version` than mdot knows is refused with "upgrade mdot" (exit 2). An older
+one is migrated in memory and saved as the current version by the next `apply`; `plan` never
+writes it. Every change to the format bumps `version` and ships a migration from the one before
+(ADR 0075). Before the first release a bump may ship without one: mdot then refuses the older file
+and says to delete `state.json` and re-run `apply`.
 
 *The repo path* (ADR 0062). mdot supports one repo per user; moving or renaming it is not
 supported. The `repo` field holds the repo path, absolute and lexically normalized (ADR 0056). When it

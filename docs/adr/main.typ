@@ -76,7 +76,7 @@ directory and is collected here.
   link(<adr-0057>)[0057], [Classify compares each pair on its own; live vs desired is optional], [Accepted],
   link(<adr-0058>)[0058], [Every kind's `decide` handles every case; no fallback], [Accepted (its `on_remove` open item closed by 0061)],
   link(<adr-0059>)[0059], [Logging uses `tracing`; state files use `serde_json`], [Accepted],
-  link(<adr-0060>)[0060], [`state.json` is a versioned flat resource list with top-level `created_dirs`], [Accepted (its `on_remove` open item closed by 0061; `repo` field and repo-id item by 0062; download fields by 0074)],
+  link(<adr-0060>)[0060], [`state.json` is a versioned flat resource list with top-level `created_dirs`], [Accepted (its `on_remove` open item closed by 0061; `repo` field and repo-id item by 0062; download fields by 0074; migration rules by 0075)],
   link(<adr-0061>)[0061], [No removal policy; removed resources follow their kind's table], [Accepted],
   link(<adr-0062>)[0062], [One state directory; the stored repo path is checked on every run], [Accepted (locking open item closed by 0063; prompt wording changed and mechanics closed by 0072; exit code after a no by 0073)],
   link(<adr-0063>)[0063], [An OS file lock on the state directory: shared for readers, exclusive for `apply`], [Accepted (`status` removed by 0064)],
@@ -91,6 +91,7 @@ directory and is collected here.
   link(<adr-0072>)[0072], [Prompts read one line like pacman: `y`/`yes` is yes, anything else is no], [Accepted (repo-prompt exit code closed by 0073)],
   link(<adr-0073>)[0073], [A no at the repo-path prompt exits with 1], [Accepted],
   link(<adr-0074>)[0074], [A download record stores its normalized `url`; a changed `url` downloads again], [Accepted],
+  link(<adr-0075>)[0075], [Every `state.json` format change bumps `version`; an unknown field is an error], [Accepted],
 )
 
 #include "0001-fresh-design-not-comtrya-port.typ"
@@ -167,3 +168,4 @@ directory and is collected here.
 #include "0072-prompt-mechanics.typ"
 #include "0073-repo-prompt-no-exit-code.typ"
 #include "0074-download-record-fields.typ"
+#include "0075-state-version-bumps.typ"
