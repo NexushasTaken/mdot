@@ -877,7 +877,8 @@ before.
 supported. The `repo` field holds the repo path, absolute and lexically normalized (ADR 0056). When it
 is missing (or there is no state), the current path is stored without a prompt. When it differs from
 the current repo, `plan` and `apply` first print a `warning:` naming both paths on stderr, then ask
-`continue anyway? [y/N]`; no stops, yes plans normally. `--yes` does not answer it. With no terminal on
+`continue anyway? [y/N]`; no stops with exit 1 and prints nothing more (ADR 0073), yes plans
+normally. `--yes` does not answer it. With no terminal on
 stdin, mdot refuses (exit 1). A successful `apply` stores the new path. To try another repo without
 touching the real setup, point `XDG_STATE_HOME` elsewhere. _Open: the state directory on macOS and
 Windows._
