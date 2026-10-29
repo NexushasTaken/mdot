@@ -98,6 +98,7 @@ directory and is collected here.
   link(<adr-0079>)[0079], [Every hostname error exits with 2], [Accepted],
   link(<adr-0080>)[0080], [A link's `src` must resolve inside its spec directory], [Accepted (missing-`src` exit code closed by 0081)],
   link(<adr-0081>)[0081], [A missing or dangling `src` exits with 2], [Accepted],
+  link(<adr-0082>)[0082], [A link conflict says what is there and whether mdot made it], [Accepted],
 )
 
 #include "0001-fresh-design-not-comtrya-port.typ"
@@ -181,3 +182,4 @@ directory and is collected here.
 #include "0079-hostname-error-exit-code.typ"
 #include "0080-link-src-stays-in-spec.typ"
 #include "0081-missing-src-exit-code.typ"
+#include "0082-link-conflict-message.typ"

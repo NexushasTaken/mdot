@@ -637,16 +637,19 @@ table; the plan is data that `apply` runs later (ADR 0035). The algorithm is in 
 
 *Conflicts.* A conflict is a hard error. There is no `--force` (ADR 0016). `plan` reports every
 conflict, and `apply` re-checks all resources before it changes anything, so it never stops
-half-applied. Each error names the spec, `src`, `dst` and what was found, for example:
+half-applied. The conflicting resource's `!` line shows the spec, `dst` and `src` (ADR 0052),
+and its `conflict:` line says what is at `dst` and whether mdot made it (ADR 0082). What is there
+is `regular file`, `directory`, `symlink to <target>` (the target as stored in the link) or
+`special file`:
 
 ```
-error: hypr: cannot link ~/.config/hypr
-  expected: missing, or symlink to specs/hypr/config
-  found:    symlink to ~/old-hypr
+hypr
+  ! link  ~/.config/hypr -> config
+conflict: ~/.config/hypr: symlink to ~/old-hypr, not managed by mdot
 ```
 
-If state says mdot created that resource, the report adds that it *drifted*. It is still a
-conflict: mdot reports it and you fix it. There is no `status` command; `plan` is how drift is seen
+If state says mdot created that resource, the message ends in `changed since mdot made it`
+instead: it *drifted*. It is still a conflict: mdot reports it and you fix it. There is no `status` command; `plan` is how drift is seen
 (ADR 0064).
 
 === Common pattern
@@ -773,7 +776,7 @@ waybar
 foot
   + link  ~/.config/foot/colors.ini -> colors.ini
   ! link  ~/.config/foot/foot.ini -> foot.ini
-conflict: ~/.config/foot/foot.ini: exists and is not managed
+conflict: ~/.config/foot/foot.ini: regular file, not managed by mdot
 hyprshot
   - link  ~/.config/hyprshot  (spec removed)
 

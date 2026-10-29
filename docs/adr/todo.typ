@@ -13,8 +13,6 @@ designing the state record, check that a download record (ADR 0032) fits the sam
 == Blocking Phase 1
 
 == Inconsistencies and stale text in `design.typ`
-- [ ] The 3-way diff conflict example uses `error: hypr: cannot link ...`; ADR 0050/0051 use
-  `conflict: <path>: <message>`.
 - [ ] The flat-clause list under *Groups* names `enabled` (superseded by ADR 0019) and `config`
   (never defined).
 - [ ] ADR 0020's rule "a `$` anywhere in `dst` is a load error" is missing from `file.link()`.
@@ -25,6 +23,7 @@ designing the state record, check that a download record (ADR 0032) fits the sam
   decide, or drop them from Phase 1.
 
 == Later phases (not blocking)
+- [ ] *Conflict wording for other kinds* (ADR 0082): copies, downloads.
 - [ ] *Keeping the old `state.json`* when a migrated one overwrites it (ADR 0075).
 - [ ] *Migrating generation records* (ADR 0075): whether old snapshots in `generations/` are
   migrated too. Phase 2.
