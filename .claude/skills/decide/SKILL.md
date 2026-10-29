@@ -58,8 +58,8 @@ means I'm ready to record it. It doesn't prove I understand it.
 
 ## 5. Record
 
-- Write a new ADR in `docs/adr/NNNN-<slug>.typ` using `docs/template.typ` (`#adr(...)`, Context /
-  Options / Decision / Consequences), add it to `docs/adr/main.typ`'s table, and
+- Write a new ADR in `docs/design/adr/NNNN-<slug>.typ` using `docs/design/template.typ` (`#adr(...)`, Context /
+  Options / Decision / Consequences), add it to `docs/design/adr/main.typ`'s table, and
   update `design.typ` if the spec changes.
 - Status: **Accepted** for what I decided in this run. My rejected additions are left
   out. Open items are written as open, not filled in.

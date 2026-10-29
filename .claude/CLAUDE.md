@@ -89,5 +89,5 @@ The spec must be mine, not something I skimmed and approved.
 ## Courses
 
 `/course <topic>` runs a structured course (see `.claude/skills/course/SKILL.md`).
-Lessons are saved in `docs/learn/<topic>/`. My exercise solutions go in `learn/`, which
+Lessons are saved in `docs/design/learn/<topic>/`. My exercise solutions go in `learn/`, which
 is **never committed or staged**.

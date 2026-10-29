@@ -20,7 +20,7 @@ before coding.
 - Propose a short outline: lessons of about one sitting each. Keep it small.
 - Wait for my OK.
 
-## 2. Each lesson (saved to `docs/learn/<topic>/NN-<name>.md`)
+## 2. Each lesson (saved to `docs/design/learn/<topic>/NN-<name>.md`)
 
 1. **Mental model:** what the OS or library actually does underneath.
 2. **API map:** the functions involved, what each follows or doesn't, how each reports

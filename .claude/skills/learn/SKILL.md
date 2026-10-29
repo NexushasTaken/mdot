@@ -19,9 +19,9 @@ that). Don't assume my level. Find it in the scope step.
 - Propose a short outline: lessons of about one sitting each. Keep it small.
 - Wait for my OK.
 
-## 2. Each lesson (saved to `docs/learn/<topic>/NN-<name>.md`)
+## 2. Each lesson (saved to `docs/design/learn/<topic>/NN-<name>.md`)
 
-If `docs/learn/<topic>/` already has lessons (from `/learn` or `/course`), continue
+If `docs/design/learn/<topic>/` already has lessons (from `/learn` or `/course`), continue
 the numbering after the highest existing `NN`.
 
 1. **Mental model:** how the thing actually works underneath, and why it is that way.

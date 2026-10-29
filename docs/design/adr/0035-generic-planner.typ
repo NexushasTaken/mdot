@@ -42,7 +42,7 @@ Accepted additions:
   when desired and recorded match), `other`.
 - *IDs are sorted* before planning, so the same input gives the same plan output.
 
-The algorithm, in pseudocode, is in `docs/planner.typ`.
+The algorithm, in pseudocode, is in `docs/design/planner.typ`.
 
 = Consequences
 - Each kind provides: its ID, how to observe live, what "matches" means, and optionally its own
