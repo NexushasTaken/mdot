@@ -844,7 +844,8 @@ not reached: rofi
 *Exit codes* (ADR 0053). 0 is success, including a plan with pending changes and a run with only
 warnings. 1 means mdot refused because of a rule: a conflict, or a spec that breaks a rule. 2 is an
 error: a usage error (clap's own code), an unreadable file, a missing spec or host name (in `depends`,
-`preview <host>`, `specs --host` or `mdot specs <name>`, ADR 0067, 0071), a Lua error while loading, or a failed write during
+`preview <host>`, `specs --host` or `mdot specs <name>`, ADR 0067, 0071), a bad hostname
+(uppercase, unsafe or unavailable, ADR 0079), a Lua error while loading, or a failed write during
 `apply`. When both 1 and 2 apply, the code is 2.
 
 = State and generations (git-based) <generations>

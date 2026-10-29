@@ -11,8 +11,6 @@ Goal: Phase 0 and Phase 1 fully specified (plan A, 2026-10-27). Later phases sta
 designing the state record, check that a download record (ADR 0032) fits the same shape.
 
 == Blocking Phase 1
-- [ ] *Exit codes for the hostname errors* (ADR 0070): 2 (error) or 1 (broken rule), e.g. for an
-  uppercase `preview` or `specs --host` name.
 - [ ] *`file.link` `src` validation.* An absolute `src`, or one whose `..` escapes the spec
   directory: allowed or an error?
 

@@ -86,7 +86,7 @@ directory and is collected here.
   link(<adr-0067>)[0067], [Every missing spec or host name exits with 2], [Accepted (`--host` case moved to `preview` and `specs --host` by 0071)],
   link(<adr-0068>)[0068], [`apply` asks once as a guard against running it by accident; `--yes` skips it], [Accepted (refusal output closed by 0069; prompt mechanics by 0072)],
   link(<adr-0069>)[0069], [`apply` refuses on conflicts with one line that points to `mdot plan`], [Accepted],
-  link(<adr-0070>)[0070], [The hostname comes from the OS's stable name, lowercased; bad names warn, unsafe ones are errors], [Accepted (`--host` rules extended to `preview` and missing-hostname message changed by 0071)],
+  link(<adr-0070>)[0070], [The hostname comes from the OS's stable name, lowercased; bad names warn, unsafe ones are errors], [Accepted (`--host` rules extended to `preview` and missing-hostname message changed by 0071; exit codes closed by 0079)],
   link(<adr-0071>)[0071], [`mdot preview <host>` replaces `plan --host`: `plan`'s format against an empty machine], [Accepted],
   link(<adr-0072>)[0072], [Prompts read one line like pacman: `y`/`yes` is yes, anything else is no], [Accepted (repo-prompt exit code closed by 0073)],
   link(<adr-0073>)[0073], [A no at the repo-path prompt exits with 1], [Accepted],
@@ -95,6 +95,7 @@ directory and is collected here.
   link(<adr-0076>)[0076], [`mdot.opt` does not exist in Phase 1; ADR 0045 waits for its first option], [Accepted],
   link(<adr-0077>)[0077], [The state directory is `<base>/mdot-data` on every OS; `XDG_STATE_HOME` is read everywhere], [Accepted],
   link(<adr-0078>)[0078], [`mdot.print` replaces `print`; lines are written when called], [Accepted],
+  link(<adr-0079>)[0079], [Every hostname error exits with 2], [Accepted],
 )
 
 #include "0001-fresh-design-not-comtrya-port.typ"
@@ -175,3 +176,4 @@ directory and is collected here.
 #include "0076-no-mdot-opt-in-phase-1.typ"
 #include "0077-state-dir-per-os.typ"
 #include "0078-mdot-print.typ"
+#include "0079-hostname-error-exit-code.typ"
