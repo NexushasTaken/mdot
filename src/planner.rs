@@ -1,5 +1,10 @@
-use std::collections::{BTreeMap, BTreeSet};
-use std::path::PathBuf;
+use crate::error::Error;
+use crate::loader::DesiredLink;
+use crate::state::{self, State};
+use std::collections::BTreeMap;
+use std::fs;
+use std::io::ErrorKind;
+use std::path::{Path, PathBuf};
 
 // `Copy` lets these enums be passed by value like a C enum.
 // `Debug` is what `CAPTURE(desired, live)` needs in Catch2: a printable form.
@@ -29,6 +34,10 @@ pub enum Action {
     Noop,
     Update,
     Delete,
+    /// Links only: not desired, already gone. Drop the record (ADR 0030).
+    Forget,
+    /// Links only: still desired, removed by hand. Make it again (ADR 0030).
+    Recreate,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -56,17 +65,6 @@ pub struct LinkDesired {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LinkLive {
     pub link: Link,
-}
-
-// C++ `Step` stores desired/recorded/live by value, so it can't say "absent".
-// Here they are `Option`, matching the `nil`s in the Lua pseudocode below.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Step {
-    pub id: String,
-    pub action: Action,
-    pub desired: Option<LinkDesired>,
-    pub recorded: Option<LinkRecord>,
-    pub live: Option<LinkLive>,
 }
 
 fn link_match(link_left: &Link, link_right: &Link) -> bool {
@@ -183,67 +181,207 @@ pub fn generic_decide(c: ClassifyResult) -> Action {
     }
 }
 
-// C++ `index_by_id` is a template that works for any T with an `id()` method; the
-// requirement is implicit and checked only when instantiated. A Rust generic must
-// name the requirement up front as a trait bound (`T: HasId`).
-pub trait HasId {
-    fn id(&self) -> String;
+// ---------------------------------------------------------------------------
+// The links table (design.typ "Links", ADR 0030; planner.typ
+// `links_like_decide`). Every case is written out: no `_` arm, so a case
+// nobody decided is a compile error (ADR 0058). The `unreachable!` cells are
+// the 7 combinations classify can never produce; reaching one is a bug, and
+// panicking is safe because planning has not changed anything yet.
+
+pub fn link_decide(c: ClassifyResult) -> Action {
+    use DesiredStatus::*;
+    use LiveStatus::*;
+
+    match (c.desired, c.live) {
+        // new: no record yet
+        (NoRecord, Absent) => Action::Create,
+        (NoRecord, Desired) => Action::Adopt,
+        (NoRecord, Other) => Action::Conflict,
+        (NoRecord, Recorded | Both) => unreachable!("no record, live matches it: {c:?}"),
+        // removed: recorded, no longer desired
+        (Removed, Absent) => Action::Forget,
+        (Removed, Recorded) => Action::Delete,
+        (Removed, Other) => Action::Conflict,
+        (Removed, Desired | Both) => unreachable!("not desired, live matches desired: {c:?}"),
+        // match: desired == recorded
+        (Unchanged, Absent) => Action::Recreate,
+        (Unchanged, Both) => Action::Noop,
+        (Unchanged, Other) => Action::ConflictDrift,
+        (Unchanged, Desired | Recorded) => unreachable!("desired == recorded, live matches one: {c:?}"),
+        // differ: the spec changed since the record
+        (Changed, Absent) => Action::Recreate,
+        (Changed, Desired) => Action::Adopt,
+        (Changed, Recorded) => Action::Update,
+        (Changed, Other) => Action::ConflictDrift,
+        (Changed, Both) => unreachable!("desired != recorded, live matches both: {c:?}"),
+    }
 }
 
-// C++ converts `path` to `std::string` implicitly. A Rust path may not be valid
-// UTF-8, so the conversion is explicit (and lossy for invalid bytes).
-impl HasId for LinkRecord {
-    fn id(&self) -> String {
-        self.link.dst.to_string_lossy().into_owned()
-    }
+/// What is at a link's `dst` on disk right now.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Observed {
+    Absent,
+    /// A symlink; the target exactly as stored in the link (`readlink`).
+    Symlink(PathBuf),
+    File,
+    Dir,
+    /// A socket, fifo, device...
+    Special,
+    /// A parent of `dst` is a file, so `dst` can't exist or be made.
+    /// TODO(design): not in design.typ; planned as a conflict.
+    ParentNotDir,
 }
-impl HasId for LinkDesired {
-    fn id(&self) -> String {
-        self.link.dst.to_string_lossy().into_owned()
-    }
-}
-impl HasId for LinkLive {
-    fn id(&self) -> String {
-        self.link.dst.to_string_lossy().into_owned()
+
+impl Observed {
+    /// How a conflict line names it (ADR 0082).
+    pub fn describe(&self) -> String {
+        match self {
+            Observed::Absent => "nothing".to_string(),
+            Observed::Symlink(t) => format!("symlink to {}", t.display()),
+            Observed::File => "regular file".to_string(),
+            Observed::Dir => "directory".to_string(),
+            Observed::Special => "special file".to_string(),
+            Observed::ParentNotDir => "a parent is not a directory".to_string(),
+        }
     }
 }
 
-// C++ `std::map<std::string, const T *>`. The `'a` lifetime says the references in
-// the map borrow from `items`, so the map can't outlive the vector it points into.
-// C++ trusts you on that; Rust checks it.
-fn index_by_id<'a, T: HasId>(items: &'a [T]) -> BTreeMap<String, &'a T> {
-    let mut map = BTreeMap::new();
-    for item in items {
-        // C++ `map.insert` keeps the first value on a duplicate key; so does `or_insert`.
-        map.entry(item.id()).or_insert(item);
-    }
-    map
+/// `observe` for links: look at `dst` without following it.
+pub fn observe_link(dst: &Path) -> Result<Observed, Error> {
+    let meta = match fs::symlink_metadata(dst) {
+        Ok(m) => m,
+        Err(e) if e.kind() == ErrorKind::NotFound => return Ok(Observed::Absent),
+        Err(e) if e.kind() == ErrorKind::NotADirectory => return Ok(Observed::ParentNotDir),
+        Err(e) => return Err(Error::failed(format!("{}: {e}", dst.display()))),
+    };
+    let ft = meta.file_type();
+    Ok(if ft.is_symlink() {
+        let target = fs::read_link(dst).map_err(|e| Error::failed(format!("{}: {e}", dst.display())))?;
+        Observed::Symlink(target)
+    } else if ft.is_dir() {
+        Observed::Dir
+    } else if ft.is_file() {
+        Observed::File
+    } else {
+        Observed::Special
+    })
 }
 
-// TODO: unfinished, like the C++ version: builds the indexes, returns no steps.
-#[allow(unused_variables, unused_mut)]
-pub fn plan(desired_items: &[LinkDesired], recorded_items: &[LinkRecord]) -> Vec<Step> {
-    let desired_index = index_by_id(desired_items);
-    let recorded_index = index_by_id(recorded_items);
-    let ids: BTreeSet<String> = BTreeSet::new();
+/// One line of the plan: what to do with one resource ID, plus the three
+/// sides, so output and apply know what to show and do.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Step {
+    pub id: String,
+    pub action: Action,
+    pub desired: Option<DesiredLink>,
+    pub recorded: Option<state::LinkRecord>,
+    pub live: Observed,
+}
+
+impl Step {
+    /// The spec the line belongs under: the desired owner, else the recorded one.
+    pub fn spec(&self) -> &str {
+        match (&self.desired, &self.recorded) {
+            (Some(d), _) => &d.spec,
+            (None, Some(r)) => &r.spec,
+            (None, None) => unreachable!("a step has a desired or a recorded side"),
+        }
+    }
+
+    /// The absolute `dst` (same on every side: it is the ID).
+    pub fn dst(&self) -> &Path {
+        match (&self.desired, &self.recorded) {
+            (Some(d), _) => &d.dst,
+            (None, Some(r)) => &r.dst,
+            (None, None) => unreachable!("a step has a desired or a recorded side"),
+        }
+    }
+
+    pub fn is_conflict(&self) -> bool {
+        matches!(self.action, Action::Conflict | Action::ConflictDrift)
+    }
+
+    /// `<what is there>, not managed by mdot` or `..., changed since mdot made
+    /// it` (ADR 0082). The output code puts `conflict: <dst>: ` before it.
+    pub fn conflict_reason(&self) -> String {
+        let whose = if self.recorded.is_some() {
+            "changed since mdot made it"
+        } else {
+            "not managed by mdot"
+        };
+        format!("{}, {whose}", self.live.describe())
+    }
+}
+
+/// The order apply runs steps in (ADR 0054): free places first, fill them last.
+fn phase(action: Action) -> u8 {
+    match action {
+        Action::Delete | Action::Forget => 1,
+        Action::Create | Action::Recreate => 3,
+        _ => 2,
+    }
+}
+
+/// Matches desired and recorded links by ID, observes each ID once and
+/// decides its action (planner.typ "Plan"). Pure except for `observe`:
+/// nothing is changed. The steps come back in apply order.
+pub fn plan(desired: &[DesiredLink], state: &State) -> Result<Vec<Step>, Error> {
+    // BTreeMap keeps keys sorted, so the union below is in ID order.
+    let mut d_by_id: BTreeMap<String, &DesiredLink> = BTreeMap::new();
+    for d in desired {
+        let id = state::link_id(&d.dst);
+        if d_by_id.insert(id.clone(), d).is_some() {
+            // The loader's same-dst check runs first; this is a safety net.
+            return Err(Error::refused(format!("two desired links for {id}")));
+        }
+    }
+    let r_by_id: BTreeMap<String, &state::LinkRecord> =
+        state.links().map(|r| (state::link_id(&r.dst), r)).collect();
+
+    let mut ids: Vec<&String> = d_by_id.keys().chain(r_by_id.keys()).collect();
+    ids.sort();
+    ids.dedup();
 
     let mut steps = Vec::new();
-    steps
+    for id in ids {
+        let d = d_by_id.get(id).copied();
+        let r = r_by_id.get(id).copied();
+        let dst = d.map(|d| &d.dst).or(r.map(|r| &r.dst)).expect("id comes from d or r");
+        let live = observe_link(dst)?;
+
+        let desired_side = d.map(|d| LinkDesired { link: Link { target: d.src.clone(), dst: dst.clone() } });
+        let record_side = r.map(|r| LinkRecord { link: Link { target: r.src.clone(), dst: dst.clone() } });
+        let c = classify_observed(desired_side.as_ref(), record_side.as_ref(), &live, dst);
+
+        steps.push(Step {
+            id: id.clone(),
+            action: link_decide(c),
+            desired: d.cloned(),
+            recorded: r.cloned(),
+            live,
+        });
+    }
+
+    // `sort_by_key` is stable and the steps are already in ID order, so this
+    // gives "phase, then ID".
+    steps.sort_by_key(|s| phase(s.action));
+    Ok(steps)
 }
 
-/*
-function plan(kind, desired_items, recorded_items)
-  local D = index_by(kind.id, desired_items)   -- error on a duplicate ID: one owner per ID
-  local R = index_by(kind.id, recorded_items)
-
-  local steps = {}
-  for _, key in ipairs(sorted(union(keys(D), keys(R)))) do  -- sorted: stable output
-    local d, r = D[key], R[key]
-    local l    = kind.observe(key)                         -- only known IDs are observed
-    local c    = classify(d, r, l, kind.match)
-    steps[#steps+1] = { key = key, action = kind.decide(c),
-                        desired = d, recorded = r, live = l }
-  end
-  return steps          -- data only: nothing changed. apply() runs the steps later.
-end
-*/
+/// `classify` takes live as a link. Anything that is not a symlink with an
+/// absolute target can never equal an absolute `src`, so it is `Other`.
+fn classify_observed(
+    d: Option<&LinkDesired>,
+    r: Option<&LinkRecord>,
+    live: &Observed,
+    dst: &Path,
+) -> ClassifyResult {
+    match live {
+        Observed::Absent => classify(d, r, None),
+        Observed::Symlink(target) if target.is_absolute() => {
+            let l = LinkLive { link: Link { target: target.clone(), dst: dst.to_path_buf() } };
+            classify(d, r, Some(&l))
+        }
+        _ => ClassifyResult { live: LiveStatus::Other, ..classify(d, r, None) },
+    }
+}
