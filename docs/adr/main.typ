@@ -78,8 +78,8 @@ directory and is collected here.
   link(<adr-0059>)[0059], [Logging uses `tracing`; state files use `serde_json`], [Accepted],
   link(<adr-0060>)[0060], [`state.json` is a versioned flat resource list with top-level `created_dirs`], [Accepted (its `on_remove` open item closed by 0061; `repo` field and repo-id item by 0062; download fields by 0074; migration rules by 0075)],
   link(<adr-0061>)[0061], [No removal policy; removed resources follow their kind's table], [Accepted],
-  link(<adr-0062>)[0062], [One state directory; the stored repo path is checked on every run], [Accepted (locking open item closed by 0063; prompt wording changed and mechanics closed by 0072; exit code after a no by 0073)],
-  link(<adr-0063>)[0063], [An OS file lock on the state directory: shared for readers, exclusive for `apply`], [Accepted (`status` removed by 0064)],
+  link(<adr-0062>)[0062], [One state directory; the stored repo path is checked on every run], [Accepted (locking open item closed by 0063; prompt wording changed and mechanics closed by 0072; exit code after a no by 0073; path changed and macOS/Windows item closed by 0077)],
+  link(<adr-0063>)[0063], [An OS file lock on the state directory: shared for readers, exclusive for `apply`], [Accepted (`status` removed by 0064; path changed by 0077)],
   link(<adr-0064>)[0064], [No `mdot status` command; `plan` reports drift], [Accepted (`--host` scope superseded by 0071)],
   link(<adr-0065>)[0065], [`mdot specs` output and `<spec-name>`], [Accepted (spec order closed by 0066; exit codes by 0067; `mdot.os` under `--host` by 0071)],
   link(<adr-0066>)[0066], [Dependency order is the written order, first reach], [Accepted],
@@ -93,6 +93,7 @@ directory and is collected here.
   link(<adr-0074>)[0074], [A download record stores its normalized `url`; a changed `url` downloads again], [Accepted],
   link(<adr-0075>)[0075], [Every `state.json` format change bumps `version`; an unknown field is an error], [Accepted],
   link(<adr-0076>)[0076], [`mdot.opt` does not exist in Phase 1; ADR 0045 waits for its first option], [Accepted],
+  link(<adr-0077>)[0077], [The state directory is `<base>/mdot-data` on every OS; `XDG_STATE_HOME` is read everywhere], [Accepted],
 )
 
 #include "0001-fresh-design-not-comtrya-port.typ"
@@ -171,3 +172,4 @@ directory and is collected here.
 #include "0074-download-record-fields.typ"
 #include "0075-state-version-bumps.typ"
 #include "0076-no-mdot-opt-in-phase-1.typ"
+#include "0077-state-dir-per-os.typ"

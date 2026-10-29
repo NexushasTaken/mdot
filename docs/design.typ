@@ -847,8 +847,21 @@ error: a usage error (clap's own code), an unreadable file, a missing spec or ho
 The repo already has history in git. Generations reuse it: they record *which commit was applied*
 and *what was deployed*, but they don't snapshot content.
 
+*The state directory* (ADR 0062, 0077). One per user, on every OS:
+
 ```
-$XDG_STATE_HOME/mdot/               one state directory per user (ADR 0062)
+base = XDG_STATE_HOME if set
+       else ~/.local/state     (Linux, macOS)
+       else data_local_dir()   (Windows: AppData\Local)
+state dir = base/mdot-data
+```
+
+An empty or relative `XDG_STATE_HOME` counts as unset. If the base cannot be found (no home
+directory, no `AppData\Local`), mdot errors (exit 2) naming what is missing. The default is
+`~/.local/state/mdot-data` on Linux and macOS and `AppData\Local\mdot-data` on Windows.
+
+```
+<state dir>/                        one state directory per user (ADR 0062, 0077)
   state.json                        repo path, deployed resources, created dirs
   generations/0001.json ...         one per successful apply
   backups/<gen>/...                 originals moved aside by adopt
@@ -887,10 +900,9 @@ the current repo, `plan` and `apply` first print a `warning:` naming both paths 
 `continue anyway? [y/N]`; no stops with exit 1 and prints nothing more (ADR 0073), yes plans
 normally. `--yes` does not answer it. With no terminal on
 stdin, mdot refuses (exit 1). A successful `apply` stores the new path. To try another repo without
-touching the real setup, point `XDG_STATE_HOME` elsewhere. _Open: the state directory on macOS and
-Windows._
+touching the real setup, point `XDG_STATE_HOME` elsewhere (any OS, ADR 0077).
 
-*Locking* (ADR 0063). Runs lock `$XDG_STATE_HOME/mdot/lock` with an OS file lock, which the kernel
+*Locking* (ADR 0063). Runs lock `<state dir>/lock` with an OS file lock, which the kernel
 releases when the process exits, even on a crash. `plan` takes a shared lock; `apply`
 takes an exclusive one. The lock is taken before `state.json` is read and held until the run exits,
 including while `apply` waits for its confirmation. A run that cannot get the lock prints
