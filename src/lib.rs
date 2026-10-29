@@ -14,7 +14,10 @@
 pub mod apply;
 pub mod common;
 pub mod error;
+pub mod facts;
+pub mod host;
 pub mod link;
 pub mod planner;
+pub mod sandbox;
 pub mod spec;
 pub mod spec_lua;
