@@ -63,7 +63,7 @@ directory and is collected here.
   link(<adr-0044>)[0044], [`mdot.os` describes the real machine: name, family, arch and comtrya's fields], [Accepted],
   link(<adr-0045>)[0045], [`mdot.opt` holds mdot's own settings; each option says who may set it], [Accepted (deferred until its first option, 0076)],
   link(<adr-0046>)[0046], [No `mdot.g`; unknown `mdot` members are errors], [Accepted],
-  link(<adr-0047>)[0047], [Command-line flags have no matching `mdot.opt` options; a flag wins], [Accepted (`--host` no longer global, 0071; `plan --diff` removed by 0083)],
+  link(<adr-0047>)[0047], [Command-line flags have no matching `mdot.opt` options; a flag wins], [Accepted (`--host` no longer global, 0071; `plan --diff` removed by 0083; `-q` dropped by 0085)],
   link(<adr-0048>)[0048], [Every file gets a fresh environment; shared library tables are read-only], [Accepted],
   link(<adr-0049>)[0049], [No `require` for now; `mdot.vars` holds only data], [Accepted],
   link(<adr-0050>)[0050], [Output streams and diagnostic markers], [Accepted (stream choice closed by 0078)],
@@ -101,6 +101,7 @@ directory and is collected here.
   link(<adr-0082>)[0082], [A link conflict says what is there and whether mdot made it], [Accepted],
   link(<adr-0083>)[0083], [No `plan --diff` in Phase 1], [Accepted],
   link(<adr-0084>)[0084], [Only `apply` creates the state directory and the lock file], [Accepted],
+  link(<adr-0085>)[0085], [No `-q` flag in Phase 1], [Accepted],
 )
 
 #include "0001-fresh-design-not-comtrya-port.typ"
@@ -187,3 +188,4 @@ directory and is collected here.
 #include "0082-link-conflict-message.typ"
 #include "0083-no-plan-diff.typ"
 #include "0084-plan-creates-no-lock-file.typ"
+#include "0085-no-quiet-flag.typ"

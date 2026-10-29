@@ -1015,8 +1015,8 @@ Package semantics:
   [show each spec's dependencies and what needs it, plus unreached specs (debugging, @output)],
 )
 
-Global flags: `--repo <dir>`, `-v`/`-q`, `--color`. _Open: `-q` and `--color` have no ADR; ADR
-0050 decides color from the terminal and `NO_COLOR`._
+Global flags: `--repo <dir>`, `-v`, `--color` (no `-q`, ADR 0085). _Open: `--color` has no ADR;
+ADR 0050 decides color from the terminal and `NO_COLOR`._
 
 = Architecture <architecture>
 
