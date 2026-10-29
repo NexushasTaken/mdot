@@ -827,8 +827,10 @@ other text) is no, with no extra message. EOF prints a newline and is no. Ctrl-C
 *Streams and markers* (ADR 0050). The plan and `mdot.print` (ADR 0078) go to stdout; errors, conflicts and
 warnings go to stderr. A diagnostic is `<word>: <message>` with the word `error`, `conflict` or
 `warning`; normal output has no prefix. A message about a file starts with its path or `file:line`.
-`error:` and `conflict:` are red, `warning:` yellow, only when that stream is a terminal and
-`NO_COLOR` is unset or empty. Follow-up `hint:` / `note:` lines come later, near the end.
+`error:` and `conflict:` are red, `warning:` yellow. `--color <auto|always|never>` (ADR 0086,
+default `auto`) chooses when: `auto` colors a stream only when it is a terminal and `NO_COLOR` is
+unset or empty; `always` colors both streams, even pipes; `never` colors neither. The flag
+overrides `NO_COLOR` (no-color.org). Follow-up `hint:` / `note:` lines come later, near the end.
 
 *`mdot specs`* (ADR 0065). For the current host (or `--host`), each spec reached is a heading in
 dependency order, with indented `depends on:` and `needed by:` lines (a host shows as
@@ -1015,8 +1017,7 @@ Package semantics:
   [show each spec's dependencies and what needs it, plus unreached specs (debugging, @output)],
 )
 
-Global flags: `--repo <dir>`, `-v`, `--color` (no `-q`, ADR 0085). _Open: `--color` has no ADR;
-ADR 0050 decides color from the terminal and `NO_COLOR`._
+Global flags: `--repo <dir>`, `-v`, `--color <auto|always|never>` (ADR 0086; no `-q`, ADR 0085).
 
 = Architecture <architecture>
 

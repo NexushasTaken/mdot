@@ -13,8 +13,6 @@ designing the state record, check that a download record (ADR 0032) fits the sam
 == Blocking Phase 1
 
 == Inconsistencies and stale text in `design.typ`
-- [ ] `--color` has no ADR (ADR 0050 decides color from the terminal and `NO_COLOR`): decide, or
-  drop it from Phase 1. (`-q` was dropped, ADR 0085.)
 
 == Later phases (not blocking)
 - [ ] *A content diff* for content kinds (`file.copy`, `net.download`, `render` / `patch`): whether
@@ -47,5 +45,6 @@ designing the state record, check that a download record (ADR 0032) fits the sam
   - Its "virtual vs `std::variant`" question is now a Rust one (trait or enum).
 
 == Rust libraries (ADR 0036)
+- [ ] *clap and `--color`* (ADR 0086): whether clap's own usage errors follow `--color`.
 - [ ] *Logging leftovers* (ADR 0059). How user output and debug logs are separated, the conflict
   marker, the default level, the env var name.

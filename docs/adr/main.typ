@@ -102,6 +102,7 @@ directory and is collected here.
   link(<adr-0083>)[0083], [No `plan --diff` in Phase 1], [Accepted],
   link(<adr-0084>)[0084], [Only `apply` creates the state directory and the lock file], [Accepted],
   link(<adr-0085>)[0085], [No `-q` flag in Phase 1], [Accepted],
+  link(<adr-0086>)[0086], [`--color <auto|always|never>`; the flag overrides `NO_COLOR`], [Accepted],
 )
 
 #include "0001-fresh-design-not-comtrya-port.typ"
@@ -189,3 +190,4 @@ directory and is collected here.
 #include "0083-no-plan-diff.typ"
 #include "0084-plan-creates-no-lock-file.typ"
 #include "0085-no-quiet-flag.typ"
+#include "0086-color-flag.typ"
