@@ -61,7 +61,21 @@ enum Command {
     },
 }
 
+/// Rust ignores SIGPIPE, so `mdot plan | head` would panic on the first
+/// write after `head` exits. A CLI should just die quietly, like C programs.
+#[cfg(unix)]
+fn restore_sigpipe() {
+    // SAFETY: called first thing in main, before any other thread exists.
+    unsafe {
+        libc::signal(libc::SIGPIPE, libc::SIG_DFL);
+    }
+}
+
+#[cfg(not(unix))]
+fn restore_sigpipe() {}
+
 fn main() -> ExitCode {
+    restore_sigpipe();
     let cli = Cli::parse();
     mdot::output::set_color(match cli.color {
         Color::Auto => ColorWhen::Auto,
