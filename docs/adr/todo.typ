@@ -13,8 +13,6 @@ designing the state record, check that a download record (ADR 0032) fits the sam
 == Blocking Phase 1
 
 == Inconsistencies and stale text in `design.typ`
-- [ ] *Purity vs the lock file:* `research.typ` says `mdot plan` never modifies the filesystem,
-  but ADR 0063 has `plan` create the state directory and the lock file if they are missing.
 - [ ] `-q` and `--color` have no ADR (ADR 0050 decides color from the terminal and `NO_COLOR`):
   decide, or drop them from Phase 1.
 

@@ -79,7 +79,7 @@ directory and is collected here.
   link(<adr-0060>)[0060], [`state.json` is a versioned flat resource list with top-level `created_dirs`], [Accepted (its `on_remove` open item closed by 0061; `repo` field and repo-id item by 0062; download fields by 0074; migration rules by 0075)],
   link(<adr-0061>)[0061], [No removal policy; removed resources follow their kind's table], [Accepted],
   link(<adr-0062>)[0062], [One state directory; the stored repo path is checked on every run], [Accepted (locking open item closed by 0063; prompt wording changed and mechanics closed by 0072; exit code after a no by 0073; path changed and macOS/Windows item closed by 0077)],
-  link(<adr-0063>)[0063], [An OS file lock on the state directory: shared for readers, exclusive for `apply`], [Accepted (`status` removed by 0064; path changed by 0077)],
+  link(<adr-0063>)[0063], [An OS file lock on the state directory: shared for readers, exclusive for `apply`], [Accepted (`status` removed by 0064; path changed by 0077; `plan` no longer creates the lock file, 0084)],
   link(<adr-0064>)[0064], [No `mdot status` command; `plan` reports drift], [Accepted (`--host` scope superseded by 0071)],
   link(<adr-0065>)[0065], [`mdot specs` output and `<spec-name>`], [Accepted (spec order closed by 0066; exit codes by 0067; `mdot.os` under `--host` by 0071)],
   link(<adr-0066>)[0066], [Dependency order is the written order, first reach], [Accepted],
@@ -100,6 +100,7 @@ directory and is collected here.
   link(<adr-0081>)[0081], [A missing or dangling `src` exits with 2], [Accepted],
   link(<adr-0082>)[0082], [A link conflict says what is there and whether mdot made it], [Accepted],
   link(<adr-0083>)[0083], [No `plan --diff` in Phase 1], [Accepted],
+  link(<adr-0084>)[0084], [Only `apply` creates the state directory and the lock file], [Accepted],
 )
 
 #include "0001-fresh-design-not-comtrya-port.typ"
@@ -185,3 +186,4 @@ directory and is collected here.
 #include "0081-missing-src-exit-code.typ"
 #include "0082-link-conflict-message.typ"
 #include "0083-no-plan-diff.typ"
+#include "0084-plan-creates-no-lock-file.typ"

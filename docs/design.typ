@@ -925,9 +925,11 @@ releases when the process exits, even on a crash. `plan` takes a shared lock; `a
 takes an exclusive one. The lock is taken before `state.json` is read and held until the run exits,
 including while `apply` waits for its confirmation. A run that cannot get the lock prints
 `error: another mdot run is using <state dir>; try again when it finishes` and exits 1. `specs`,
-`--help` and `--version` don't lock. The state directory and lock file are created if missing, and
-the lock file is never deleted. Later commands that write state (`adopt`, `rollback`) lock
-exclusively; read-only ones (`generations`) share.
+`--help` and `--version` don't lock. Only `apply` creates the state directory and lock file when
+they are missing (ADR 0084); the lock file is never deleted. `plan` creates nothing: it opens the
+lock file read-only, and if it is missing it runs without a lock. Later commands that write state
+(`adopt`, `rollback`) lock exclusively and create it like `apply`; read-only ones (`generations`)
+share and never create it.
 
 A generation record looks like this:
 
