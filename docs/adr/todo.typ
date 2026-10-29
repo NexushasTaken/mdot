@@ -11,7 +11,6 @@ Goal: Phase 0 and Phase 1 fully specified (plan A, 2026-10-27). Later phases sta
 designing the state record, check that a download record (ADR 0032) fits the same shape.
 
 == Blocking Phase 1
-- [ ] *Empty `mdot.opt` in Phase 1* (ADR 0061). Whether it ships.
 - [ ] *State directory and lock path on macOS and Windows* (ADR 0062, 0063).
 - [ ] *Replacement for `print`* (ADR 0013). Settled so far: `mdot.print`, tagged with file:line.
   `mdot.print` goes to stdout (ADR 0050). Still open: whether a spec can choose a stream

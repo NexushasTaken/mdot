@@ -176,7 +176,7 @@ reachable, including `io`, `os`, `debug`, `coroutine`, `package`/`require`, `loa
 
 *Isolation between files* (ADR 0048). Every file runs in its own fresh environment that holds only
 what mdot puts in it. Everything mdot puts in it is read-only, except that `config.lua` and the host
-file may write `mdot.vars` and `mdot.opt` (ADR 0038, 0045). `config.lua` and host files follow the
+file may write `mdot.vars` (ADR 0038); `mdot.opt` joins it with its first option (ADR 0045, 0076). `config.lua` and host files follow the
 same rules as specs. Writing to a library table is an error naming the file, the line and the key
 (`a/spec.lua:1: cannot set string.upper`). `getmetatable("")` returns a locked marker, so the real
 `string` table cannot be reached through a string. Known quirk: `next(string)` is `nil` and
@@ -277,7 +277,7 @@ conflict rules apply across groups.
 `env()` is dropped (ADR 0013).
 
 *The `mdot` global* (ADR 0038). Values mdot hands to Lua live in one global table, in the style of
-Neovim's `vim`. The old `host` global is removed (ADR 0040). Its members are `mdot.os`, `mdot.dirs`, `mdot.vars` and `mdot.opt`. There is no `mdot.g`;
+Neovim's `vim`. The old `host` global is removed (ADR 0040). Its members are `mdot.os`, `mdot.dirs` and `mdot.vars`; `mdot.opt` is not in Phase 1 (ADR 0076). There is no `mdot.g`;
 `mdot.vars` covers it (ADR 0046). Reading or writing any other member is an error naming it.
 
 *No alias* (ADR 0041). `mdot` is the only name. For a shorter one, use a local:
@@ -358,7 +358,7 @@ mdot.vars.cursor.size = 24
 return spec { depends("desktop") }
 ```
 
-*`mdot.opt`* (ADR 0045). mdot's own settings. There is no `mdot.o`.
+*`mdot.opt`* (ADR 0045). Not in Phase 1 (ADR 0076): it arrives with its first option, under the rules below. mdot's own settings. There is no `mdot.o`.
 
 - Built-in default, then `config.lua`, then the host file; the last write wins. Assigning a leaf
   (`mdot.opt.group.key = value`) changes only that key. A host may set an option
@@ -372,8 +372,7 @@ return spec { depends("desktop") }
   row below), the order is flag, then host file, then `config.lua`, then built-in default.
 
 There are no options yet: its only rows, `on_remove.files` and `on_remove.package`, were removed
-with the removal policy (ADR 0061). Open: whether an empty `mdot.opt` ships in Phase 1, or the
-mechanism waits for its first option.
+with the removal policy (ADR 0061), so `mdot.opt` waits for its first option (ADR 0076).
 
 *Open* (ADR 0038, 0045): `mdot.env`, which would replace part of ADR 0013; on hold until a real
 spec needs it. The marker filter default's "Set by" class (ADR 0037).

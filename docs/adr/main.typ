@@ -61,7 +61,7 @@ directory and is collected here.
   link(<adr-0042>)[0042], [No spec-declared defaults; `config.lua` is the only place vars are defined], [Accepted],
   link(<adr-0043>)[0043], [`mdot.dirs` holds the common dirs; implicit specs keep `~/.config`], [Accepted],
   link(<adr-0044>)[0044], [`mdot.os` describes the real machine: name, family, arch and comtrya's fields], [Accepted],
-  link(<adr-0045>)[0045], [`mdot.opt` holds mdot's own settings; each option says who may set it], [Accepted],
+  link(<adr-0045>)[0045], [`mdot.opt` holds mdot's own settings; each option says who may set it], [Accepted (deferred until its first option, 0076)],
   link(<adr-0046>)[0046], [No `mdot.g`; unknown `mdot` members are errors], [Accepted],
   link(<adr-0047>)[0047], [Command-line flags have no matching `mdot.opt` options; a flag wins], [Accepted (`--host` no longer global, 0071)],
   link(<adr-0048>)[0048], [Every file gets a fresh environment; shared library tables are read-only], [Accepted],
@@ -92,6 +92,7 @@ directory and is collected here.
   link(<adr-0073>)[0073], [A no at the repo-path prompt exits with 1], [Accepted],
   link(<adr-0074>)[0074], [A download record stores its normalized `url`; a changed `url` downloads again], [Accepted],
   link(<adr-0075>)[0075], [Every `state.json` format change bumps `version`; an unknown field is an error], [Accepted],
+  link(<adr-0076>)[0076], [`mdot.opt` does not exist in Phase 1; ADR 0045 waits for its first option], [Accepted],
 )
 
 #include "0001-fresh-design-not-comtrya-port.typ"
@@ -169,3 +170,4 @@ directory and is collected here.
 #include "0073-repo-prompt-no-exit-code.typ"
 #include "0074-download-record-fields.typ"
 #include "0075-state-version-bumps.typ"
+#include "0076-no-mdot-opt-in-phase-1.typ"
