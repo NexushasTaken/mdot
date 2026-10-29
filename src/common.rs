@@ -1,4 +1,3 @@
-use std::fs;
 use std::io;
 use std::path::{Component, Path, PathBuf};
 
@@ -31,53 +30,6 @@ pub fn lexically_normal(path: &Path) -> PathBuf {
         out.push(".");
     }
     out
-}
-
-// C++ `clean_path` strips the empty filename a trailing slash leaves behind
-// ("/a/b/" -> "/a/b"). In Rust a `PathBuf` built from components never keeps a
-// trailing slash, and `Path == Path` compares components, so "/a/b/" == "/a/b".
-// That makes `clean_path` the same as `lexically_normal` here.
-pub fn clean_path(path: &Path) -> PathBuf {
-    lexically_normal(path)
-}
-
-pub fn normalize_path(path: &Path) -> Result<PathBuf, String> {
-    if path.is_relative() {
-        let current_path = std::env::current_dir().map_err(|e| e.to_string())?;
-        return Ok(clean_path(&current_path.join(path)));
-    }
-    Ok(clean_path(path))
-}
-
-pub fn expand_home(path: &Path) -> Result<PathBuf, String> {
-    if path.as_os_str().is_empty() {
-        return Ok(path.to_path_buf());
-    }
-
-    // C++: `*path.begin() == "~"` then `path.lexically_relative("~")`.
-    match path.strip_prefix("~") {
-        Ok(rest) => {
-            let home = dirs::home_dir().ok_or("unable to find the home directory")?;
-            Ok(home.join(rest))
-        }
-        Err(_) => Ok(path.to_path_buf()),
-    }
-}
-
-// C++: `expand_home(path).and_then(normalize_path)`. Same shape in Rust.
-pub fn resolve_path(path: &Path) -> Result<PathBuf, String> {
-    expand_home(path).and_then(|p| normalize_path(&p))
-}
-
-pub fn read_file(path: &Path) -> Result<String, String> {
-    let path_st =
-        fs::symlink_metadata(path).map_err(|e| format!("{}: {}", path.display(), e))?;
-
-    if !path_st.file_type().is_file() {
-        return Err(format!("{}: is not a regular file", path.display()));
-    }
-
-    fs::read_to_string(path).map_err(|e| format!("{}: {}", path.display(), e))
 }
 
 // C++ `fs::create_symlink` is one call on every platform. Rust exposes the OS

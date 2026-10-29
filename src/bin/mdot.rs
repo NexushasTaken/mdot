@@ -1,159 +1,76 @@
-use clap::{Parser, Subcommand};
-use mdot::apply::apply_link;
-use mdot::common::{read_file, resolve_path};
-use mdot::error::LinkError;
-use mdot::link::{plan_link, LinkPlan};
-use mdot::spec_lua::parse_spec;
-use std::env;
-use std::fs;
-use std::path::{Path, PathBuf};
+//! The command line (design.typ "CLI"). Only parsing lives here; the commands
+//! are in `mdot::run`.
+
+use clap::{Parser, Subcommand, ValueEnum};
+use mdot::run::{self, Options};
+use std::path::PathBuf;
 use std::process::ExitCode;
 
-// Stand-ins for spdlog with the pattern "[%^%=5l%$]: %v": info to stdout,
-// errors to stderr (the C++ `errlog` sink).
-macro_rules! info {
-    ($($arg:tt)*) => { println!("[info ]: {}", format!($($arg)*)) };
-}
-macro_rules! error {
-    ($($arg:tt)*) => { eprintln!("[error]: {}", format!($($arg)*)) };
-}
-
-// C++ builds the CLI imperatively with CLI11 (`add_subcommand`, `add_option`).
-// clap's derive API describes it as types instead: the enum *is* "exactly one
-// subcommand is required", and doc comments become the --help text.
 #[derive(Parser)]
-#[command(name = "mdot", about = "dotfile manager")]
+#[command(name = "mdot", version, about = "Declarative dotfile manager")]
 struct Cli {
+    /// The repo root (default: the current directory, if it has specs/)
+    #[arg(long, global = true, value_name = "DIR")]
+    repo: Option<PathBuf>,
+
+    /// Verbosity: -v is 1, -v=2 shows more. A level is attached with `=`.
+    #[arg(
+        short,
+        long,
+        global = true,
+        num_args = 0..=1,
+        require_equals = true,
+        default_missing_value = "1",
+        value_name = "LEVEL"
+    )]
+    verbose: Option<u8>,
+
+    /// When to color errors, conflicts and warnings (ADR 0086)
+    #[arg(long, global = true, value_enum, default_value_t = Color::Auto, value_name = "WHEN")]
+    color: Color,
+
     #[command(subcommand)]
     command: Command,
 }
 
+#[derive(Clone, Copy, ValueEnum)]
+enum Color {
+    Auto,
+    Always,
+    Never,
+}
+
 #[derive(Subcommand)]
 enum Command {
-    /// Plan the specified spec
-    Plan {
-        /// Target of the spec
-        spec: PathBuf,
-    },
-    /// Plan the specified spec
+    /// Show what apply would do
+    Plan,
+    /// Execute the plan
     Apply {
-        /// Target of the spec
-        spec: PathBuf,
+        /// Do not ask for confirmation
+        #[arg(long)]
+        yes: bool,
     },
-}
-
-struct Core {
-    // options
-    planning: bool,
-}
-
-fn link_plan_describe(core: &Core, plan: &LinkPlan) {
-    match plan {
-        LinkPlan::Create { src, dst } => {
-            if core.planning {
-                info!("would linked: {} -> {}", src.display(), dst.display());
-            } else {
-                info!("linked: {} -> {}", src.display(), dst.display());
-            }
-        }
-        LinkPlan::Noop => info!("already linked"),
-        LinkPlan::Conflict { path, message } => error!("{}: {}", path.display(), message),
-    }
-}
-
-fn process_spec(core: &Core, spec_path: &Path) -> Result<bool, String> {
-    let mut success = true;
-
-    if spec_path.is_relative() {
-        return Err(format!("{}: must be absolute path", spec_path.display()));
-    }
-
-    // C++ `spec_path.filename()` returns an empty path when there's none;
-    // Rust returns `Option`, so the "no name" case is explicit.
-    let spec_name = spec_path
-        .file_name()
-        .map(|n| n.to_string_lossy().into_owned())
-        .unwrap_or_default();
-    let spec_file = spec_path.join("spec.lua");
-
-    {
-        let spec_path_st = fs::symlink_metadata(spec_path)
-            .map_err(|e| format!("{}: {}", spec_path.display(), e))?;
-        if !spec_path_st.is_dir() {
-            return Err(format!(
-                "{}: is not a valid spec directory",
-                spec_file.display()
-            ));
-        }
-
-        let spec_st = fs::symlink_metadata(&spec_file)
-            .map_err(|e| format!("{}: {}", spec_file.display(), e))?;
-        if !spec_st.file_type().is_file() {
-            return Err(format!("{}: is not a valid spec file", spec_file.display()));
-        }
-    }
-
-    let previous_path =
-        env::current_dir().map_err(|e| format!("{}: {}", spec_path.display(), e))?;
-    env::set_current_dir(spec_path).map_err(|e| format!("{}: {}", spec_path.display(), e))?;
-
-    let spec_code =
-        read_file(&spec_file).map_err(|e| format!("{}: {}", spec_file.display(), e))?;
-
-    let spec = parse_spec(&spec_name, &spec_code)?;
-    if let Ok(cwd) = env::current_dir() {
-        info!("{}", cwd.display());
-    }
-
-    for clause in &spec.link_clauses {
-        let src = resolve_path(Path::new(&clause.src))
-            .map_err(|e| format!("{}: {}", clause.src, e))?;
-        let dst = resolve_path(Path::new(&clause.dst))
-            .map_err(|e| format!("{}: {}", clause.dst, e))?;
-
-        let link_result: Result<LinkPlan, LinkError> = if core.planning {
-            plan_link(&src, &dst)
-        } else {
-            apply_link(&src, &dst)
-        };
-
-        let plan = link_result.map_err(|e| e.to_string())?;
-        link_plan_describe(core, &plan);
-
-        if plan.is_conflict() {
-            success = false;
-        }
-    }
-
-    env::set_current_dir(&previous_path)
-        .map_err(|e| format!("{}: {}", spec_path.display(), e))?;
-
-    Ok(success)
+    /// Show what hosts/<host>.lua would get on an empty machine
+    Preview { host: String },
+    /// Show each spec's dependencies and what needs it
+    Specs {
+        name: Option<String>,
+        #[arg(long)]
+        host: Option<String>,
+    },
 }
 
 fn main() -> ExitCode {
     let cli = Cli::parse();
+    // TODO(build): use cli.color in output.rs (ADR 0086).
+    let _ = cli.color;
+    let opts = Options { repo: cli.repo, verbose: cli.verbose.unwrap_or(0) };
 
-    let (planning, input_spec_path) = match cli.command {
-        Command::Plan { spec } => (true, spec),
-        Command::Apply { spec } => (false, spec),
+    let code = match cli.command {
+        Command::Plan => run::plan(&opts),
+        Command::Apply { yes } => run::apply(&opts, yes),
+        Command::Preview { host } => run::preview(&opts, &host),
+        Command::Specs { name, host } => run::specs(&opts, name.as_deref(), host.as_deref()),
     };
-    let core = Core { planning };
-
-    let spec_path = match resolve_path(&input_spec_path) {
-        Ok(path) => path,
-        Err(e) => {
-            error!("{e}");
-            return ExitCode::FAILURE;
-        }
-    };
-
-    match process_spec(&core, &spec_path) {
-        Ok(true) => ExitCode::SUCCESS,
-        Ok(false) => ExitCode::FAILURE,
-        Err(e) => {
-            error!("{e}");
-            ExitCode::FAILURE
-        }
-    }
+    ExitCode::from(code)
 }

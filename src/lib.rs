@@ -1,25 +1,26 @@
-//! Rust port of the C++ mdot prototype. One module per C++ translation unit:
+//! mdot's library. The binary (`src/bin/mdot.rs`) only parses arguments and
+//! calls `run`. One run, top to bottom:
 //!
-//! | C++                     | Rust               |
-//! |-------------------------|--------------------|
-//! | error.hpp / error.cpp   | `error`            |
-//! | common.hpp / common.cpp | `common`           |
-//! | link.hpp / link.cpp     | `link`             |
-//! | apply.hpp / apply.cpp   | `apply`            |
-//! | spec.hpp                | `spec`             |
-//! | spec_lua.hpp / .cpp     | `spec_lua`         |
-//! | planner.hpp / .cpp      | `planner`          |
-//! | main.cpp                | `src/bin/mdot.rs`  |
+//! | Step                                   | Module    |
+//! |----------------------------------------|-----------|
+//! | parse the command line                 | bin/mdot  |
+//! | lock, read state, check the repo path  | `state`   |
+//! | hostname and machine facts             | `host`, `facts` |
+//! | run config.lua, host file, specs       | `loader` (uses `sandbox`) |
+//! | 3-way diff into steps                  | `planner` |
+//! | print the plan                         | `output`  |
+//! | run the steps, save state after each   | `apply`   |
+//!
+//! `run` ties them together, one function per command.
 
 pub mod apply;
 pub mod common;
 pub mod error;
 pub mod facts;
 pub mod host;
-pub mod link;
 pub mod loader;
+pub mod output;
 pub mod planner;
+pub mod run;
 pub mod sandbox;
-pub mod spec;
-pub mod spec_lua;
 pub mod state;
