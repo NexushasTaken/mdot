@@ -29,7 +29,7 @@ directory and is collected here.
   link(<adr-0010>)[0010], [Git-based generations and rollback], [Accepted (state path changed by 0062)],
   link(<adr-0011>)[0011], [Configurable removal policy, recorded at apply time], [Superseded by 0061],
   link(<adr-0012>)[0012], [Core config manager first; packages and extras later], [Accepted],
-  link(<adr-0013>)[0013], [Spec loading is pure and sandboxed], [Accepted],
+  link(<adr-0013>)[0013], [Spec loading is pure and sandboxed], [Accepted (`print` replaced by 0078)],
   link(<adr-0014>)[0014], [One directory per spec, implicit or explicit], [Accepted (applies-everything rule superseded by 0019)],
   link(<adr-0015>)[0015], [`link(src, dst)` with plain paths, `spec.lua` is absolute], [Accepted],
   link(<adr-0016>)[0016], [Link conflicts are hard errors; parent directories are tracked], [Accepted],
@@ -66,8 +66,8 @@ directory and is collected here.
   link(<adr-0047>)[0047], [Command-line flags have no matching `mdot.opt` options; a flag wins], [Accepted (`--host` no longer global, 0071)],
   link(<adr-0048>)[0048], [Every file gets a fresh environment; shared library tables are read-only], [Accepted],
   link(<adr-0049>)[0049], [No `require` for now; `mdot.vars` holds only data], [Accepted],
-  link(<adr-0050>)[0050], [Output streams and diagnostic markers], [Accepted],
-  link(<adr-0051>)[0051], [Layout of `mdot plan` and the `--verbose` levels], [Accepted (conflict position superseded by 0052)],
+  link(<adr-0050>)[0050], [Output streams and diagnostic markers], [Accepted (stream choice closed by 0078)],
+  link(<adr-0051>)[0051], [Layout of `mdot plan` and the `--verbose` levels], [Accepted (conflict position superseded by 0052; print position closed by 0078)],
   link(<adr-0052>)[0052], [Output of `mdot apply`; step lines print when a step finishes], [Accepted (exit code 3 superseded by 0053; confirmation closed by 0068; refusal output by 0069; prompt mechanics by 0072)],
   link(<adr-0053>)[0053], [Exit codes: 0 success, 1 refused by a rule, 2 error], [Accepted],
   link(<adr-0054>)[0054], [The kind is part of the resource ID], [Accepted (its open spec and path items closed by 0055, 0056)],
@@ -94,6 +94,7 @@ directory and is collected here.
   link(<adr-0075>)[0075], [Every `state.json` format change bumps `version`; an unknown field is an error], [Accepted],
   link(<adr-0076>)[0076], [`mdot.opt` does not exist in Phase 1; ADR 0045 waits for its first option], [Accepted],
   link(<adr-0077>)[0077], [The state directory is `<base>/mdot-data` on every OS; `XDG_STATE_HOME` is read everywhere], [Accepted],
+  link(<adr-0078>)[0078], [`mdot.print` replaces `print`; lines are written when called], [Accepted],
 )
 
 #include "0001-fresh-design-not-comtrya-port.typ"
@@ -173,3 +174,4 @@ directory and is collected here.
 #include "0075-state-version-bumps.typ"
 #include "0076-no-mdot-opt-in-phase-1.typ"
 #include "0077-state-dir-per-os.typ"
+#include "0078-mdot-print.typ"

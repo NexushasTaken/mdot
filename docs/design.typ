@@ -169,10 +169,10 @@ return spec { depends("hypr", "waybar", "dunst", "uwsm") }
 
 *Sandbox.* The sandbox is for purity, not security (ADR 0013). It is an allowlist: spec and config
 environments get `string`, `table`, `math`, `utf8`, and `pairs`/`ipairs`/`next`/`select`/`type`/
-`tostring`/`tonumber`/`error`/`assert`/`pcall`/`setmetatable`/`getmetatable`/`print`. Nothing else is
-reachable, including `io`, `os`, `debug`, `coroutine`, `package`/`require`, `load`, `dofile`,
-`loadfile` and `string.dump`. There are no live-state helpers (no `env()`, no `exists()`), so
-`plan` and `apply` load the same clauses.
+`tostring`/`tonumber`/`error`/`assert`/`pcall`/`setmetatable`/`getmetatable`. Nothing else is
+reachable, including `print` (replaced by `mdot.print`, ADR 0078), `io`, `os`, `debug`,
+`coroutine`, `package`/`require`, `load`, `dofile`, `loadfile` and `string.dump`. There are no
+live-state helpers (no `env()`, no `exists()`), so `plan` and `apply` load the same clauses.
 
 *Isolation between files* (ADR 0048). Every file runs in its own fresh environment that holds only
 what mdot puts in it. Everything mdot puts in it is read-only, except that `config.lua` and the host
@@ -186,7 +186,12 @@ same rules as specs. Writing to a library table is an error naming the file, the
 it, and `mdot.vars` holds only data (a function in base vars is an error). Revisit when the same helper
 is copied into a second file, or `config.lua` becomes painful as one file.
 
-Open: mdot's replacement for `print`.
+*`mdot.print`* (ADR 0078). The only print function, in specs, `config.lua` and host files. It takes
+any number of values, converts each with `tostring`, joins them with a tab and writes one line to
+stdout as `<path>:<line>: <text>`, the path relative to the repo. The line is written the moment it
+is called, so print lines come before the plan in `plan` and before the question in `apply`. It is
+shown at every `--verbose` level, never colored and has no `word:` prefix. A spec cannot choose a
+stream.
 
 = Lua API <lua-api>
 
@@ -277,7 +282,7 @@ conflict rules apply across groups.
 `env()` is dropped (ADR 0013).
 
 *The `mdot` global* (ADR 0038). Values mdot hands to Lua live in one global table, in the style of
-Neovim's `vim`. The old `host` global is removed (ADR 0040). Its members are `mdot.os`, `mdot.dirs` and `mdot.vars`; `mdot.opt` is not in Phase 1 (ADR 0076). There is no `mdot.g`;
+Neovim's `vim`. The old `host` global is removed (ADR 0040). Its members are `mdot.os`, `mdot.dirs`, `mdot.vars` and `mdot.print` (ADR 0078); `mdot.opt` is not in Phase 1 (ADR 0076). There is no `mdot.g`;
 `mdot.vars` covers it (ADR 0046). Reading or writing any other member is an error naming it.
 
 *No alias* (ADR 0041). `mdot` is the only name. For a shorter one, use a local:
@@ -808,7 +813,7 @@ and exits 1.
 does: spaces are trimmed, `y` or `yes` (any case) is yes, and anything else (`n`, `no`, empty, any
 other text) is no, with no extra message. EOF prints a newline and is no. Ctrl-C has no handler.
 
-*Streams and markers* (ADR 0050). The plan and `mdot.print` go to stdout; errors, conflicts and
+*Streams and markers* (ADR 0050). The plan and `mdot.print` (ADR 0078) go to stdout; errors, conflicts and
 warnings go to stderr. A diagnostic is `<word>: <message>` with the word `error`, `conflict` or
 `warning`; normal output has no prefix. A message about a file starts with its path or `file:line`.
 `error:` and `conflict:` are red, `warning:` yellow, only when that stream is a terminal and
