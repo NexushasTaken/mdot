@@ -11,8 +11,7 @@ Goal: Phase 0 and Phase 1 fully specified (plan A, 2026-10-27). Later phases sta
 designing the state record, check that a download record (ADR 0032) fits the same shape.
 
 == Blocking Phase 1
-- [ ] *`file.link` `src` validation.* An absolute `src`, or one whose `..` escapes the spec
-  directory: allowed or an error?
+- [ ] *Exit code for a missing `src`* (ADR 0015, ADR 0080): ADR 0067 covered missing names only.
 
 == Inconsistencies and stale text in `design.typ`
 - [ ] The 3-way diff conflict example uses `error: hypr: cannot link ...`; ADR 0050/0051 use

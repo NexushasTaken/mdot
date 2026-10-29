@@ -31,7 +31,7 @@ directory and is collected here.
   link(<adr-0012>)[0012], [Core config manager first; packages and extras later], [Accepted],
   link(<adr-0013>)[0013], [Spec loading is pure and sandboxed], [Accepted (`print` replaced by 0078)],
   link(<adr-0014>)[0014], [One directory per spec, implicit or explicit], [Accepted (applies-everything rule superseded by 0019)],
-  link(<adr-0015>)[0015], [`link(src, dst)` with plain paths, `spec.lua` is absolute], [Accepted],
+  link(<adr-0015>)[0015], [`link(src, dst)` with plain paths, `spec.lua` is absolute], [Accepted (`src` confined to the spec directory by 0080)],
   link(<adr-0016>)[0016], [Link conflicts are hard errors; parent directories are tracked], [Accepted],
   link(<adr-0017>)[0017], [`enabled(bool)` is an eager boolean over `host.name`], [Superseded by 0019],
   link(<adr-0018>)[0018], [`spec { ... }` collects declarative clauses], [Accepted],
@@ -96,6 +96,7 @@ directory and is collected here.
   link(<adr-0077>)[0077], [The state directory is `<base>/mdot-data` on every OS; `XDG_STATE_HOME` is read everywhere], [Accepted],
   link(<adr-0078>)[0078], [`mdot.print` replaces `print`; lines are written when called], [Accepted],
   link(<adr-0079>)[0079], [Every hostname error exits with 2], [Accepted],
+  link(<adr-0080>)[0080], [A link's `src` must resolve inside its spec directory], [Accepted],
 )
 
 #include "0001-fresh-design-not-comtrya-port.typ"
@@ -177,3 +178,4 @@ directory and is collected here.
 #include "0077-state-dir-per-os.typ"
 #include "0078-mdot-print.typ"
 #include "0079-hostname-error-exit-code.typ"
+#include "0080-link-src-stays-in-spec.typ"

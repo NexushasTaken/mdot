@@ -426,6 +426,12 @@ return spec {
   is allowed and will link `spec.lua` too. Keeping `spec.lua` out of a target is the author's job,
   which is why the recommended layout for directory targets is a `config/` subfolder.
 - A missing `src` is a hard error at load time, before anything touches the system.
+- *`src` stays inside its spec directory* (ADR 0080). `src` is normalized lexically (ADR 0056), and
+  that path is what is stored and linked. At load time mdot resolves it (following symlinks) and
+  compares it, component by component, with the resolved `specs/<spec>/`. Anywhere else, another
+  spec, elsewhere in the repo or outside it, including through an in-repo symlink, is an error
+  that exits 1: `error: <spec>: src "<as written>" is outside specs/<spec>/`, plus
+  `(resolves to <path>)` when a symlink caused it. Two specs cannot share one file.
 - The planner looks at what is at `dst` and never overwrites anything (links table in @three-way).
 
 *Parent directories.* If a parent of `dst` is missing, mdot creates it and adds it to the
@@ -842,7 +848,8 @@ not reached: rofi
 ```
 
 *Exit codes* (ADR 0053). 0 is success, including a plan with pending changes and a run with only
-warnings. 1 means mdot refused because of a rule: a conflict, or a spec that breaks a rule. 2 is an
+warnings. 1 means mdot refused because of a rule: a conflict, or a spec that breaks a rule (such as a `src`
+outside its spec directory, ADR 0080). 2 is an
 error: a usage error (clap's own code), an unreadable file, a missing spec or host name (in `depends`,
 `preview <host>`, `specs --host` or `mdot specs <name>`, ADR 0067, 0071), a bad hostname
 (uppercase, unsafe or unavailable, ADR 0079), a Lua error while loading, or a failed write during
