@@ -994,7 +994,7 @@ Package semantics:
 #table(
   columns: (auto, 1fr),
   [Command], [Purpose],
-  [`mdot plan [--diff]`], [show what apply would do (@output)],
+  [`mdot plan`], [show what apply would do (@output)],
   [`mdot apply [--yes]`], [execute the plan, write state and a generation (@apply)],
   [`mdot preview <host>`],
   [show what `hosts/<host>.lua` would get on an empty machine, in `plan`'s format; reads only the

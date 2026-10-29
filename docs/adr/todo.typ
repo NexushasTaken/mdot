@@ -13,13 +13,14 @@ designing the state record, check that a download record (ADR 0032) fits the sam
 == Blocking Phase 1
 
 == Inconsistencies and stale text in `design.typ`
-- [ ] `plan --diff` is in the CLI table but never defined.
 - [ ] *Purity vs the lock file:* `research.typ` says `mdot plan` never modifies the filesystem,
   but ADR 0063 has `plan` create the state directory and the lock file if they are missing.
 - [ ] `-q` and `--color` have no ADR (ADR 0050 decides color from the terminal and `NO_COLOR`):
   decide, or drop them from Phase 1.
 
 == Later phases (not blocking)
+- [ ] *A content diff* for content kinds (`file.copy`, `net.download`, `render` / `patch`): whether
+  `plan` gets a way to show it, and in what form (ADR 0083).
 - [ ] *Conflict wording for other kinds* (ADR 0082): copies, downloads.
 - [ ] *Keeping the old `state.json`* when a migrated one overwrites it (ADR 0075).
 - [ ] *Migrating generation records* (ADR 0075): whether old snapshots in `generations/` are
