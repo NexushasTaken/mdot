@@ -12,8 +12,11 @@ This is the *current spec*: what mdot is meant to be, kept short and up to date.
 - `research.typ`: motivation, related work, design trade-offs, open research questions, planned
   experiments and the dotfiles-v2 translation.
 - `adr/`: one record per decision, with its context.
+- `design-open.typ`: the parts of the design that are not settled yet (not designed, partly
+  designed, parked or outdated), with section names matching this file's.
 
-When a decision changes, add a new ADR and update this spec to match.
+When a decision changes, add a new ADR and update this spec to match. When an open item in
+`design-open.typ` is decided, move it here.
 
 mdot is a *declarative dotfile/config manager* in the spirit of NixOS/home-manager, without Nix:
 
@@ -52,7 +55,6 @@ These rules decide every later design question:
   [Logging], [`tracing` + `tracing-subscriber`, for user output and debug logs as separate outputs
     (ADR 0059)],
   [State files], [JSON via `serde` + `serde_json` (ADR 0059)],
-  [Structural editing], [tree-sitter (+ vendored grammars); Rust binding open (ADR 0036)],
   [Git], [shell out to system `git` (no libgit2)],
 )
 
@@ -264,20 +266,6 @@ is not strict: a clause is grouped only where the group name reads naturally (`f
 not). Whatever the group, every resource clause produces the same kind of resource, so the `dst`
 conflict rules apply across groups.
 
-*Planned, not designed yet.* These are not part of Phase 1, and their syntax may change:
-
-#table(
-  columns: (auto, 1fr, auto),
-  [Clause], [Purpose], [Phase],
-  [`file.copy(src, dst)`], [Copy a file from the spec directory instead of linking it.], [—],
-  [`sysfile(...)`], [Root-owned copies (@system-scope). On hold, see ADR 0014.], [3],
-  [`render(...)`, `patch(...)`], [Tree-sitter editing (@tree-sitter).], [4],
-  [marker clause (name open)], [Yolk-style markers evaluated in place in the repo file
-    (@markers, ADR 0037).], [—],
-  [`package(name?, opts?)`], [The spec needs a package. No arguments means the spec's directory
-    name; `opts` carries `pkg_alts` per-platform names (ADR 0021, @packages).], [5],
-)
-
 == Context values
 
 `env()` is dropped (ADR 0013).
@@ -379,9 +367,6 @@ return spec { depends("desktop") }
 
 There are no options yet: its only rows, `on_remove.files` and `on_remove.package`, were removed
 with the removal policy (ADR 0061), so `mdot.opt` waits for its first option (ADR 0076).
-
-*Open* (ADR 0038, 0045): `mdot.env`, which would replace part of ADR 0013; on hold until a real
-spec needs it. The marker filter default's "Set by" class (ADR 0037).
 
 = Resource kinds
 
@@ -514,89 +499,6 @@ the same content key, is an update that only runs `chmod`. `file.copy` itself is
 - Archives cannot be extracted yet, so a tarball (such as a cursor theme) needs a package until
   extraction is designed.
 
-*Not designed.* A checksum file URL (such as `SHA256SUMS`), signatures, extraction, mirrors, a download
-cache, authentication, proxies and retries. Open: which algorithms beyond sha256, and the HTTP
-client and hash library (ADR 0036).
-
-= Templating
-
-Templating has several engines, one clause each (ADR 0037). `render` and `patch` are the
-tree-sitter engines; markers are the first other engine.
-
-== `render()` — generated copy
-
-`base` file + edits → output bytes, written as a regular file at the target. mdot records a hash
-of the output. Use it when the content depends on `vars` or the host (fonts, cursor theme).
-
-== `patch()` — enforce nodes in an app-owned file
-
-Some apps rewrite their own config (krita's `kritarc`, many GUI apps). Symlinking or rendering those
-files fights the app. `patch` only enforces the queried nodes and leaves everything else untouched.
-
-== Markers — Yolk-style templating <markers>
-
-A marker in a comment holds a Lua expression, and mdot rewrites the value it points at.
-
-```
-export XCURSOR_SIZE=16   # {< replace_number(vars.cursor.size) >}
-```
-
-- `{< ... >}` acts on its own line, `{# ... #}` on the next line.
-- *In place (Mode A):* mdot evaluates the markers with this host's values and rewrites the repo
-  file itself. The `link` clause still points at that file. Rendering to a copy (Mode B) is later.
-- A marker that finds nothing to replace is an error, and nothing is written.
-- *Replace functions* (ADR 0039), with strict parameter types; any other argument, including `nil`,
-  is an error. More are added when a real file needs one.
-  - `replace_quoted(v)`: `v` is a string or a number; replaces the text inside the quotes.
-  - `replace_number(v)`: `v` is a number; replaces the number with `tostring(v)`.
-
-  A marker that may index past the end of a list needs a fallback: `vars.fonts[3] or "C"`.
-- *Git clean filter* (designed, built later): git stores each marker's *canonical value*, the
-  marker evaluated with the base `vars`, while the working tree keeps the host's value. The clean
-  step is pure and runs in the ADR 0013 sandbox. It can be turned off per file.
-
-*Open* (ADR 0037): the clause name, the filter option's default and scope,
-registering the filter on a fresh clone, and the resource-model table. Base and per-host `vars` are
-settled by ADR 0038.
-
-== Tree-sitter engine <tree-sitter>
-
-The jq idea, extended to any language with a tree-sitter grammar:
-
-+ Parse the file with the grammar for `lang`.
-+ Run a tree-sitter *S-expression query*, which yields captures.
-+ Apply edits to the captured nodes, in reverse byte order so offsets stay valid.
-+ Re-parse, then *verify there are no ERROR nodes*. If any exist, that's a hard error and nothing is
-  written.
-
-Edit ops are plain functions that return tables:
-
-#table(
-  columns: (auto, 1fr),
-  [Op], [Effect],
-  [`set(q, value, { capture = "v" })`], [replace the text of capture `@v` (default: last capture)],
-  [`delete(q)`], [delete the matched node],
-  [`insert_after(q, text)` / `insert_before(q, text)`], [insert text next to the match],
-  [`ensure(q, text, { after = q2 })`], [if `q` matches nothing, insert `text` after the `q2` match],
-)
-
-Matching rules:
-
-- `q[[...]]` is just a string. `q` exists only for readability and validates the query at load
-  time.
-- If a `set` query matches zero nodes, that's an error. Use `ensure` for "add if missing".
-- If it matches more than one node, that's an error unless the op has `all = true`. This is
-  philosophy rule 2 (@philosophy).
-
-The same engine powers the standalone CLI:
-
-```
-mdot query <file> '<query>' [--lang L] [--set VALUE] [--capture NAME] [--in-place]
-```
-
-Initial grammars: json, toml, ini, css, yaml, lua. Grammars are vendored and compiled in. The final
-set depends on experiment S1 (`research.typ`, Methodology).
-
 = Resource model, plan and diff <resources>
 
 == Resources
@@ -607,13 +509,8 @@ Specs compile into a flat list of *resources*:
   columns: 4,
   [Kind], [Identity], [Desired], [Observed (live)],
   [`Link`], [kind + target path], [link → repo source], [`lstat` + `readlink`],
-  [`Render`], [kind + target path], [output hash + bytes], [file hash],
-  [`Patch`], [kind + target path + query], [the edits],
-  [does the query on the live file already yield the desired values?],
   [`Download`], [kind + target path], [content key: normalized `url` + hash (none when `verify = false`)],
   [`stat` compared with the recorded `size`/`mtime_ns`/`inode` (no hashing)],
-  [`SysFile`], [kind + target path], [bytes hash, owner, mode], [hash, owner, mode],
-  [`Package` _(phase 5)_], [kind + package name], [installed, reason explicit/dep], [provider query],
 )
 
 Each resource implements `desired()`, `observe()` and `recorded()`.
@@ -627,8 +524,7 @@ expanded, absolute and lexically normal (ADR 0056).
 
 *Every kind has its own table* (ADR 0009) in desired × recorded × live form. Before a kind gets one,
 it defines its identity, what live observes (and how expensive that is), what "matches" means, and
-what is recorded. Kinds with no observable result, such as running a command, do not fit this model;
-that is open.
+what is recorded.
 
 == The 3-way diff <three-way>
 
@@ -735,11 +631,8 @@ conflict. `R` is the recorded content key and `D` the desired one:
 disabled, each of its recorded resources gets its kind's "not desired" rows in the tables above:
 deleted if it is still what mdot left, a conflict if it changed, forgotten if it is already gone.
 To keep a resource, keep it in a spec. A policy may be added later if a real use case appears.
-Open: what removing a package does (ADR 0028). *Patched files are never touched* (the edit stays;
-mdot just stops enforcing it).
 
-Deleting a symlink is always safe, because the content is in the repo. Deleting a rendered copy is
-safe only if live == recorded. Otherwise it's a conflict.
+Deleting a symlink is always safe, because the content is in the repo.
 
 = Apply <apply>
 
@@ -759,8 +652,7 @@ then updates the record; `dst` is missing for a very short moment. A `rmdir` on 
 already gone counts as done; one that fails for any reason other than "not empty" is treated like
 "not empty" (left, dropped from state, warned). A crash lands on an existing row: after a delete's
 unlink on *forget*, after an update's unlink on *re-create* (whose "removed by hand" message is
-then wrong), after an update's new link on *adopt*. Open: whether a partial apply gets a
-generation.
+then wrong), after an update's new link on *adopt*.
 
 = Output <output>
 
@@ -789,16 +681,14 @@ Plan: 2 to create, 1 to delete, 1 conflict.
 (default) shows changes and conflicts only; a spec's heading appears only when it has a line to
 show. Level 1 adds no-ops as `=` lines. Level 2 also shows what is desired, recorded and live for
 each resource. Higher levels act like 2. Errors and warnings show at every level. `-v 2` is level 1
-with a spec path `2`. Open: the form of the level-2 lines, colors for the symbols, and the wording
-of details per kind.
+with a spec path `2`.
 
 *Apply output* (ADR 0052). `apply` uses the same layout, order, headings and `-v` levels. Each step
 line is printed once, after its step finishes. A failed step gets `!` and its `error:` line right
 under it; the error says what was attempted (`could not create link: ...`). Steps after the failure
 are not attempted and not reported. The summary goes to stdout, past tense, without counting the
 failure: `Applied: 2 created, 1 updated, 1 deleted.`, `Applied: nothing.` when the first step
-failed, `No changes.` when there was nothing to do. "Run `apply` again" comes later as a `hint:`
-line. Open: progress for slow steps.
+failed, `No changes.` when there was nothing to do.
 
 ```
 waybar
@@ -830,7 +720,7 @@ warnings go to stderr. A diagnostic is `<word>: <message>` with the word `error`
 `error:` and `conflict:` are red, `warning:` yellow. `--color <auto|always|never>` (ADR 0086,
 default `auto`) chooses when: `auto` colors a stream only when it is a terminal and `NO_COLOR` is
 unset or empty; `always` colors both streams, even pipes; `never` colors neither. The flag
-overrides `NO_COLOR` (no-color.org). Follow-up `hint:` / `note:` lines come later, near the end.
+overrides `NO_COLOR` (no-color.org).
 
 *`mdot specs`* (ADR 0065). For the current host (or `--host`), each spec reached is a heading in
 dependency order, with indented `depends on:` and `needed by:` lines (a host shows as
@@ -864,9 +754,6 @@ error: a usage error (clap's own code), an unreadable file, a missing spec or ho
 
 = State and generations (git-based) <generations>
 
-The repo already has history in git. Generations reuse it: they record *which commit was applied*
-and *what was deployed*, but they don't snapshot content.
-
 *The state directory* (ADR 0062, 0077). One per user, on every OS:
 
 ```
@@ -883,8 +770,6 @@ directory, no `AppData\Local`), mdot errors (exit 2) naming what is missing. The
 ```
 <state dir>/                        one state directory per user (ADR 0062, 0077)
   state.json                        repo path, deployed resources, created dirs
-  generations/0001.json ...         one per successful apply
-  backups/<gen>/...                 originals moved aside by adopt
 ```
 
 `state.json` (ADR 0060) is a version number, the repo path (ADR 0062), the directories mdot created, and a flat list of
@@ -933,65 +818,7 @@ lock file read-only, and if it is missing it runs without a lock. Later commands
 (`adopt`, `rollback`) lock exclusively and create it like `apply`; read-only ones (`generations`)
 share and never create it.
 
-A generation record looks like this:
-
-```json
-{ "gen": 12, "time": "...", "commit": "2d61fbe...", "dirty": false,
-  "host": "nexos", "resources": [ ... ] }
-```
-
-- `mdot generations` lists them.
-- `mdot rollback [N]` (default: previous generation) runs these steps:
-  + `git worktree add --detach <tmp> <commit of N>`
-  + load specs from that worktree
-  + plan against the current state and live system
-  + show the plan and confirm
-  + apply. Links point into the *main repo path*, never into the temp worktree. Any file whose
-    content differs at the old commit goes through a `render`-style copy, or mdot warns and asks the
-    user to `git checkout` first. Unresolved; see research question RQ4.
-  + remove the worktree
-- Applying with a dirty tree records `dirty: true`. Rolling back to such a generation warns that it
-  can't be reproduced exactly.
-
 State writes are atomic: write to a temp file, then `rename`.
-
-= System scope <system-scope>
-
-- `sysfile()` (parked, ADR 0014) targets deploy as *root-owned copies with explicit
-  `owner`/`group`/`mode`, never symlinks*. A root-read config that points into a user-writable repo
-  would be a privilege-escalation path.
-- `render()` may target system locations. The result is still a copy.
-- Privileged steps are collected into one batch. mdot writes the batch to a temp file and runs
-  `sudo mdot --exec-plan <file>`, so there's one prompt per apply. The privileged side re-validates
-  the batch and only executes resources marked `system`.
-
-Systemd units, groups and users are deferred (@roadmap).
-
-= Packages <packages>
-
-Phase 5. _May change: ADR 0028 (Proposed) says this section is outdated._
-
-The package provider interface is defined in phase 1 so the resource model accounts for it, and
-implemented in phase 5:
-
-```rust
-struct PackageInfo { installed: bool, version: String, reason: Reason }
-enum Reason { Explicit, Dependency }
-
-trait PackageProvider {
-    fn query(&self, name: &str) -> Result<PackageInfo, Error>;
-    fn install(&mut self, names: &[String], reason: Reason) -> Result<(), Error>;
-    fn remove(&mut self, names: &[String]) -> Result<(), Error>;
-    fn set_reason(&mut self, names: &[String], reason: Reason) -> Result<(), Error>;
-    fn list_explicit(&self) -> Result<Vec<String>, Error>;
-}
-```
-
-Package semantics:
-
-- A spec's `package` clause (ADR 0021) installs the package as *explicit*.
-- A package reached only through `depends` is installed as a *dependency* (`--asdeps`). It becomes
-  removable once nothing references it, using the provider's own orphan tracking (`pacman -Qdtq`).
 
 = CLI
 
@@ -1006,35 +833,11 @@ Package semantics:
   [`mdot verify [--all]`],
   [hash downloads that `plan` reported as conflicts (all with `--all`) and refresh their recorded
     stat; never changes `dst` (@net-download)],
-  [`mdot adopt <path> [--name N]`],
-  [move an existing target into its mirror slot, symlink it back, and write `specs/<N>.lua` if no
-    spec owns that path. _Open: what it writes now that a spec is a directory, `specs/<name>/`
-    (ADR 0014)._],
-  [`mdot generations`], [list generations],
-  [`mdot rollback [N]`], [plan and apply an older generation],
-  [`mdot query <file> <q> ...`], [standalone tree-sitter query/edit (@tree-sitter)],
   [`mdot specs [<spec-name>] [--host <name>]`],
   [show each spec's dependencies and what needs it, plus unreached specs (debugging, @output)],
 )
 
 Global flags: `--repo <dir>`, `-v`, `--color <auto|always|never>` (ADR 0086; no `-q`, ADR 0085).
-
-= Architecture <architecture>
-
-```
-src/
-  lua/       loader: config.lua + specs/** -> SpecSet; sandboxed per-file environment table; clause constructors
-  model/     Spec, Host/OS context, Resource variants
-  graph/     depends DAG from hosts/<host>.lua, topo sort, cycle reporting
-  ts/        tree-sitter query + edit engine, grammar registry
-  planner/   desired x recorded x live -> Plan; pretty printer
-  executor/  apply Plan; privileged batch via sudo re-exec
-  state/     state.json, generations, backups (atomic writes)
-  vcs/       git shell-out: rev-parse, worktree
-  platform/  XDG resolution, os-release, PackageProvider interface
-  bin/       clap command wiring (mdot.rs)
-tests/       cargo integration tests + fixture repos for end-to-end plan/apply
-```
 
 = Roadmap <roadmap>
 

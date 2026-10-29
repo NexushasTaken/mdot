@@ -556,7 +556,7 @@ The order is S1/S2 first (highest uncertainty, most novel), then S4, S5, and S3.
 *Setup.* Claude ran S1 and S2 together as a throwaway Rust spike outside the repo, not as the
 C++ program the table above describes (mdot moved to Rust, ADR 0036). Versions: `tree-sitter` 0.27.1,
 grammars `tree-sitter-ini` 1.4.0, `-css` 0.25.0, `-json` 0.24.8, `-lua` 0.5.0, `-toml-ng` 0.7.0,
-`-yaml` 0.7.2. The spike implements the engine as `design.typ` describes it ("Tree-sitter engine"): parse,
+`-yaml` 0.7.2. The spike implements the engine as `design-open.typ` describes it ("Tree-sitter engine"): parse,
 query, splice the captured byte ranges in reverse order, re-parse, check for errors. It ran
 against copies of the author's live `~/.config/kritarc` (719 lines), waybar `style.css` and
 `config.jsonc`, and Hyprland `configs/misc.lua` and `configs/autostart.lua`. TOML and YAML were
@@ -593,7 +593,7 @@ was.
 + *Real files already contain parse errors.* kritarc uses KDE's `Key[$e]=value` flag (lines 654,
   683), which the INI grammar doesn't know. waybar's `config.jsonc` has trailing commas (lines 102,
   121), which waybar accepts and `tree-sitter-json` doesn't. `style.css` and both Lua files parse
-  cleanly. With the rule in `design.typ` ("any ERROR node, nothing is written"), mdot could never
+  cleanly. With the rule in `design-open.typ` ("any ERROR node, nothing is written"), mdot could never
   edit kritarc or `config.jsonc`. The spike instead compared error counts ("the edit adds no new
   errors"), which let the edits through. A count is a weak check: an edit that removes one error
   and adds another would pass. This is not a decided rule.
@@ -675,11 +675,11 @@ yet, for the reasons in failures 1 to 3.
 Not decided. These are questions for a later decision (ADR), not answers.
 
 + *What does the user write: raw queries, key paths, or both?* Options seen: raw queries only (as
-  `design.typ` has now); paths as the normal form with raw queries as an escape hatch; paths only.
+  `design-open.typ` has now); paths as the normal form with raw queries as an escape hatch; paths only.
 + *What happens when the target file already has parse errors?* Options seen: refuse to edit;
   allow only if no error is near the edited node; allow and warn. Whatever the choice, `ensure`
   must not insert when an ERROR node could be hiding the key (failure 2).
-+ *Are values inserted raw or encoded per language?* Raw is what `design.typ` implies today and is
++ *Are values inserted raw or encoded per language?* Raw is what `design-open.typ` implies today and is
   what lets the injections in failure 3 through. Encoding needs a per-language encoder, which ties
   in with question 1.
 + *Which grammars cover the real files?* KDE's INI dialect (`[$e]`) and JSONC trailing commas are
@@ -689,7 +689,7 @@ Not decided. These are questions for a later decision (ADR), not answers.
 == User-supplied grammars (2026-10-25) <results-grammars>
 
 *Question* (the author's idea): can users add their own tree-sitter grammars when mdot's built-in
-ones don't cover a format, the way Neovim does? `design.typ` currently says grammars are "vendored
+ones don't cover a format, the way Neovim does? `design-open.typ` currently says grammars are "vendored
 and compiled in", so this would be a change to the design, not a detail.
 
 *How Neovim does it,* from its own help (`:h treesitter`, Nvim 0.12.5). A parser is a compiled
@@ -747,7 +747,7 @@ a dangling pointer.
   mdot's permissions. The Lua sandbox (ADR 0013) is for purity, not security, so this doesn't break
   a promise the design makes. A crash in a grammar's external scanner, though, takes mdot down with
   it (not tested, it follows from running in-process). It matters more for system scope:
-  `design.typ` rejects root-read configs that point into a user-writable repo as a
+  `design-open.typ` rejects root-read configs that point into a user-writable repo as a
   privilege-escalation path, and the same reasoning applies if the root side of
   `sudo mdot --exec-plan` would ever load a user-writable grammar.
 + *Compiled grammars are per OS and CPU.* A `.so` built on Linux x86-64 doesn't load on macOS or
