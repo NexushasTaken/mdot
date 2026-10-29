@@ -13,8 +13,6 @@ designing the state record, check that a download record (ADR 0032) fits the sam
 == Blocking Phase 1
 
 == Inconsistencies and stale text in `design.typ`
-- [ ] The flat-clause list under *Groups* names `enabled` (superseded by ADR 0019) and `config`
-  (never defined).
 - [ ] ADR 0020's rule "a `$` anywhere in `dst` is a load error" is missing from `file.link()`.
 - [ ] `plan --diff` is in the CLI table but never defined.
 - [ ] *Purity vs the lock file:* `research.typ` says `mdot plan` never modifies the filesystem,

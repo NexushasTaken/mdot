@@ -258,7 +258,8 @@ A spec's identity is its directory name (ADR 0021); there is no `name()` clause.
 
 *Groups.* Clauses that put a managed resource on the system live in a group named after what they
 act on, written `group.clause(...)`: `file.link` and `net.download`, later `file.copy`. Clauses that
-describe the spec itself (`depends`, `enabled`, `package`, `config`) stay flat. The rule
+describe the spec itself (`depends`, and `package` once Phase 5 designs it) stay flat. ADR 0023's
+list (`enabled`, `config`, `on_remove`) is outdated: see ADRs 0019, 0042 and 0061. The rule
 is not strict: a clause is grouped only where the group name reads naturally (`file.depends` would
 not). Whatever the group, every resource clause produces the same kind of resource, so the `dst`
 conflict rules apply across groups.
