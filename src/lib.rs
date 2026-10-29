@@ -17,6 +17,7 @@ pub mod error;
 pub mod facts;
 pub mod host;
 pub mod link;
+pub mod loader;
 pub mod planner;
 pub mod sandbox;
 pub mod spec;
