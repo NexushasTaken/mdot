@@ -1,25 +1,18 @@
 //! Runs user Lua files (config.lua, host files, spec.lua) in the sandbox and
 //! turns what a file returns into `Clause`s.
 //!
-//! The sandbox itself is written in Lua (`sandbox.lua`), because "a table whose
-//! writes fail" is easiest to say in Lua. This file does the Rust side: create
-//! the Lua state, hand the machine facts to `sandbox.lua`, run each file in the
+//! The environments are built in Lua (`sandbox.lua`), because "a table whose
+//! writes fail" is easiest to say in Lua. The clause constructors are Rust
+//! (`clause.rs`). This file does the rest: create the Lua state, hand the
+//! machine facts and the constructors to `sandbox.lua`, run each file in the
 //! fresh environment it builds, and read the result.
 
+use crate::clause;
+pub use crate::clause::Clause;
 use crate::error::Error;
 use crate::facts::{Facts, DIR_NAMES};
 use mlua::{ChunkMode, Function, Lua, LuaOptions, StdLib, Table, Value};
 use std::io::Write;
-
-/// What a clause call produced, as plain Rust data.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Clause {
-    /// `file.link(src, dst)`, or one name of the batch form. Both strings are as
-    /// written; the loader expands and checks them.
-    Link { src: String, dst: String },
-    /// `depends(names...)`.
-    Depends(Vec<String>),
-}
 
 /// Which kind of file is running. It decides what `mdot.vars` allows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -41,7 +34,7 @@ impl Role {
 
 pub struct Sandbox {
     lua: Lua,
-    /// The table `sandbox.lua` returns (`new_env`, `clause_mt`).
+    /// The table `sandbox.lua` returns (`new_env`).
     module: Table,
     /// `mdot.vars` for this run: written by config.lua and the host file, read
     /// by specs. One table, shared by every file of the run.
@@ -103,10 +96,11 @@ impl Sandbox {
             Ok(())
         })?;
 
+        let c = clause::create(&lua)?;
         let module: Table = lua
             .load(include_str!("sandbox.lua"))
             .set_name("@<mdot sandbox>")
-            .call((os, dirs, dir_names, write_line))?;
+            .call((os, dirs, dir_names, write_line, c.spec, c.file_link, c.depends))?;
         let vars = lua.create_table()?;
 
         Ok(Sandbox { lua, module, vars })
@@ -143,9 +137,8 @@ impl Sandbox {
                 value.type_name()
             )));
         };
-        let clause_mt: Table = self.module.get("clause_mt").map_err(lua_error)?;
         let mut out = Vec::new();
-        flatten(rel_path, &clause_mt, &table, "", &mut out)?;
+        flatten(rel_path, &table, "", &mut out)?;
         Ok(out)
     }
 }
@@ -155,7 +148,6 @@ impl Sandbox {
 /// say "entry 2.1".
 fn flatten(
     rel_path: &str,
-    clause_mt: &Table,
     list: &Table,
     prefix: &str,
     out: &mut Vec<Clause>,
@@ -187,28 +179,20 @@ fn flatten(
     for i in 1..=len {
         let pos = format!("{prefix}{i}");
         let entry: Value = list.raw_get(i).map_err(lua_error)?;
-        let Value::Table(t) = entry else {
-            return Err(bad(pos, &format!("not a clause (got {})", entry.type_name())));
-        };
-        // A clause has clause_mt; a plain list has no metatable at all.
-        match t.metatable() {
-            Some(mt) if mt == *clause_mt => out.push(read_clause(&t).map_err(lua_error)?),
-            Some(_) => return Err(bad(pos, "not a clause")),
-            None => flatten(rel_path, clause_mt, &t, &format!("{pos}."), out)?,
+        // A clause is userdata made by clause.rs; a plain list has no metatable.
+        match entry {
+            Value::UserData(ud) => match ud.borrow::<Clause>() {
+                Ok(c) => out.push(c.clone()),
+                Err(_) => return Err(bad(pos, "not a clause")),
+            },
+            Value::Table(t) if t.metatable().is_none() => {
+                flatten(rel_path, &t, &format!("{pos}."), out)?
+            }
+            Value::Table(_) => return Err(bad(pos, "not a clause")),
+            other => return Err(bad(pos, &format!("not a clause (got {})", other.type_name()))),
         }
     }
     Ok(())
-}
-
-/// A clause table as built by sandbox.lua. The file could have changed its
-/// fields after the call, so every field is type-checked again here.
-fn read_clause(t: &Table) -> mlua::Result<Clause> {
-    let kind: String = t.raw_get("kind")?;
-    match kind.as_str() {
-        "link" => Ok(Clause::Link { src: t.raw_get("src")?, dst: t.raw_get("dst")? }),
-        "depends" => Ok(Clause::Depends(t.raw_get("names")?)),
-        other => Err(mlua::Error::runtime(format!("unknown clause kind {other}"))),
-    }
 }
 
 fn lua_error(e: mlua::Error) -> Error {

@@ -14,6 +14,7 @@
 //! `run` ties them together, one function per command.
 
 pub mod apply;
+pub mod clause;
 pub mod common;
 pub mod error;
 pub mod facts;

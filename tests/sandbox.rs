@@ -84,6 +84,22 @@ fn link_batch_needs_a_name_with_a_file_name() {
 }
 
 #[test]
+fn clauses_cannot_be_opened_or_changed() {
+    clauses(
+        r#"
+        local c = file.link("a", "~/a")
+        assert(type(c) == "userdata")
+        assert(type(getmetatable(c)) ~= "table")
+        assert(not pcall(function() return c.src end))
+        assert(not pcall(function() c.src = "b" end))
+        assert(not pcall(setmetatable, c, {}))
+        return spec {}
+    "#,
+    )
+    .unwrap();
+}
+
+#[test]
 fn depends_and_nested_lists_keep_order() {
     let c = clauses(
         r#"

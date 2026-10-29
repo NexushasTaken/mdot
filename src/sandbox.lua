@@ -4,14 +4,16 @@
 -- never see its locals: each one runs in a fresh table that new_env() builds,
 -- holding only what is listed here. Purity, not security, is the goal.
 --
--- Called from sandbox.rs as:  local M = <this chunk>(os, dirs, dir_names, write_line)
+-- Called from sandbox.rs as:
+--   local M = <this chunk>(os, dirs, dir_names, write_line, spec, file_link, depends)
+-- The last three are the clause constructors, written in Rust (clause.rs).
 
-local os_facts, dirs_facts, dir_names, write_line = ...
+local os_facts, dirs_facts, dir_names, write_line, spec, file_link, depends = ...
 
 -- Capture what we need now; later code must not depend on user-visible globals.
 local _G, error, next, pairs, ipairs, select, type, tostring, setmetatable, getmetatable =
       _G, error, next, pairs, ipairs, select, type, tostring, setmetatable, getmetatable
-local math_type, concat, unpack, str_match = math.type, table.concat, table.unpack, string.match
+local concat = table.concat
 
 local M = {}
 
@@ -91,79 +93,8 @@ local BASE = {
 
 -- Clauses -----------------------------------------------------------------
 --
--- A clause is a table with clause_mt as its metatable. Only these functions
--- set it, and getmetatable() on it returns false, so a file cannot forge one.
--- sandbox.rs recognises clauses by comparing metatables.
-
-local clause_mt = { __metatable = false }
-M.clause_mt = clause_mt
-
-local function clause(t)
-  return setmetatable(t, clause_mt)
-end
-
-local function is_index(k, n)
-  return math_type(k) == "integer" and k >= 1 and k <= n
-end
-
--- file.link(src, dst) or file.link { names..., into = dir, dot? } (ADR 0022).
--- The batch form returns a plain list of link clauses; spec{} flattens lists.
-local function file_link(...)
-  local n = select("#", ...)
-  local a, b = ...
-  if n == 2 and type(a) == "string" and type(b) == "string" then
-    return clause { kind = "link", src = a, dst = b }
-  end
-  if n == 1 and type(a) == "table" and getmetatable(a) == nil then
-    local count = #a
-    for k, v in pairs(a) do
-      if k == "into" then
-        if type(v) ~= "string" then error("file.link: `into` must be a string", 2) end
-      elseif k == "dot" then
-        if type(v) ~= "boolean" then error("file.link: `dot` must be a boolean", 2) end
-      elseif is_index(k, count) then
-        if type(v) ~= "string" then
-          error(("file.link: name %d must be a string"):format(k), 2)
-        end
-      else
-        error(("file.link: unknown field %s"):format(tostring(k)), 2)
-      end
-    end
-    if a.into == nil then error("file.link: the batch form needs `into`", 2) end
-    if count == 0 then error("file.link: the batch form needs at least one name", 2) end
-    local prefix = a.into .. (a.dot and "/." or "/")
-    local out = {}
-    for i = 1, count do
-      -- dst uses only the last path component; src stays the whole name (ADR 0022).
-      local last = str_match(a[i], "[^/]*$")
-      -- TODO(design): a name with no file name is a guess (adr/todo.typ).
-      if last == "" or last == "." or last == ".." then
-        error(("file.link: name %d (%q) has no file name"):format(i, a[i]), 2)
-      end
-      out[i] = clause { kind = "link", src = a[i], dst = prefix .. last }
-    end
-    return out
-  end
-  error("file.link: expected file.link(src, dst) or file.link { names..., into = dir }", 2)
-end
-
--- depends(names...) (ADR 0019).
-local function depends(...)
-  local names = { ... }
-  for i = 1, select("#", ...) do
-    if type(names[i]) ~= "string" then
-      error(("depends: argument %d must be a string"):format(i), 2)
-    end
-  end
-  return clause { kind = "depends", names = names }
-end
-
--- spec { ... } only checks that it got a table. Flattening and checking each
--- entry happens in sandbox.rs, after the file has returned.
-local function spec(t)
-  if type(t) ~= "table" then error("spec: expected a table: spec { ... }", 2) end
-  return t
-end
+-- spec, file_link and depends come from Rust (clause.rs). They check their
+-- arguments and return userdata that only sandbox.rs can read.
 
 local FILE = readonly({ link = file_link }, "file", { fields = { link = true } })
 
