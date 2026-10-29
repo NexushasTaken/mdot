@@ -13,7 +13,6 @@ designing the state record, check that a download record (ADR 0032) fits the sam
 == Blocking Phase 1
 
 == Inconsistencies and stale text in `design.typ`
-- [ ] ADR 0020's rule "a `$` anywhere in `dst` is a load error" is missing from `file.link()`.
 - [ ] `plan --diff` is in the CLI table but never defined.
 - [ ] *Purity vs the lock file:* `research.typ` says `mdot plan` never modifies the filesystem,
   but ADR 0063 has `plan` create the state directory and the lock file if they are missing.
@@ -29,6 +28,8 @@ designing the state record, check that a download record (ADR 0032) fits the sam
 - [ ] *A drift-only command* (ADR 0064): whether one returns in a later phase.
 - [ ] *Authenticated downloads* (ADR 0074): how a private download gets credentials without
   putting them in the `url`.
+- [ ] *`$` in a real path from `mdot.dirs`* (ADR 0020, ADR 0043): a `dst` built from a dir whose
+  real path contains `$` is rejected as a load error. Revisit with Windows support.
 
 == Phase 0 experiments (`research.typ`, Methodology)
 - [ ] *Re-scope Phase 0* to the experiments that gate Phase 1: S4 and S6. Move S1/S2 (Phase 4),

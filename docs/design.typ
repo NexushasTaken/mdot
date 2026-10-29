@@ -420,7 +420,8 @@ return spec {
   (ADR 0022). The batch form expands to one link per name, and everything below applies to each
   of them.
 - `src` is a path relative to the spec's directory. `dst` and `into` are plain strings; a leading `~`
-  expands to `$HOME`.
+  expands to `$HOME`. A `$` anywhere in `dst` or `into` is a load error, so a typo cannot create a
+  directory literally named `$XDG_CONFIG_HOME` (ADR 0020, ADR 0022).
 - A link is always "this path in the spec directory" to "that path on disk", whether it is a file or
   a directory. There are no special modes.
 - *`spec.lua` is absolute.* mdot does not exclude or protect anything. `link(".", "~/.config/hypr")`
