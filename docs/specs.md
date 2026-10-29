@@ -55,8 +55,18 @@ With `dot = true`, each target name gets a leading dot:
 file.link { "Xresources", "xinitrc", into = "~", dot = true }
 ```
 
-`into` follows the same rules as `dst`. Any other field, or a name that isn't a string, is an
-error.
+A name can be a path inside the spec; the target uses only its last part, and the whole name stays
+the source:
+
+```lua
+-- ~/.bashrc.sh -> config/bashrc.sh, ~/.bash_profile.sh -> config/bash_profile.sh
+file.link { "config/bashrc.sh", "config/bash_profile.sh", into = "~", dot = true }
+```
+
+To give a file a different name (`config/bashrc.sh` to `~/.bashrc`), use `file.link(src, dst)`.
+
+`into` follows the same rules as `dst`. The list needs at least one name. Any other field, a name
+that isn't a string, or a name with no file name at the end (`config/`, `.`, `..`) is an error.
 
 ## `depends(names...)`
 

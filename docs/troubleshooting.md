@@ -55,6 +55,8 @@ Lua errors carry the file and line:
 |---|---|
 | `specs/x/spec.lua:3: file.link: expected file.link(src, dst) or file.link { names..., into = dir }` | wrong arguments to `file.link` |
 | ``specs/x/spec.lua:3: file.link: the batch form needs `into` `` | `file.link { ... }` without `into` |
+| `specs/x/spec.lua:3: file.link: the batch form needs at least one name` | `file.link { into = ... }` with no names |
+| `specs/x/spec.lua:3: file.link: name 1 ("config/") has no file name` | a name in `file.link { ... }` ending in `/`, `.` or `..` |
 | `specs/x/spec.lua:3: file.link: unknown field <name>` | a misspelled field in `file.link { ... }` (only `into` and `dot` exist) |
 | `specs/x/spec.lua:3: depends: argument 2 must be a string` | `depends` takes spec names only |
 | `specs/x/spec.lua: entry 2.1: not a clause (got string)` | something in `spec { ... }` that isn't a clause or a list of clauses |

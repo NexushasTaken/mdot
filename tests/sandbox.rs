@@ -60,6 +60,30 @@ fn link_batch_without_dot() {
 }
 
 #[test]
+fn link_batch_uses_last_component_for_dst() {
+    let c = clauses(
+        r#"return spec { file.link { "config/bashrc.sh", "config/bash_profile.sh", into = "~", dot = true } }"#,
+    )
+    .unwrap();
+    assert_eq!(
+        c,
+        vec![link("config/bashrc.sh", "~/.bashrc.sh"), link("config/bash_profile.sh", "~/.bash_profile.sh")]
+    );
+    let c = clauses(r#"return spec { file.link { "a/b/u.service", into = "~/x" } }"#).unwrap();
+    assert_eq!(c, vec![link("a/b/u.service", "~/x/u.service")]);
+}
+
+#[test]
+fn link_batch_needs_a_name_with_a_file_name() {
+    let e = spec_error(r#"return spec { file.link { into = "~" } }"#);
+    assert!(e.contains("needs at least one name"), "{e}");
+    for name in ["config/", ".", "..", "a/.."] {
+        let e = spec_error(&format!(r#"return spec {{ file.link {{ "{name}", into = "~" }} }}"#));
+        assert!(e.contains("name 1") && e.contains("has no file name"), "{name}: {e}");
+    }
+}
+
+#[test]
 fn depends_and_nested_lists_keep_order() {
     let c = clauses(
         r#"

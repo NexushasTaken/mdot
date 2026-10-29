@@ -11,7 +11,7 @@ local os_facts, dirs_facts, dir_names, write_line = ...
 -- Capture what we need now; later code must not depend on user-visible globals.
 local _G, error, next, pairs, ipairs, select, type, tostring, setmetatable, getmetatable =
       _G, error, next, pairs, ipairs, select, type, tostring, setmetatable, getmetatable
-local math_type, concat, unpack = math.type, table.concat, table.unpack
+local math_type, concat, unpack, str_match = math.type, table.concat, table.unpack, string.match
 
 local M = {}
 
@@ -130,10 +130,17 @@ local function file_link(...)
       end
     end
     if a.into == nil then error("file.link: the batch form needs `into`", 2) end
+    if count == 0 then error("file.link: the batch form needs at least one name", 2) end
     local prefix = a.into .. (a.dot and "/." or "/")
     local out = {}
     for i = 1, count do
-      out[i] = clause { kind = "link", src = a[i], dst = prefix .. a[i] }
+      -- dst uses only the last path component; src stays the whole name (ADR 0022).
+      local last = str_match(a[i], "[^/]*$")
+      -- TODO(design): a name with no file name is a guess (adr/todo.typ).
+      if last == "" or last == "." or last == ".." then
+        error(("file.link: name %d (%q) has no file name"):format(i, a[i]), 2)
+      end
+      out[i] = clause { kind = "link", src = a[i], dst = prefix .. last }
     end
     return out
   end
