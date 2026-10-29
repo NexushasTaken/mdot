@@ -852,7 +852,7 @@ warnings. 1 means mdot refused because of a rule: a conflict, or a spec that bre
 outside its spec directory, ADR 0080). 2 is an
 error: a usage error (clap's own code), an unreadable file, a missing spec or host name (in `depends`,
 `preview <host>`, `specs --host` or `mdot specs <name>`, ADR 0067, 0071), a bad hostname
-(uppercase, unsafe or unavailable, ADR 0079), a Lua error while loading, or a failed write during
+(uppercase, unsafe or unavailable, ADR 0079), a missing or dangling `src` (ADR 0081), a Lua error while loading, or a failed write during
 `apply`. When both 1 and 2 apply, the code is 2.
 
 = State and generations (git-based) <generations>
