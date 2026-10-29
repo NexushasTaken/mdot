@@ -14,6 +14,30 @@ designing the state record, check that a download record (ADR 0032) fits the sam
 
 == Inconsistencies and stale text in `design.typ`
 
+== Gaps the implementation filled with a guess (2026-10-29)
+
+The Rust implementation needed an answer where the spec has none. Each guess is Claude's, not
+decided; the code marks it `TODO(design)` where one exists.
+
+- [ ] *Relative `dst`* (`file.link("a", "foo")`, no `~/`, not absolute): the code makes it a load
+  error, exit 2 (`src/loader.rs`, `expand_dst`).
+- [ ] *A `dst` whose parent is a regular file:* the code plans it as a conflict, "a parent is not a
+  directory" (`src/planner.rs`, `Observed::ParentNotDir`).
+- [ ] *Plan detail wording* for adopt (`already linked; record only`), re-create (`removed by
+  hand`), forget (`already gone`) and a delete whose spec is still reached (`clause removed`)
+  (`src/output.rs`, `detail`).
+- [ ] *Summary counts:* adopt is counted as an update and forget as a delete; the adopt line uses
+  `~` and forget uses `-` (`src/output.rs`).
+- [ ] *Apply line order:* ADR 0052 says apply uses plan's order, but steps run deletes first and
+  creates last (ADR 0054). The code prints in execution order, with a new heading whenever the spec
+  changes (`src/run.rs`, `apply`).
+- [ ] *`config.lua` returning a value:* the code makes it an error, exit 2 (`src/loader.rs`).
+- [ ] *Exit code of `mdot.vars` schema errors:* the code uses 1 (a rule), ADR 0039 does not say.
+- [ ] *`-v=2` layout:* indented `desired:` / `recorded:` / `live:` lines under each resource
+  (`src/output.rs`, `explain`).
+- [ ] *`mdot.os.edition`:* `VARIANT_ID` from `/etc/os-release` on Linux, `nil` elsewhere; macOS
+  `version` from `sw_vers -productVersion`; Windows `version` is `nil` (`src/facts.rs`).
+
 == Later phases (not blocking)
 - [ ] *A content diff* for content kinds (`file.copy`, `net.download`, `render` / `patch`): whether
   `plan` gets a way to show it, and in what form (ADR 0083).

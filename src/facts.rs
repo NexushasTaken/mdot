@@ -54,11 +54,10 @@ impl Facts {
             // Pointer width of the build target: 64 on x86_64 and aarch64.
             bitness: usize::BITS,
             distribution: field("ID").map(|s| s.to_ascii_lowercase()),
-            // TODO(build): "as the OS reports it" on macOS/Windows; os-release
-            // only covers Linux. `edition` has no source yet on any OS.
-            version: field("VERSION_ID"),
+            version: field("VERSION_ID").or_else(os_version),
             codename: field("VERSION_CODENAME"),
-            edition: None,
+            // os-release's VARIANT_ID (Fedora "workstation"); nil elsewhere.
+            edition: field("VARIANT_ID"),
             hostname: hostname.to_string(),
         };
 
@@ -96,4 +95,17 @@ fn read_os_release() -> Vec<(String, String)> {
         .filter_map(|line| line.split_once('='))
         .map(|(k, v)| (k.trim().to_string(), v.trim().trim_matches('"').to_string()))
         .collect()
+}
+
+/// The OS version where /etc/os-release has none. `None` = "nil if none".
+#[cfg(target_os = "macos")]
+fn os_version() -> Option<String> {
+    let out = std::process::Command::new("sw_vers").arg("-productVersion").output().ok()?;
+    let v = String::from_utf8(out.stdout).ok()?.trim().to_string();
+    (!v.is_empty()).then_some(v)
+}
+
+#[cfg(not(target_os = "macos"))]
+fn os_version() -> Option<String> {
+    None
 }

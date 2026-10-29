@@ -39,6 +39,8 @@ pub fn apply(
             unreachable!("apply called with a conflict: {}", step.id);
         }
         if step.action == Action::Noop {
+            // Nothing to do; reported so `-v` can show its `=` line.
+            report(Event::Done(step));
             continue;
         }
         match run_step(step, state, state_dir, report) {

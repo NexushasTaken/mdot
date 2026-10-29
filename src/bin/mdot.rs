@@ -2,6 +2,7 @@
 //! are in `mdot::run`.
 
 use clap::{Parser, Subcommand, ValueEnum};
+use mdot::output::ColorWhen;
 use mdot::run::{self, Options};
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -62,8 +63,11 @@ enum Command {
 
 fn main() -> ExitCode {
     let cli = Cli::parse();
-    // TODO(build): use cli.color in output.rs (ADR 0086).
-    let _ = cli.color;
+    mdot::output::set_color(match cli.color {
+        Color::Auto => ColorWhen::Auto,
+        Color::Always => ColorWhen::Always,
+        Color::Never => ColorWhen::Never,
+    });
     let opts = Options { repo: cli.repo, verbose: cli.verbose.unwrap_or(0) };
 
     let code = match cli.command {

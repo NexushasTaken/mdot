@@ -129,6 +129,11 @@ impl Sandbox {
             .map_err(lua_error)
     }
 
+    /// The run's `mdot.vars` table (for the schema check).
+    pub fn vars(&self) -> &Table {
+        &self.vars
+    }
+
     /// Reads the value a spec or host file returned as a list of clauses.
     /// Lists inside it are flattened depth first, in order (ADR 0018).
     pub fn clauses(&self, rel_path: &str, value: Value) -> Result<Vec<Clause>, Error> {

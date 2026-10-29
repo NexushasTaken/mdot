@@ -245,3 +245,84 @@ fn test_migration_fixture_loads() {
     assert!(r.loaded.specs.len() > 20, "only {} specs", r.loaded.specs.len());
     assert!(r.loaded.not_reached.contains(&"legacy".to_string()));
 }
+
+#[test]
+fn vars_schema_base_errors() {
+    let repo = Repo::new(&[
+        (
+            "config.lua",
+            r#"
+            mdot.vars.empty = {}
+            mdot.vars.mixed = { "A", x = 1 }
+            mdot.vars.gaps = { "A", nil, "C" }
+            mdot.vars.fn = function() end
+            mdot.vars.list = { "a", 2 }
+            mdot.vars.recs = { { n = "a", s = 1 }, { n = "b" } }
+            "#,
+        ),
+        ("hosts/h.lua", "return spec {}"),
+    ]);
+    let r = repo.load("h");
+    assert_eq!(
+        messages(&r.errors),
+        [
+            "config.lua: mdot.vars.empty: empty {} is not allowed; give a list at least one element",
+            "config.lua: mdot.vars.fn: a function cannot be a var; vars hold only data",
+            "config.lua: mdot.vars.gaps: list with gaps: keys must be exactly 1..n",
+            "config.lua: mdot.vars.list[2]: expected string, got number",
+            "config.lua: mdot.vars.mixed: mixed table: use either string keys (a record) or 1..n (a list)",
+            "config.lua: mdot.vars.recs[2].s: removed; a host may not remove a var",
+        ]
+    );
+    assert!(r.errors.iter().all(|e| e.code == Code::Refused));
+}
+
+#[test]
+fn vars_schema_host_overrides() {
+    let repo = Repo::new(&[
+        (
+            "config.lua",
+            r#"
+            mdot.vars.font = "Hack"
+            mdot.vars.cursor = { name = "c", size = 16 }
+            mdot.vars.fonts = { "A", "B" }
+            "#,
+        ),
+        (
+            "hosts/ok.lua",
+            r#"
+            mdot.vars.cursor.size = 24.5
+            mdot.vars.fonts = { "A", "B", "C" }
+            return spec {}
+            "#,
+        ),
+        (
+            "hosts/bad.lua",
+            r#"
+            mdot.vars.font = 12
+            mdot.vars.cursor.colour = "red"
+            mdot.vars.cursor.name = nil
+            mdot.vars.fonts[3] = 1
+            mdot.vars.extra = true
+            return spec {}
+            "#,
+        ),
+        (
+            "hosts/empty.lua",
+            r#"mdot.vars.fonts = {} return spec {}"#,
+        ),
+    ]);
+    assert!(repo.load("ok").errors.is_empty());
+    assert!(repo.load("empty").errors.is_empty(), "a host may empty a list");
+    let r = repo.load("bad");
+    assert_eq!(
+        messages(&r.errors),
+        [
+            "hosts/bad.lua: mdot.vars.cursor.colour: not in config.lua; a host may only override existing vars",
+            "hosts/bad.lua: mdot.vars.cursor.name: removed; a host may not remove a var",
+            "hosts/bad.lua: mdot.vars.extra: not in config.lua; a host may only override existing vars",
+            "hosts/bad.lua: mdot.vars.font: expected string, got number",
+            "hosts/bad.lua: mdot.vars.fonts[3]: expected string, got number",
+        ]
+    );
+}

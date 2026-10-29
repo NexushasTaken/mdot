@@ -9,6 +9,7 @@ use crate::common::lexically_normal;
 use crate::error::Error;
 use crate::facts::Facts;
 use crate::sandbox::{Clause, Role, Sandbox};
+use crate::vars;
 use std::collections::HashMap;
 use std::fs;
 use std::io::ErrorKind;
@@ -54,6 +55,8 @@ pub struct Loaded {
     pub specs: Vec<LoadedSpec>,
     /// Directories in specs/ the host does not reach, sorted.
     pub not_reached: Vec<String>,
+    /// Every directory in specs/, sorted.
+    pub known: Vec<String>,
 }
 
 impl Loaded {
@@ -118,6 +121,8 @@ pub fn load(repo: &Path, facts: &Facts) -> LoadResult {
         }
     };
 
+    result.loaded.known = known.clone();
+
     let sandbox = match Sandbox::new(facts) {
         Ok(s) => s,
         Err(e) => {
@@ -142,8 +147,15 @@ pub fn load(repo: &Path, facts: &Facts) -> LoadResult {
             }
         }
     }
-    // TODO(build): ADR 0039 vars schema: a function in base vars is an error;
-    // check the host's overrides against base after step 2.
+    // Base vars become the schema the host's overrides are checked against
+    // (ADR 0039). It must be built now: the host file changes the same table.
+    let schema = match vars::schema(sandbox.vars(), "config.lua") {
+        Ok(s) => s,
+        Err(errs) => {
+            result.errors.extend(errs.into_iter().map(Error::refused));
+            return result;
+        }
+    };
 
     // 2. The host file: selection and vars overrides only.
     let host = &facts.os.hostname;
@@ -166,6 +178,9 @@ pub fn load(repo: &Path, facts: &Facts) -> LoadResult {
             return result;
         }
     };
+    result
+        .errors
+        .extend(vars::check_host(sandbox.vars(), &schema, &host_rel).into_iter().map(Error::refused));
     for clause in host_clauses {
         match clause {
             Clause::Depends(names) => result.loaded.host_depends.extend(names),

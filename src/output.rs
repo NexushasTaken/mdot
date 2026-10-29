@@ -1,26 +1,61 @@
-//! What the user sees (design.typ "Output", ADR 0050, 0051, 0052).
+//! What the user sees (design.typ "Output", ADR 0050, 0051, 0052, 0086).
 //!
 //! Plan and `mdot.print` go to stdout; `error:`, `conflict:` and `warning:`
-//! lines go to stderr.
-//!
-//! TODO(build): `--color` (ADR 0086), `-v=2` (desired/recorded/live per
-//! resource), padding when a second kind exists. Everything else in this file
-//! follows the spec; change it freely, nothing else depends on the format.
+//! lines go to stderr. Only those three words are ever colored.
 
 use crate::loader::Loaded;
-use crate::planner::{Action, Step};
+use crate::planner::{Action, Observed, Step};
+use std::io::IsTerminal;
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+/// `--color` (ADR 0086).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ColorWhen {
+    Auto,
+    Always,
+    Never,
+}
+
+/// Whether stderr gets color. Set once at startup; a global because every
+/// diagnostic needs it and it never changes during a run. An atomic is the
+/// simplest global Rust allows without `unsafe`.
+static STDERR_COLOR: AtomicBool = AtomicBool::new(false);
+
+pub fn set_color(when: ColorWhen) {
+    let on = match when {
+        ColorWhen::Always => true,
+        ColorWhen::Never => false,
+        ColorWhen::Auto => {
+            let no_color = std::env::var_os("NO_COLOR").is_some_and(|v| !v.is_empty());
+            std::io::stderr().is_terminal() && !no_color
+        }
+    };
+    STDERR_COLOR.store(on, Ordering::Relaxed);
+}
+
+const RED: &str = "\x1b[31m";
+const YELLOW: &str = "\x1b[33m";
+const RESET: &str = "\x1b[0m";
+
+fn diagnostic(word: &str, color: &str, message: &str) {
+    if STDERR_COLOR.load(Ordering::Relaxed) {
+        eprintln!("{color}{word}:{RESET} {message}");
+    } else {
+        eprintln!("{word}: {message}");
+    }
+}
 
 pub fn error(message: &str) {
-    eprintln!("error: {message}");
+    diagnostic("error", RED, message);
 }
 
 pub fn conflict(message: &str) {
-    eprintln!("conflict: {message}");
+    diagnostic("conflict", RED, message);
 }
 
 pub fn warning(message: &str) {
-    eprintln!("warning: {message}");
+    diagnostic("warning", YELLOW, message);
 }
 
 /// `~/x` for a path under home, else the path as is. Used where only the
@@ -100,8 +135,24 @@ pub fn display_order<'a>(steps: &'a [Step], loaded: &Loaded) -> Vec<&'a Step> {
     ordered
 }
 
-fn shown(step: &Step, verbose: u8) -> bool {
+/// Level 0 shows changes and conflicts; level 1 adds no-ops (ADR 0051).
+pub fn shown(step: &Step, verbose: u8) -> bool {
     step.action != Action::Noop || verbose >= 1
+}
+
+/// Level 2: what is desired, recorded and live for the resource.
+pub fn explain(step: &Step) -> String {
+    let side = |p: Option<&Path>| p.map_or("none".to_string(), |p| p.display().to_string());
+    let live = match &step.live {
+        Observed::Absent => "nothing".to_string(),
+        other => other.describe(),
+    };
+    format!(
+        "      desired:  {}\n      recorded: {}\n      live:     {}",
+        side(step.desired.as_ref().map(|d| d.src.as_path())),
+        side(step.recorded.as_ref().map(|r| r.src.as_path())),
+        live
+    )
 }
 
 /// Prints the plan. Headings appear only above a line that is shown.
@@ -116,6 +167,9 @@ pub fn print_plan(steps: &[Step], loaded: &Loaded, home: &Path, verbose: u8) {
             heading = Some(step.spec());
         }
         println!("{}", step_line(step, loaded, home));
+        if verbose >= 2 {
+            println!("{}", explain(step));
+        }
         if step.is_conflict() {
             conflict_line(step, home);
         }

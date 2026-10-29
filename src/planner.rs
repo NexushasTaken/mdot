@@ -326,6 +326,19 @@ fn phase(action: Action) -> u8 {
 /// decides its action (planner.typ "Plan"). Pure except for `observe`:
 /// nothing is changed. The steps come back in apply order.
 pub fn plan(desired: &[DesiredLink], state: &State) -> Result<Vec<Step>, Error> {
+    plan_with(desired, state, observe_link)
+}
+
+/// `plan` with a different way to observe live. `preview` passes one that
+/// always answers `Absent`: an empty machine (ADR 0071).
+///
+/// `impl Fn(&Path) -> ...` means "any function or closure with this
+/// signature"; the compiler makes one copy of `plan_with` per caller's type.
+pub fn plan_with(
+    desired: &[DesiredLink],
+    state: &State,
+    observe: impl Fn(&Path) -> Result<Observed, Error>,
+) -> Result<Vec<Step>, Error> {
     // BTreeMap keeps keys sorted, so the union below is in ID order.
     let mut d_by_id: BTreeMap<String, &DesiredLink> = BTreeMap::new();
     for d in desired {
@@ -347,7 +360,7 @@ pub fn plan(desired: &[DesiredLink], state: &State) -> Result<Vec<Step>, Error> 
         let d = d_by_id.get(id).copied();
         let r = r_by_id.get(id).copied();
         let dst = d.map(|d| &d.dst).or(r.map(|r| &r.dst)).expect("id comes from d or r");
-        let live = observe_link(dst)?;
+        let live = observe(dst)?;
 
         let desired_side = d.map(|d| LinkDesired { link: Link { target: d.src.clone(), dst: dst.clone() } });
         let record_side = r.map(|r| LinkRecord { link: Link { target: r.src.clone(), dst: dst.clone() } });
