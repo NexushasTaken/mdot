@@ -8,6 +8,7 @@ mdot [--repo <dir>] [-v[=<level>]] [--color <when>] <command>
 |---|---|
 | [`mdot plan`](#mdot-plan) | show what `apply` would do; changes nothing |
 | [`mdot apply [--yes]`](#mdot-apply) | do it |
+| [`mdot up [--yes]`](#mdot-up) | `plan` and `apply` in one go: show the plan, ask, do it |
 | [`mdot preview <host>`](#mdot-preview-host) | show what another machine would get |
 | [`mdot specs [<name>] [--host <host>]`](#mdot-specs) | show which specs are used and why |
 
@@ -88,6 +89,34 @@ Applied: 1 created.
 
 **Exit code:** 0 on success or when you answer no; 1 if refused (conflicts, no terminal); 2 if a
 step failed or the repo could not be loaded.
+
+## `mdot up`
+
+The same as `mdot plan && mdot apply`, in one run: it shows the plan, asks once, then makes those
+exact changes. Nothing can change between what you read and what is applied, because the plan is
+computed once and mdot holds its lock the whole time.
+
+```
+$ mdot up
+bash
+  + link  ~/.bashrc -> bashrc
+
+Plan: 1 to create.
+apply? [y/N] y
+bash
+  + link  ~/.bashrc -> bashrc
+
+Applied: 1 created.
+```
+
+- Each change shows twice: once in the plan, once when it is done.
+- With a conflict, the plan shows it and `up` stops without asking. There is no extra
+  "refused" line.
+- With nothing to do it prints `No changes.` and doesn't ask.
+- `--yes`, the question and running without a terminal work as for `apply`, but the plan is always
+  printed first.
+
+**Exit code:** as for `apply`.
 
 ## `mdot preview <host>`
 

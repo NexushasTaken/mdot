@@ -51,6 +51,12 @@ enum Command {
         #[arg(long)]
         yes: bool,
     },
+    /// Show the plan, ask, then apply that plan (plan && apply in one run)
+    Up {
+        /// Do not ask for confirmation
+        #[arg(long)]
+        yes: bool,
+    },
     /// Show what hosts/<host>.lua would get on an empty machine
     Preview { host: String },
     /// Show each spec's dependencies and what needs it
@@ -87,6 +93,7 @@ fn main() -> ExitCode {
     let code = match cli.command {
         Command::Plan => run::plan(&opts),
         Command::Apply { yes } => run::apply(&opts, yes),
+        Command::Up { yes } => run::up(&opts, yes),
         Command::Preview { host } => run::preview(&opts, &host),
         Command::Specs { name, host } => run::specs(&opts, name.as_deref(), host.as_deref()),
     };

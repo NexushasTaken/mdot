@@ -134,6 +134,44 @@ fn apply_without_a_terminal_needs_yes() {
 }
 
 #[test]
+fn up_prints_the_plan_then_applies_it() {
+    let env = Env::new();
+    let plan = "bash\n  + link  ~/.bashrc -> bashrc\n  + link  ~/.config/bash/env -> env\n\
+                gdb\n  + link  ~/.config/gdb -> .\n\nPlan: 3 to create.\n";
+
+    // No terminal and no --yes: the plan, then the error; nothing changes.
+    let o = env.mdot(&["up"]);
+    assert_eq!(o.status.code(), Some(1));
+    assert_eq!(stdout(&o), plan);
+    assert!(stderr(&o).contains("stdin is not a terminal; use --yes"), "{}", stderr(&o));
+    assert!(!env.home().join(".bashrc").exists());
+
+    // --yes: the plan, then apply's output (ADR 0087).
+    let o = env.mdot(&["up", "--yes"]);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    assert!(stdout(&o).starts_with(plan), "{}", stdout(&o));
+    assert!(stdout(&o).ends_with("Applied: 3 created.\n"), "{}", stdout(&o));
+    assert_eq!(points_to(&env.home().join(".bashrc")), env.repo().join("specs/bash/bashrc"));
+
+    // Nothing to do: `No changes.` once.
+    let o = env.mdot(&["up", "--yes"]);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    assert_eq!(stdout(&o), "No changes.\n");
+
+    // A conflict: the plan shows it, no refusal line, exit 1.
+    let gdb = env.home().join(".config/gdb");
+    fs::remove_file(&gdb).unwrap();
+    symlink("/elsewhere", &gdb).unwrap();
+    let o = env.mdot(&["up", "--yes"]);
+    assert_eq!(o.status.code(), Some(1));
+    assert_eq!(stdout(&o), "gdb\n  ! link  ~/.config/gdb -> .\n\nPlan: 1 conflict.\n");
+    assert_eq!(
+        stderr(&o),
+        "conflict: ~/.config/gdb: symlink to /elsewhere, changed since mdot made it\n"
+    );
+}
+
+#[test]
 fn load_errors_exit_2() {
     let env = Env::new();
     fs::write(env.repo().join("specs/bash/spec.lua"), "return spec {").unwrap();

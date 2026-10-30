@@ -1,7 +1,7 @@
 //! The commands, start to finish. Each returns the process exit code
 //! (ADR 0053): 0 success, 1 refused by a rule, 2 error.
 //!
-//! The order inside `plan` and `apply` matters:
+//! The order inside `plan`, `apply` and `up` matters:
 //!   lock -> read state -> repo check -> load specs -> plan -> (apply)
 //! The lock comes before state is read (ADR 0063) and is held until the
 //! function returns (the `_lock` value is dropped then).
@@ -167,6 +167,20 @@ pub fn plan(opts: &Options) -> u8 {
 }
 
 pub fn apply(opts: &Options, yes: bool) -> u8 {
+    apply_with(opts, yes, false)
+}
+
+/// `mdot up` (ADR 0087): `plan && apply` in one run. One exclusive lock, one
+/// plan, printed before the question; the plan that is applied is the one
+/// that was shown.
+pub fn up(opts: &Options, yes: bool) -> u8 {
+    apply_with(opts, yes, true)
+}
+
+/// `apply` and `up`. With `show_plan`, the plan is printed first (it also
+/// prints `No changes.` and the conflicts), so the refusal line and the
+/// second `No changes.` are left out.
+fn apply_with(opts: &Options, yes: bool, show_plan: bool) -> u8 {
     let repo = match loader::find_repo(opts.repo.as_deref()) {
         Ok(r) => r,
         Err(e) => return fail(e),
@@ -194,9 +208,14 @@ pub fn apply(opts: &Options, yes: bool) -> u8 {
         Err(code) => return code,
     };
 
-    // Plan first, without printing (ADR 0068, 0069).
+    // apply plans without printing (ADR 0068, 0069); up prints (ADR 0087).
+    if show_plan {
+        output::print_plan(&p.steps, &p.loaded, &p.home, opts.verbose);
+    }
     if p.steps.iter().any(Step::is_conflict) {
-        output::conflict("apply refused; run 'mdot plan' to review");
+        if !show_plan {
+            output::conflict("apply refused; run 'mdot plan' to review");
+        }
         return 1;
     }
     let has_changes = p.steps.iter().any(|s| s.action != Action::Noop);
@@ -208,7 +227,9 @@ pub fn apply(opts: &Options, yes: bool) -> u8 {
                 return fail(e);
             }
         }
-        println!("No changes.");
+        if !show_plan {
+            println!("No changes.");
+        }
         return 0;
     }
 
